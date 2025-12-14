@@ -1,0 +1,34 @@
+[project]
+name = "metal-diffusion"
+version = "0.1.0"
+description = "Convert diffusion models to Core ML on Apple Silicon"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.4.0",
+    "coremltools>=8.0",
+    "diffusers>=0.31.0",
+    "transformers",
+    "huggingface_hub",
+    "numpy<2.0",
+    "scipy",
+    "accelerate",
+    "safetensors",
+    "sentencepiece",
+    "pytest",
+    "diffusionkit",
+    "invisible-watermark",
+    "matplotlib",
+    "scikit-learn",
+    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git"
+]
+
+[tool.uv]
+# Ensure we use a compatible python version if system python is too old/new
+python-preference = "managed"
+override-dependencies = [
+    "diffusers>=0.36.0",
+    "huggingface-hub>=0.26.0",
+    "transformers>=4.46.0",
+    "numpy<2.0"
+]

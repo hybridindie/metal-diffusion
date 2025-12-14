@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# MacOS
+.DS_Store
+
+# Models
+models/
+converted_models/
+
+# Temporary Scripts
+check_*.py
+list_*.py
+inspect_*.py
