@@ -15,21 +15,19 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 
 ## Installation
 
-This project uses **uv** for dependency management.
-
 1.  **Install uv**:
     ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
-2.  **Sync Dependencies**:
+2.  **Install the Tool**:
     ```bash
     uv sync
+    # Or install globally:
+    # uv tool install .
     ```
 
 3.  **Hugging Face Login** (Required for Uploads/Gated Models):
-    
-    You can either run:
     ```bash
     uv run huggingface-cli login
     ```
@@ -41,18 +39,14 @@ This project uses **uv** for dependency management.
     cp .env.example .env
     ```
     Edit `.env` to set your `HF_TOKEN` and `OUTPUT_DIR`.
-    ```env
-    HF_TOKEN=hf_...
-    OUTPUT_DIR=converted_models
-    ```
 
 ## Usage
 
-All commands are run via `uv run main.py`.
+You can run the tool using `uv run metal-diffusion`.
 
 ### Convert Stable Diffusion (SDXL/SD3)
 ```bash
-uv run main.py convert stabilityai/stable-diffusion-xl-base-1.0 \
+uv run metal-diffusion convert stabilityai/stable-diffusion-xl-base-1.0 \
   --type sd \
   --output-dir converted_models/sdxl \
   --quantization float16
@@ -63,13 +57,13 @@ Supports both T2V (Text-to-Video) and I2V (Image-to-Video). The converter automa
 
 ```bash
 # Text-to-Video (16 channels)
-uv run main.py convert Wan-AI/Wan2.2-T2V-A14B-Diffusers \
+uv run metal-diffusion convert Wan-AI/Wan2.2-T2V-A14B-Diffusers \
   --type wan \
   --output-dir converted_models/wan2.2 \
   --quantization int4
 
 # Image-to-Video (36 channels)
-uv run main.py convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
+uv run metal-diffusion convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
   --type wan \
   --output-dir converted_models/wan_i2v \
   --quantization int4
@@ -79,7 +73,7 @@ uv run main.py convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
 Downloads a model, converts it, and uploads the Core ML package to your Hugging Face account.
 
 ```bash
-uv run main.py pipeline stabilityai/sd-turbo \
+uv run metal-diffusion pipeline stabilityai/sd-turbo \
   --target-repo your-username/sd-turbo-coreml \
   --type sd
 ```

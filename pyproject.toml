@@ -21,11 +21,20 @@ dependencies = [
     "matplotlib",
     "scikit-learn",
     "python-dotenv",
-    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git"
+    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git ; sys_platform == 'darwin'"
 ]
 
-[tool.uv]
+[project.scripts]
+metal-diffusion = "metal_diffusion.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 # Ensure we use a compatible python version if system python is too old/new
+[tool.uv]
 python-preference = "managed"
 override-dependencies = [
     "diffusers>=0.36.0",
@@ -33,3 +42,4 @@ override-dependencies = [
     "transformers>=4.46.0",
     "numpy<2.0"
 ]
+environments = ["sys_platform == 'darwin'"]
