@@ -5,7 +5,7 @@ description = "Convert diffusion models to Core ML on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "torch>=2.4.0",
+    "torch==2.7.0",
     "coremltools>=8.0",
     "diffusers>=0.31.0",
     "transformers",
@@ -19,7 +19,7 @@ dependencies = [
     "diffusionkit",
     "invisible-watermark",
     "matplotlib",
-    "scikit-learn",
+    "scikit-learn<1.6",
     "python-dotenv",
     "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git ; sys_platform == 'darwin'"
 ]
