@@ -20,6 +20,7 @@ dependencies = [
     "invisible-watermark",
     "matplotlib",
     "scikit-learn",
+    "python-dotenv",
     "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git"
 ]
 

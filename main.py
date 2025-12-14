@@ -4,6 +4,11 @@ import sys
 from converter import SDConverter
 from wan_converter import WanConverter
 from hf_utils import HFManager
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", "converted_models")
 
 def main():
     parser = argparse.ArgumentParser(description="Diffusion to Core ML Converter")
@@ -12,13 +17,13 @@ def main():
     # Download Command
     download_parser = subparsers.add_parser("download", help="Download a model from Hugging Face")
     download_parser.add_argument("repo_id", type=str, help="Hugging Face Repo ID")
-    download_parser.add_argument("--output-dir", type=str, default="models", help="Directory to save the model")
+    download_parser.add_argument("--output-dir", type=str, default=os.path.join("models"), help="Directory to save the model")
     
     # Convert Command
     convert_parser = subparsers.add_parser("convert", help="Convert a model to Core ML")
     convert_parser.add_argument("model_path", type=str, help="Path to local model or HF Repo ID")
     convert_parser.add_argument("--type", type=str, choices=["sd", "wan"], required=True, help="Type of model")
-    convert_parser.add_argument("--output-dir", type=str, default="converted_models", help="Output directory")
+    convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", type=str, default="float16", choices=["float16", "int8", "int4"], help="Quantization level")
     
     # Upload Command

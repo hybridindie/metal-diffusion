@@ -28,8 +28,22 @@ This project uses **uv** for dependency management.
     ```
 
 3.  **Hugging Face Login** (Required for Uploads/Gated Models):
+    
+    You can either run:
     ```bash
     uv run huggingface-cli login
+    ```
+    Or configure it via `.env` (recommended).
+
+4.  **Configuration**:
+    Copy the example environment file:
+    ```bash
+    cp .env.example .env
+    ```
+    Edit `.env` to set your `HF_TOKEN` and `OUTPUT_DIR`.
+    ```env
+    HF_TOKEN=hf_...
+    OUTPUT_DIR=converted_models
     ```
 
 ## Usage

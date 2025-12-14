@@ -1,11 +1,14 @@
 import os
+from dotenv import load_dotenv
 from huggingface_hub import HfApi, snapshot_download, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
+load_dotenv()
+
 class HFManager:
     def __init__(self, token=None):
-        self.api = HfApi(token=token)
-        self.token = token
+        self.token = token or os.getenv("HF_TOKEN")
+        self.api = HfApi(token=self.token)
 
     def login_check(self):
         """Verifies if the user is logged in."""
