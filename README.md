@@ -72,11 +72,29 @@ uv run metal-diffusion convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
 ### Full Pipeline
 Downloads a model, converts it, and uploads the Core ML package to your Hugging Face account.
 
+### Run Locally
+Verify your converted models by generating an image directly.
+
 ```bash
-uv run metal-diffusion pipeline stabilityai/sd-turbo \
-  --target-repo your-username/sd-turbo-coreml \
-  --type sd
+uv run metal-diffusion run converted_models/wan2.2  \
+  --prompt "A astronaut riding a horse on mars, photorealistic, 4k" \
+  --type wan \
+  --output result.png
 ```
+
+## ComfyUI Integration
+
+To use these models with **ComfyUI** (specifically with the `ComfyUI-CoreMLSuite` custom nodes):
+
+1.  **Locate the `.mlpackage`**: Inside your output directory (e.g., `converted_models/wan2.2/Wan2.1_Transformer.mlpackage`).
+2.  **Move to ComfyUI**:
+    *   Copy the `.mlpackage` folder to `ComfyUI/models/unet/` (or `models/coreml/` depending on your node setup).
+3.  **Load in ComfyUI**:
+    *   Use the **CoreML Unet Loader** node.
+    *   Select your model directory.
+    *   Connect to a standard VAE and CLIP (since we currently run Text Encoding/VAE in hybrid mode or standard nodes often expect separated components).
+
+*Note: For Wan 2.1, ensure you use the correct input dimensions (T2V=16ch, I2V=36ch) which match the converted model's expectation.*
 
 ## Architecture
 

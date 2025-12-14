@@ -32,11 +32,17 @@ def main():
     upload_parser.add_argument("repo_id", type=str, help="Target Hugging Face Repo ID")
     
     # Full Pipeline Command
-    pipeline_parser = subparsers.add_parser("pipeline", help="Download -> Convert -> Upload")
-    pipeline_parser.add_argument("repo_id", type=str, help="Source HF Repo ID")
-    pipeline_parser.add_argument("--target-repo", type=str, help="Target HF Repo ID for upload")
-    pipeline_parser.add_argument("--type", type=str, choices=["sd", "wan"], required=True)
-    pipeline_parser.add_argument("--quantization", type=str, default="float16")
+    pipeline_parser = subparsers.add_parser("pipeline", help="Run full pipeline: Download -> Convert -> Upload")
+    pipeline_parser.add_argument("repo_id", type=str, help="Hugging Face Repo ID")
+    pipeline_parser.add_argument("--target-repo", type=str, required=True, help="Target HF Repo ID")
+    pipeline_parser.add_argument("--type", type=str, choices=["sd", "wan"], required=True, help="Type of model")
+    
+    # Run Command
+    run_parser = subparsers.add_parser("run", help="Run a converted model locally")
+    run_parser.add_argument("model_dir", type=str, help="Path to converted model directory")
+    run_parser.add_argument("--prompt", type=str, required=True, help="Text prompt")
+    run_parser.add_argument("--output", type=str, default="output.png", help="Output image path")
+    run_parser.add_argument("--type", type=str, choices=["sd", "wan"], default="sd", help="Type of model")
 
     args = parser.parse_args()
     
@@ -51,6 +57,14 @@ def main():
         else:
             converter = WanConverter(args.model_path, args.output_dir, args.quantization)
         converter.convert()
+        
+    elif args.command == "run":
+        from .runner import run_sd_pipeline, WanCoreMLRunner
+        if args.type == "sd":
+            run_sd_pipeline(args.model_dir, args.prompt, args.output)
+        else:
+            runner = WanCoreMLRunner(args.model_dir)
+            runner.generate(args.prompt, args.output)
 
     elif args.command == "upload":
         if not hf_manager.login_check():
