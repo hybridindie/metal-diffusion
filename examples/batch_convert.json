@@ -1,0 +1,25 @@
+# Example batch conversion file for metal-diffusion
+
+# Format: JSON or YAML
+# Each entry specifies a model to convert
+
+[
+    {
+        "model": "black-forest-labs/FLUX.1-schnell",
+        "type": "flux",
+        "output_dir": "converted_models/flux_schnell",
+        "quantization": "int4"
+    },
+    {
+        "model": "Lightricks/LTX-Video",
+        "type": "ltx",
+        "output_dir": "converted_models/ltx_video",
+        "quantization": "int4"
+    },
+    {
+        "model": "/path/to/local/model.safetensors",
+        "type": "flux",
+        "output_dir": "converted_models/flux_custom",
+        "quantization": "float16"
+    }
+]

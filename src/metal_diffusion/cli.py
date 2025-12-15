@@ -65,6 +65,13 @@ def main():
     # List Models Command
     list_parser = subparsers.add_parser("list-models", help="List all converted models")
     list_parser.add_argument("--dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Directory to scan")
+    
+    # Batch Convert Command
+    batch_parser = subparsers.add_parser("batch-convert", help="Convert multiple models from a batch file")
+    batch_parser.add_argument("batch_file", type=str, help="Path to JSON/YAML file with model configs")
+    batch_parser.add_argument("--dry-run", action="store_true", help="Show what would be converted without converting")
+    batch_parser.add_argument("--parallel", action="store_true", help="Run conversions in parallel (experimental)")
+    
     run_parser.add_argument("--prompt", type=str, required=True, help="Text prompt")
     run_parser.add_argument("--output", type=str, default="output.png", help="Output image path")
     run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
@@ -205,6 +212,11 @@ def main():
     elif args.command == "list-models":
         from .model_utils import list_models
         list_models(args.dir)
+
+    elif args.command == "batch-convert":
+        from .batch import run_batch_conversion
+        success = run_batch_conversion(args.batch_file, dry_run=args.dry_run, parallel=args.parallel)
+        sys.exit(0 if success else 1)
 
     else:
         parser.print_help()
