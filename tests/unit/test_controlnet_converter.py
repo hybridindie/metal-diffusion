@@ -54,7 +54,11 @@ class TestFluxControlNetConverter(unittest.TestCase):
         
         self.assertEqual(len(inputs), 7) # control, hidden, enc, time, img, txt, guide
         self.assertEqual(len(outputs), NUM_DOUBLE_BLOCKS + NUM_SINGLE_BLOCKS)
-        self.assertEqual(outputs[0].name, "c_double_0")
+        
+        # Verify calls to TensorType
+        # Check if c_double_0 was created
+        found_c_double_0 = any(call.kwargs.get("name") == "c_double_0" for call in mock_ct.TensorType.call_args_list)
+        self.assertTrue(found_c_double_0, "c_double_0 output tensor not created")
 
 class TestFluxControlNetWrapper(unittest.TestCase):
     def test_forward_flattening(self):

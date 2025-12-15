@@ -117,10 +117,10 @@ def forward(self, hidden_states, encoder_hidden_states, pooled_projections=None,
 """
     # Create scope for execution
     # REVIEW: Using exec() here is necessary to dynamically generate a class with 
-    # explicit named arguments (c_double_0, etc.) which Core ML requires for correct 
-    # input naming. The inputs (NUM_BLOCKS) are compile-time constants from this file.
+    # explicit named arguments (c_double_0, "None", etc.) which Core ML requires.
+    # We pass empty globals to inherit builtins (like None) but keep scope clean.
     scope = {}
-    exec(code, {"__builtins__": None}, scope)
+    exec(code, {}, scope)
     forward_fn = scope['forward']
     
     name = "FluxControlNetModelWrapper"
