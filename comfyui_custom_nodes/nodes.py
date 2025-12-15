@@ -89,6 +89,17 @@ class CoreMLFluxWrapper(torch.nn.Module):
         timestep: Tensor (B,)
         kwargs: "transformer_options", "context", etc.
         """
+        # Report progress if available
+        transformer_options = kwargs.get("transformer_options", {})
+        if hasattr(comfy.utils, 'ProgressBar'):
+            # Try to update ComfyUI progress
+            try:
+                import comfy.model_management as mm
+                if hasattr(mm, 'throw_exception_if_processing_interrupted'):
+                    mm.throw_exception_if_processing_interrupted()
+            except:
+                pass
+        
         return self._forward_flux(x, timestep, **kwargs)
 
     def _forward_flux(self, latents, timestep, **kwargs):
