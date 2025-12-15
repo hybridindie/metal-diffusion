@@ -111,7 +111,8 @@ class CoreMLFluxWrapper(torch.nn.Module):
                 import comfy.model_management as mm
                 if hasattr(mm, 'throw_exception_if_processing_interrupted'):
                     mm.throw_exception_if_processing_interrupted()
-             except:
+             except Exception:
+                # Ignore errors interacting with ComfyUI progress bar (e.g. if not running in Comfy)
                 pass
         
         return self._forward_flux(x, timestep, **kwargs)
@@ -230,7 +231,7 @@ class CoreMLFluxWrapper(torch.nn.Module):
 class CoreMLControlNetLoader:
     """Loads a Converted ControlNet Model (.mlpackage)"""
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": { 
             "controlnet_path": (folder_paths.get_filename_list("controlnet"),)
         }}
@@ -248,7 +249,7 @@ class CoreMLControlNetLoader:
 class CoreMLApplyControlNet:
     """Applies Core ML ControlNet to a Core ML Flux Model"""
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": { 
             "model": ("MODEL",),
             "controlnet": ("COREML_CONTROLNET",),

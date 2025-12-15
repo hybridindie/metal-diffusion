@@ -115,8 +115,12 @@ def forward(self, hidden_states, encoder_hidden_states, pooled_projections=None,
         return_dict=False
     )
 """
+    # Create scope for execution
+    # REVIEW: Using exec() here is necessary to dynamically generate a class with 
+    # explicit named arguments (c_double_0, etc.) which Core ML requires for correct 
+    # input naming. The inputs (NUM_BLOCKS) are compile-time constants from this file.
     scope = {}
-    exec(code, globals(), scope)
+    exec(code, {"__builtins__": None}, scope)
     forward_fn = scope['forward']
     
     name = "FluxControlNetModelWrapper"
@@ -356,14 +360,13 @@ class FluxConverter(ModelConverter):
             dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
             shape = (batch_size, s, dim)
             
+            import numpy as np
             for i in range(NUM_DOUBLE_BLOCKS):
-                # Mark as optional? If we mark optional, default is 0?
-                # coremltools: is_optional=True requires default_value?
-                # For simplicity, let's make them optional.
-                inputs.append(ct.TensorType(name=f"c_double_{i}", shape=shape, default_value=0.0))
+                # Use explicit zero tensor for default
+                inputs.append(ct.TensorType(name=f"c_double_{i}", shape=shape, default_value=np.zeros(shape, dtype=np.float32)))
                 
             for i in range(NUM_SINGLE_BLOCKS):
-                inputs.append(ct.TensorType(name=f"c_single_{i}", shape=shape, default_value=0.0))
+                inputs.append(ct.TensorType(name=f"c_single_{i}", shape=shape, default_value=np.zeros(shape, dtype=np.float32)))
 
         ml_model = ct.convert(
             traced_model,

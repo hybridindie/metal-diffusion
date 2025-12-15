@@ -1,6 +1,5 @@
 
 import torch
-import torch.nn as nn
 import coremltools as ct
 from diffusers import FluxControlNetModel
 import os
@@ -66,6 +65,7 @@ class FluxControlNetConverter(ModelConverter):
         s = (h // 2) * (w // 2)
         batch_size = 1
         
+        in_channels = model.config.in_channels
         hidden_states = torch.randn(batch_size, s, in_channels).float()
         
         # Text Embeddings
