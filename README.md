@@ -97,6 +97,25 @@ uv run metal-diffusion run converted_models/wan2.2  \
   --output result.png
 ```
 
+### Benchmark Performance
+Measure real performance on your hardware:
+
+```bash
+uv run metal-diffusion run converted_models/flux \
+  --prompt "test image" \
+  --benchmark \
+  --benchmark-runs 5 \
+  --benchmark-output benchmarks.json
+```
+
+This will run 5 iterations and report:
+- **Mean/median generation time**
+- **Memory usage**
+- **Per-step timing** breakdown
+- **Statistical variance**
+
+Results are saved to JSON for further analysis.
+
 ## ComfyUI Integration
 
 Metal Diffusion includes **custom nodes** for seamless ComfyUI integration with Core ML acceleration!
@@ -127,6 +146,25 @@ Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
 - **Image-to-Image**: Style transfer and artistic modifications
 
 See the [ComfyUI README](comfyui_custom_nodes/README.md) for detailed instructions.
+
+## Utility Commands
+
+### Validate Models
+```bash
+metal-diffusion validate converted_models/flux/Flux_Transformer.mlpackage
+```
+
+### Show Model Info
+```bash
+metal-diffusion info converted_models/flux/Flux_Transformer.mlpackage
+```
+
+### List All Converted Models
+```bash
+metal-diffusion list-models
+# or specify directory
+metal-diffusion list-models --dir /path/to/models
+```
 
 
 ## Architecture
