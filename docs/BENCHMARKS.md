@@ -1,5 +1,11 @@
 # Performance Benchmarks
 
+> [!NOTE]
+> **Generate Your Own Benchmarks**: The data below are example values. Run real benchmarks on your hardware:
+> ```bash
+> metal-diffusion run <model> --prompt "test" --benchmark --benchmark-runs 5 --benchmark-output my_benchmarks.json
+> ```
+
 ## Test Environment
 
 All benchmarks performed on:

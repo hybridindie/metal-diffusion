@@ -45,11 +45,14 @@ class FluxCoreMLRunner:
         print("Loading Core ML Transformer...")
         self.coreml_transformer = ct.models.MLModel(os.path.join(model_dir, "Flux_Transformer.mlpackage"))
         
-    def generate(self, prompt, output_path, steps=4, height=1024, width=1024, guidance_scale=0.0, seed=None):
+    def generate(self, prompt, output_path, steps=4, height=1024, width=1024, guidance_scale=0.0, seed=None, benchmark=None):
         """
         Run Flux generation. 
         Note: Flux Schnell uses 4 steps and guidance_scale=0.0 by default.
         Flux Dev uses roughly 20-50 steps and guidance 3.5.
+        
+        Args:
+            benchmark: Optional Benchmark object for performance tracking
         """
         if seed is not None:
             generator = torch.Generator(device=self.device).manual_seed(seed)
@@ -57,13 +60,6 @@ class FluxCoreMLRunner:
             generator = None
 
         # 1. Encode Prompt
-        print("Encoding prompt...")
-        if self.is_flux2:
-            prompt_embeds, text_ids = self.pipe.encode_prompt(
-                prompt=prompt,
-                device=self.device,
-                num_images_per_prompt=1
-            )
             pooled_prompt_embeds = None
         else:
             prompt_embeds, pooled_prompt_embeds, text_ids = self.pipe.encode_prompt(

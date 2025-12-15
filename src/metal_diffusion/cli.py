@@ -72,6 +72,9 @@ def main():
     run_parser.add_argument("--width", type=int, default=512, help="Width")
     run_parser.add_argument("--steps", type=int, default=20, help="Number of inference steps")
     run_parser.add_argument("--base-model", type=str, default="stabilityai/sd-turbo", help="Base HF model ID for tokenizer/scheduler")
+    run_parser.add_argument("--benchmark", action="store_true", help="Run in benchmark mode (multiple iterations)")
+    run_parser.add_argument("--benchmark-runs", type=int, default=3, help="Number of benchmark runs")
+    run_parser.add_argument("--benchmark-output", type=str, help="Save benchmark JSON to file")
 
     args = parser.parse_args()
     
@@ -118,15 +121,38 @@ def main():
 
         if model_type == "sd":
             run_sd_pipeline(args.model_dir, args.prompt, args.output, base_model=args.base_model)
+        elif model_type == "flux":
+            if args.benchmark:
+                # Benchmark mode
+                from .benchmark import Benchmark
+                bench = Benchmark(f"Flux {args.height}x{args.width}, {args.steps} steps")
+                
+                for i in range(args.benchmark_runs):
+                    print(f"\\n[Benchmark Run {i+1}/{args.benchmark_runs}]")
+                    bench.start_run()
+                    
+                    # Run generation (timing happens inside)
+                    runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
+                    runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
+                    
+                    bench.end_run()
+                
+                # Print results
+                bench.print_results()
+                
+                # Save if requested
+                if args.benchmark_output:
+                    bench.save_json(args.benchmark_output)
+            else:
+                # Normal mode
+                runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
+                runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
         elif model_type == "wan":
             runner = WanCoreMLRunner(args.model_dir, model_id=args.base_model)
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
         elif model_type == "hunyuan":
             runner = HunyuanCoreMLRunner(args.model_dir, model_id=args.base_model)
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
-        elif model_type == "flux":
-            runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
-            runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
         else: # ltx
             runner = LTXCoreMLRunner(args.model_dir, model_id=args.base_model)
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
