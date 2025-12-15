@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import coremltools as ct
-from diffusers import DiffusionPipeline, FluxTransformer2DModel
+from diffusers import DiffusionPipeline, FluxTransformer2DModel, FluxPipeline
 try:
     from diffusers import Flux2Transformer2DModel
 except ImportError:
@@ -42,15 +42,19 @@ class FluxModelWrapper(torch.nn.Module):
 
 class FluxConverter(ModelConverter):
     def __init__(self, model_id, output_dir, quantization):
-        if "/" not in model_id: 
+        if "/" not in model_id and not os.path.isfile(model_id): 
              model_id = "black-forest-labs/FLUX.1-schnell"
         super().__init__(model_id, output_dir, quantization)
     
     def convert(self):
         print(f"Loading Flux pipeline: {self.model_id}...")
         try:
-            # We load the pipeline to access        print(f"Loading Pipeline: {self.model_id}")
-            self.pipe = DiffusionPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
+            if os.path.isfile(self.model_id):
+                print(f"Detected single file checkpoint: {self.model_id}")
+                self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+            else:
+                 # We load the pipeline to access        print(f"Loading Pipeline: {self.model_id}")
+                 self.pipe = DiffusionPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
         except Exception as e:
             print(f"Error loading pipeline: {e}")
             raise e

@@ -17,10 +17,17 @@ class LTXCoreMLRunner:
         self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         
         print(f"Loading PyTorch components from {model_id}...")
-        self.pipe = LTXPipeline.from_pretrained(
-            model_id, 
-            torch_dtype=torch.float16
-        ).to(self.device)
+        if os.path.isfile(model_id):
+            print(f"Detected single file checkpoint: {model_id}")
+            self.pipe = LTXPipeline.from_single_file(
+                model_id, 
+                torch_dtype=torch.float16
+            ).to(self.device)
+        else:
+            self.pipe = LTXPipeline.from_pretrained(
+                model_id, 
+                torch_dtype=torch.float16
+            ).to(self.device)
         
         print("Loading Core ML Transformer...")
         self.coreml_transformer = ct.models.MLModel(os.path.join(model_dir, "LTXVideo_Transformer.mlpackage"))

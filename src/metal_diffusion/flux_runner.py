@@ -23,11 +23,19 @@ class FluxCoreMLRunner:
         
         print(f"Loading PyTorch components from {model_id}...")
         # Load full pipeline to get schedulers, tokenizers, etc.
-        self.pipe = DiffusionPipeline.from_pretrained(
-            model_id, 
-            torch_dtype=torch.float16 if self.device == "mps" else torch.float32,
-            transformer=None 
-        ).to(self.device)
+        if os.path.isfile(model_id):
+            print(f"Detected single file checkpoint: {model_id}")
+            self.pipe = FluxPipeline.from_single_file(
+                model_id,
+                torch_dtype=torch.float16 if self.device == "mps" else torch.float32,
+                transformer=None
+            ).to(self.device)
+        else:
+            self.pipe = DiffusionPipeline.from_pretrained(
+                model_id, 
+                torch_dtype=torch.float16 if self.device == "mps" else torch.float32,
+                transformer=None 
+            ).to(self.device)
         
         # Check if Flux 2
         self.is_flux2 = Flux2Pipeline and isinstance(self.pipe, Flux2Pipeline)

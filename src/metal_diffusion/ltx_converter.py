@@ -35,14 +35,18 @@ class LTXModelWrapper(torch.nn.Module):
 class LTXConverter(ModelConverter):
     def __init__(self, model_id, output_dir, quantization):
         # Allow user to specify Lightricks or other repo
-        if "/" not in model_id: 
+        if "/" not in model_id and not os.path.isfile(model_id): 
              model_id = "Lightricks/LTX-Video"
         super().__init__(model_id, output_dir, quantization)
     
     def convert(self):
         print(f"Loading LTX-Video pipeline: {self.model_id}...")
         try:
-            pipe = LTXPipeline.from_pretrained(self.model_id)
+            if os.path.isfile(self.model_id):
+                print(f"Detected single file checkpoint: {self.model_id}")
+                pipe = LTXPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+            else:
+                pipe = LTXPipeline.from_pretrained(self.model_id)
         except Exception as e:
             print(f"Error loading pipeline: {e}")
             raise e
