@@ -2,7 +2,7 @@ import pytest
 import torch
 import pytest
 from unittest.mock import MagicMock, patch
-from alloy.wan_converter import WanModelWrapper, patched_wan_attn_processor_call, WanAttnProcessor
+from alloy.converters.wan import WanModelWrapper, patched_wan_attn_processor_call, WanAttnProcessor
 
 def test_wan_model_wrapper_output():
     """Verify WanModelWrapper forces return_dict=False"""

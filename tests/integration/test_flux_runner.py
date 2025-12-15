@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 import torch
 import numpy as np
 import coremltools as ct
-from alloy.flux_runner import FluxCoreMLRunner
+from alloy.runners.flux import FluxCoreMLRunner
 
-@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
-@patch("alloy.flux_runner.ct.models.MLModel")
+@patch("alloy.runners.flux.DiffusionPipeline.from_pretrained")
+@patch("alloy.runners.flux.ct.models.MLModel")
 def test_flux_runner_init(mock_mlmodel_cls, mock_pipeline, tmp_path):
     """
     Test the Flux Runner generation loop with mocked models.

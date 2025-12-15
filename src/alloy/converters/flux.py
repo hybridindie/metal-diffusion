@@ -6,7 +6,7 @@ try:
     from diffusers import Flux2Transformer2DModel
 except ImportError:
     Flux2Transformer2DModel = None # Handle older diffusers?
-from .converter import ModelConverter
+from .base import ModelConverter
 import os
 from tqdm import tqdm
 from rich.console import Console

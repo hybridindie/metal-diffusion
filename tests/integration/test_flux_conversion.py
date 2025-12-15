@@ -1,14 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from alloy.flux_converter import FluxConverter
+from alloy.converters.flux import FluxConverter
 import os
 import torch
 
 @patch("torch.jit.trace")
-@patch("coremltools.convert")
-@patch("coremltools.optimize.coreml.linear_quantize_weights")
-@patch("coremltools.models.MLModel")
-def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_convert, mock_trace, tmp_path):
+@patch("alloy.converters.flux.ct")
+def test_flux_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
     """
     Test the full Flux conversion flow orchestrator with mocked heavy ops.
     """
@@ -17,12 +15,12 @@ def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conve
     output_dir = tmp_path / "converted_flux"
     
     # Mocks
-    mock_convert.return_value = MagicMock()
-    mock_quantize.return_value = MagicMock()
+    mock_ct.convert.return_value = MagicMock()
+    mock_ct.optimize.coreml.linear_quantize_weights.return_value = MagicMock()
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("alloy.flux_converter.DiffusionPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.converters.flux.DiffusionPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         
@@ -59,10 +57,10 @@ def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conve
         assert example_inputs[4].shape[1] == 3
         
         # 3. CoreML Convert Called
-        assert mock_convert.call_count >= 1
+        assert mock_ct.convert.call_count >= 1
         
         # 4. Quantization Called
-        assert mock_quantize.call_count >= 1
+        assert mock_ct.optimize.coreml.linear_quantize_weights.call_count >= 1
         
         # 5. Save Called
-        mock_quantize.return_value.save.assert_called()
+        mock_ct.optimize.coreml.linear_quantize_weights.return_value.save.assert_called()

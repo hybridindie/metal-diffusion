@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 import torch
 import numpy as np
 import coremltools as ct
-from alloy.lumina_runner import LuminaCoreMLRunner
+from alloy.runners.lumina import LuminaCoreMLRunner
 
 @patch("diffusers.Lumina2Pipeline.from_pretrained")
-@patch("alloy.lumina_runner.ct.models.MLModel")
+@patch("alloy.runners.lumina.ct.models.MLModel")
 def test_lumina_runner_init(mock_mlmodel, mock_pipeline, tmp_path):
     """
     Test the Lumina Runner generation loop with mocked models.

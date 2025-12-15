@@ -2,20 +2,23 @@ import argparse
 import os
 import sys
 import logging
-from alloy.converter import SDConverter, ModelConverter
-from alloy.wan_converter import WanConverter
-from alloy.hunyuan_converter import HunyuanConverter
-from alloy.ltx_converter import LTXConverter
-from alloy.flux_converter import FluxConverter
-from alloy.controlnet_converter import FluxControlNetConverter
-from alloy.flux_runner import FluxCoreMLRunner
-from alloy.ltx_runner import LTXCoreMLRunner
-from alloy.hunyuan_runner import HunyuanCoreMLRunner
-from alloy.lumina_runner import LuminaCoreMLRunner
-from alloy.lumina_converter import LuminaConverter
-from alloy.model_utils import validate_model, show_model_info, list_models
-from alloy.hf_utils import HFManager
-from alloy.utils import detect_model_type
+from alloy.converters.base import SDConverter, ModelConverter
+from alloy.converters.wan import WanConverter
+from alloy.converters.hunyuan import HunyuanConverter
+from alloy.converters.ltx import LTXConverter
+from alloy.converters.flux import FluxConverter
+from alloy.converters.controlnet import FluxControlNetConverter
+from alloy.converters.lumina import LuminaConverter
+
+from alloy.runners.flux import FluxCoreMLRunner
+from alloy.runners.ltx import LTXCoreMLRunner
+from alloy.runners.hunyuan import HunyuanCoreMLRunner
+from alloy.runners.lumina import LuminaCoreMLRunner
+from alloy.runners.base import run_sd_pipeline, WanCoreMLRunner
+
+from alloy.utils.model import validate_model, show_model_info, list_models
+from alloy.utils.hf import HFManager
+from alloy.utils.general import detect_model_type
 from dotenv import load_dotenv
 import warnings
 from rich.console import Console
@@ -136,7 +139,8 @@ def main():
         converter.convert()
         
     elif args.command == "run":
-        from .runner import run_sd_pipeline, WanCoreMLRunner, HunyuanCoreMLRunner, LTXCoreMLRunner, FluxCoreMLRunner, LuminaCoreMLRunner
+        # Imports are already done at top level
+
         
         model_type = args.type
         if model_type is None:
@@ -153,7 +157,7 @@ def main():
         elif model_type == "flux":
             if args.benchmark:
                 # Benchmark mode
-                from .benchmark import Benchmark
+                from alloy.utils.benchmark import Benchmark
                 bench = Benchmark(f"Flux {args.height}x{args.width}, {args.steps} steps")
                 
                 for i in range(args.benchmark_runs):
@@ -227,19 +231,19 @@ def main():
             hf_manager.upload_model(output_dir, args.target_repo)
 
     elif args.command == "validate":
-        from .model_utils import validate_model
+        from alloy.utils.model import validate_model
         validate_model(args.model_path)
 
     elif args.command == "info":
-        from .model_utils import show_model_info
+        from alloy.utils.model import show_model_info
         show_model_info(args.model_path)
 
     elif args.command == "list-models":
-        from .model_utils import list_models
+        from alloy.utils.model import list_models
         list_models(args.dir)
 
     elif args.command == "batch-convert":
-        from .batch import run_batch_conversion
+        from alloy.utils.batch import run_batch_conversion
         success = run_batch_conversion(args.batch_file, dry_run=args.dry_run, parallel=args.parallel)
         sys.exit(0 if success else 1)
 

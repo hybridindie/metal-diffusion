@@ -1,7 +1,7 @@
 import torch
 import coremltools as ct
 from diffusers import LTXVideoTransformer3DModel, LTXPipeline
-from .converter import ModelConverter
+from .base import ModelConverter
 import os
 import shutil
 from typing import Optional, Dict, Any

@@ -1,14 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from alloy.ltx_converter import LTXConverter
+from alloy.converters.ltx import LTXConverter
 import os
 import torch
 
 @patch("torch.jit.trace")
-@patch("coremltools.convert")
-@patch("coremltools.optimize.coreml.linear_quantize_weights")
-@patch("coremltools.models.MLModel")
-def test_ltx_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_convert, mock_trace, tmp_path):
+@patch("alloy.converters.ltx.ct")
+def test_ltx_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
     """
     Test the full LTX conversion flow orchestrator with mocked heavy ops.
     """
@@ -17,12 +15,12 @@ def test_ltx_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conver
     output_dir = tmp_path / "converted_ltx"
     
     # Mocks
-    mock_convert.return_value = MagicMock()
-    mock_quantize.return_value = MagicMock()
+    mock_ct.convert.return_value = MagicMock()
+    mock_ct.optimize.coreml.linear_quantize_weights.return_value = MagicMock()
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("alloy.ltx_converter.LTXPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.converters.ltx.LTXPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         
@@ -50,10 +48,10 @@ def test_ltx_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conver
         assert example_inputs[4].item() == 8 # Default frames I set in converter
         
         # 3. CoreML Convert Called
-        assert mock_convert.call_count >= 1
+        assert mock_ct.convert.call_count >= 1
         
         # 4. Quantization Called
-        assert mock_quantize.call_count >= 1
+        assert mock_ct.optimize.coreml.linear_quantize_weights.call_count >= 1
         
         # 5. Save Called
-        mock_quantize.return_value.save.assert_called()
+        mock_ct.optimize.coreml.linear_quantize_weights.return_value.save.assert_called()

@@ -1,6 +1,8 @@
 import pytest
 import argparse
 from alloy.cli import main
+from alloy.converters.flux import FluxConverter
+from alloy.converters.ltx import LTXConverter
 from unittest.mock import patch, MagicMock
 
 def test_download_args():

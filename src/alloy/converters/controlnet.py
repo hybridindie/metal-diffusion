@@ -3,8 +3,8 @@ import torch
 import coremltools as ct
 from diffusers import FluxControlNetModel
 import os
-from .converter import ModelConverter
-from .flux_converter import NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
+from .base import ModelConverter
+from .flux import NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
 from rich.console import Console
 
 console = Console()

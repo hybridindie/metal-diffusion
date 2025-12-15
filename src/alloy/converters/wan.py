@@ -129,7 +129,7 @@ def patched_wan_attn_processor_call(
 # Apply patch
 WanAttnProcessor.__call__ = patched_wan_attn_processor_call
 print("Applied monkey patch to WanAttnProcessor for Core ML compatibility.")
-from .converter import ModelConverter
+from .base import ModelConverter
 import os
 import shutil
 

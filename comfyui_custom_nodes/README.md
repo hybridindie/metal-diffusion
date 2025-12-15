@@ -43,17 +43,22 @@ Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI
 
 ## Nodes
 
-The suite includes **8 Custom Nodes**:
+The suite includes **10 Custom Nodes**:
 
 ### Loaders
 - **CoreMLFluxLoader**: Basic loader
 - **CoreMLFluxWithCLIP**: Integrated CLIP/VAE loader 🌟
 - **CoreMLLTXVideoLoader**: LTX-Video support
 - **CoreMLWanVideoLoader**: Wan 2.x support
+- **CoreMLControlNetLoader**: ControlNet loader 🆕
 
-### Conversion 🆕
+### ControlNet 🆕
+- **CoreMLApplyControlNet**: Apply ControlNet to Flux
+
+### Conversion
 - **CoreMLConverter**: Advanced conversion
 - **CoreMLQuickConverter**: One-click presets
+- **CoreMLLoraConfig**: LoRA configuration
 
 ### Utilities
 - **CoreMLModelAnalyzer**: Inspect model specs
