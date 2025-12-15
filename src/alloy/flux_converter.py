@@ -44,12 +44,96 @@ class FluxModelWrapper(torch.nn.Module):
             return_dict=False
         )
 
+# Flux Architecture Constants
+NUM_DOUBLE_BLOCKS = 19
+NUM_SINGLE_BLOCKS = 38
+
+def create_controlnet_wrapper(base_class):
+    """
+    Creates a dynamic subclass of base_class (FluxModelWrapper) that accepts 
+    explicit optional arguments for ControlNet residuals.
+    Core ML requires explicit argument names, it cannot handle a list of optional tensors well.
+    """
+    
+    # Generate explicit arguments list: c_double_0=None, ..., c_single_37=None
+    double_args = [f"c_double_{i}=None" for i in range(NUM_DOUBLE_BLOCKS)]
+    single_args = [f"c_single_{i}=None" for i in range(NUM_SINGLE_BLOCKS)]
+    
+    all_args = ", ".join(double_args + single_args)
+    
+    # Generate list construction code
+    double_list = "[" + ", ".join([f"c_double_{i}" for i in range(NUM_DOUBLE_BLOCKS)]) + "]"
+    single_list = "[" + ", ".join([f"c_single_{i}" for i in range(NUM_SINGLE_BLOCKS)]) + "]"
+    
+    # Define Forward Logic
+    code = f"""
+def forward(self, hidden_states, encoder_hidden_states, pooled_projections=None, timestep=None, img_ids=None, txt_ids=None, guidance=None, {all_args}):
+    # Pack residuals
+    # If any residual is provided, we assume we are in ControlNet mode
+    # However, for tracing, we need to pass them even if None (handled by caller passing tensors)
+    # But self.model expects lists.
+    
+    # Handle None inputs (if Core ML passes nothing, they might be None? No, Core ML inputs are required unless defined optional)
+    # If defined optional, they come as nil/None? 
+    # For tracing, inputs are tensors.
+    
+    # Check if we have residuals to pass
+    # Since we set defaults to None, we can check c_double_0
+    
+    controlnet_block_samples = None
+    controlnet_single_block_samples = None
+    
+    if c_double_0 is not None:
+        controlnet_block_samples = {double_list}
+        
+    if c_single_0 is not None:
+        controlnet_single_block_samples = {single_list}
+
+    if self.is_flux2:
+         return self.model(
+            hidden_states=hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
+            timestep=timestep,
+            img_ids=img_ids,
+            txt_ids=txt_ids,
+            guidance=guidance,
+            controlnet_block_samples=controlnet_block_samples,
+            controlnet_single_block_samples=controlnet_single_block_samples,
+            return_dict=False
+        )
+    
+    return self.model(
+        hidden_states=hidden_states,
+        encoder_hidden_states=encoder_hidden_states,
+        pooled_projections=pooled_projections,
+        timestep=timestep,
+        img_ids=img_ids,
+        txt_ids=txt_ids,
+        guidance=guidance,
+        controlnet_block_samples=controlnet_block_samples,
+        controlnet_single_block_samples=controlnet_single_block_samples,
+        return_dict=False
+    )
+"""
+    # Create scope for execution
+    # REVIEW: Using exec() here is necessary to dynamically generate a class with 
+    # explicit named arguments (c_double_0, etc.) which Core ML requires for correct 
+    # input naming. The inputs (NUM_BLOCKS) are compile-time constants from this file.
+    scope = {}
+    exec(code, {"__builtins__": None}, scope)
+    forward_fn = scope['forward']
+    
+    name = "FluxControlNetModelWrapper"
+    return type(name, (base_class,), {"forward": forward_fn})
+
+
 class FluxConverter(ModelConverter):
-    def __init__(self, model_id, output_dir, quantization, loras=None):
+    def __init__(self, model_id, output_dir, quantization, loras=None, controlnet_compatible=False):
         if "/" not in model_id and not os.path.isfile(model_id): 
              model_id = "black-forest-labs/FLUX.1-schnell"
         super().__init__(model_id, output_dir, quantization)
         self.loras = loras or []
+        self.controlnet_compatible = controlnet_compatible
     
     def apply_loras(self, pipe):
         """Apply LoRAs to the pipeline before conversion"""
@@ -196,13 +280,7 @@ class FluxConverter(ModelConverter):
         guidance = torch.tensor([1.0]).float()
         
         # IDs
-        # Flux uses 3D rotary embeddings? (h, w, t?) No, usually just (h, w) for image + others?
-        # axes_dims_rope=(16, 56, 56) in config.
-        # IDs vector size = len(axes_dims_rope) = 3.
-        img_ids = torch.randn(s, 3).float() # Using float as they are coordinates?
-        # Forward says `ids = torch.cat((txt_ids, img_ids), dim=0)`.
-        # `pos_embed(ids)` -> `ids.float()`.
-        # So passing float is fine.
+        img_ids = torch.randn(s, 3).float()
         txt_ids = torch.randn(text_len, 3).float()
         
         example_inputs = [
@@ -220,11 +298,38 @@ class FluxConverter(ModelConverter):
              # Remove pooled_projections (index 2)
              example_inputs.pop(2)
 
+        if self.controlnet_compatible:
+             console.print(f"[cyan]Adding {NUM_DOUBLE_BLOCKS + NUM_SINGLE_BLOCKS} ControlNet residual inputs...[/cyan]")
+             # Add zero tensors for residuals
+             # Shapes needed?
+             # Usually ControlNet outputs match the hidden state size of the block it injects into.
+             # Double blocks: Hidden states dim (e.g. 3072).
+             # Single blocks: Hidden states dim (e.g. 3072).
+             # Flux config: `num_attention_heads` * `attention_head_dim`.
+             # Flux Schnell: 24 heads * 128 dim = 3072.
+             # Shape: (B, S, Dim)
+             dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+             zero_tensor = torch.zeros(batch_size, s, dim).float()
+             
+             # Add 19 double block residuals
+             for _ in range(NUM_DOUBLE_BLOCKS):
+                 example_inputs.append(zero_tensor)
+             
+             # Add 38 single block residuals
+             for _ in range(NUM_SINGLE_BLOCKS):
+                 example_inputs.append(zero_tensor)
+
         if pbar:
             pbar.set_description("Tracing PyTorch model")
         else:
             console.print("Tracing model...")
-        wrapper = FluxModelWrapper(transformer)
+        
+        if self.controlnet_compatible:
+             WrapperClass = create_controlnet_wrapper(FluxModelWrapper)
+             wrapper = WrapperClass(transformer)
+        else:
+             wrapper = FluxModelWrapper(transformer)
+             
         wrapper.eval()
         
         # Use strict=False just in case
@@ -249,6 +354,19 @@ class FluxConverter(ModelConverter):
         if self.is_flux2:
             # Pop pooled_projections (index 2)
             inputs.pop(2)
+
+        if self.controlnet_compatible:
+            # Add ControlNet inputs
+            dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+            shape = (batch_size, s, dim)
+            
+            import numpy as np
+            for i in range(NUM_DOUBLE_BLOCKS):
+                # Use explicit zero tensor for default
+                inputs.append(ct.TensorType(name=f"c_double_{i}", shape=shape, default_value=np.zeros(shape, dtype=np.float32)))
+                
+            for i in range(NUM_SINGLE_BLOCKS):
+                inputs.append(ct.TensorType(name=f"c_single_{i}", shape=shape, default_value=np.zeros(shape, dtype=np.float32)))
 
         ml_model = ct.convert(
             traced_model,

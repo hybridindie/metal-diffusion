@@ -1,4 +1,4 @@
-metal-diffusion
+silicon-alloy
 torch>=2.7.0
 coremltools>=8.0
 diffusers>=0.31.0

@@ -12,6 +12,9 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
     -   Supports **Wan 2.1** and **Wan 2.2** (Text-to-Video).
     -   Supports **Image-to-Video / Edit** models (automatic 36-channel input detection).
     -   Implements **Int4 Quantization** to run 14B models on consumer Macs (64GB RAM recommended).
+-   **Flux ControlNet Support**:
+    -   Full support for Flux ControlNet residuals (Base Model + ControlNet Model).
+    -   **ComfyUI Nodes**: Dedicated nodes for loading and applying Core ML ControlNets.
 -   **Stable Diffusion Support**: Wraps Apple's `python_coreml_stable_diffusion` for SDXL and SD3.
 -   **Lumina-Image 2.0 Support**: Implements Next-Gen DiT conversion using Gemma 2B text encoder.
 -   **Full Pipeline**: Automates Download -> Convert -> Upload to Hugging Face.
@@ -60,6 +63,26 @@ uv run alloy convert stabilityai/stable-diffusion-xl-base-1.0 \
 ```bash
 uv run alloy convert Alpha-VLLM/Lumina-Image-2.0 \
   --type lumina \
+  --quantization int4
+```
+
+### Convert Flux ControlNet (New!)
+Support for converting **Flux ControlNet** models (X-Labs, InstantX, etc.) and preparing Base Flux models to accept them.
+
+**1. Convert Base Model (ControlNet Ready)**
+You must re-convert your base model with `--controlnet` to inject the residual inputs.
+```bash
+uv run alloy convert black-forest-labs/FLUX.1-schnell \
+  --output-dir converted_models/flux_controlnet \
+  --quantization int4 \
+  --controlnet
+```
+
+**2. Convert ControlNet Model**
+```bash
+uv run alloy convert x-labs/flux-controlnet-canny \
+  --type flux-controlnet \
+  --output-dir converted_models/flux_canny \
   --quantization int4
 ```
 

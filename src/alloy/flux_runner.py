@@ -45,7 +45,7 @@ class FluxCoreMLRunner:
         print("Loading Core ML Transformer...")
         self.coreml_transformer = ct.models.MLModel(os.path.join(model_dir, "Flux_Transformer.mlpackage"))
         
-    def generate(self, prompt, output_path, steps=4, height=1024, width=1024, guidance_scale=0.0, seed=None, benchmark=None):
+    def generate(self, prompt, output_path, steps=4, height=1024, width=1024, guidance_scale=0.0, seed=None, benchmark=None, controlnet_residuals=None):
         """
         Run Flux generation. 
         Note: Flux Schnell uses 4 steps and guidance_scale=0.0 by default.
@@ -180,6 +180,10 @@ class FluxCoreMLRunner:
             
             if not self.is_flux2:
                 inputs["pooled_projections"] = pooled_projections_np
+            
+            # Add ControlNet Residuals
+            if controlnet_residuals:
+                inputs.update(controlnet_residuals)
             
             # Predict
             out = self.coreml_transformer.predict(inputs)
