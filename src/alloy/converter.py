@@ -16,6 +16,13 @@ class SDConverter(ModelConverter):
         """
         Converts Stable Diffusion models using python_coreml_stable_diffusion.
         """
+        import importlib.util
+        if importlib.util.find_spec("python_coreml_stable_diffusion") is None:
+            print("Error: 'python_coreml_stable_diffusion' is required for SD conversion but not installed.")
+            print("Please install it manually:")
+            print("  pip install git+https://github.com/apple/ml-stable-diffusion.git@main")
+            return
+
         print(f"Converting {self.model_id} to Core ML (Quantization: {self.quantization})...")
         
         # Base command
