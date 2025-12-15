@@ -74,6 +74,31 @@ CoreMLFluxWithCLIP → MODEL+CLIP+VAE → KSampler
 
 ---
 
+### CoreMLLoraConfig
+
+**Category**: MetalDiffusion/Conversion  
+**Purpose**: Define LoRA configuration for baking (chainable)
+
+**Inputs**:
+- `lora_name` (dropdown): Select LoRA from `models/loras/`
+- `strength_model` (float): Strength for Transformer/UNet (default 1.0)
+- `strength_clip` (float): Strength for Text Encoder (default 1.0)
+- `previous_lora` (LORA_CONFIG): Optional input from another LoRA node
+
+**Outputs**:
+- `lora_config`: Configuration stack
+
+**Usage**:
+```
+CoreMLLoraConfig (Style A)
+  ↓
+CoreMLLoraConfig (Style B)
+  ↓
+CoreMLConverter
+```
+
+---
+
 ### CoreMLConverter
 
 **Category**: MetalDiffusion/Conversion  
@@ -85,6 +110,7 @@ CoreMLFluxWithCLIP → MODEL+CLIP+VAE → KSampler
 - `quantization`: int4 (recommended), int8, float16
 - `output_name` (string): Optional custom folder name
 - `force_reconvert` (bool): If True, overwrites existing conversion
+- `lora_stack` (LORA_CONFIG): Optional LoRA stack
 
 **Outputs**:
 - `model_path` (STRING): Path to the converted `.mlpackage`

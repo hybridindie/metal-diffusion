@@ -59,11 +59,18 @@ uv run metal-diffusion convert stabilityai/stable-diffusion-xl-base-1.0 \
 Supports both T2V (Text-to-Video) and I2V (Image-to-Video). The converter automatically detects the input channels from the model config.
 
 ```bash
-# Text-to-Video (16 channels)
-uv run metal-diffusion convert Wan-AI/Wan2.2-T2V-A14B-Diffusers \
-  --type wan \
-  --output-dir converted_models/wan2.2 \
+# Basic Conversion
+uv run metal-diffusion convert black-forest-labs/FLUX.1-schnell \
+  --output-dir converted_models/flux \
   --quantization int4
+
+# With LoRA Baking
+uv run metal-diffusion convert black-forest-labs/FLUX.1-schnell \
+  --output-dir converted_models/flux_style \
+  --quantization int4 \
+  --lora "path/to/style.safetensors:0.8:1.0" \
+  --lora "path/to/fix.safetensors:1.0"
+```
 
 # Image-to-Video (36 channels)
 uv run metal-diffusion convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
