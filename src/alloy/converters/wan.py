@@ -181,7 +181,7 @@ class WanConverter(ModelConverter):
         
         
         # Determine input shapes dynamically
-        in_channels = getattr(transformer.config, "in_channels", 16)
+        in_channels = int(getattr(transformer.config, "in_channels", 16))
         print(f"Detected in_channels: {in_channels} (Mode: {'I2V' if in_channels > 16 else 'T2V'})")
         
         

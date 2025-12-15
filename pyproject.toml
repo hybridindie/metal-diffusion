@@ -42,7 +42,8 @@ dependencies = [
     "tqdm",
     "rich",
     "psutil",
-    "pyyaml"
+    "pyyaml",
+    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git"
 ]
 
 [project.urls]

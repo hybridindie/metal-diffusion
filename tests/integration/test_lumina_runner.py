@@ -5,15 +5,15 @@ import numpy as np
 import coremltools as ct
 from alloy.runners.lumina import LuminaCoreMLRunner
 
-@patch("diffusers.Lumina2Pipeline.from_pretrained")
+@patch("alloy.runners.lumina.Lumina2Pipeline")
 @patch("alloy.runners.lumina.ct.models.MLModel")
-def test_lumina_runner_init(mock_mlmodel, mock_pipeline, tmp_path):
+def test_lumina_runner_init(mock_mlmodel, mock_pipeline_cls, tmp_path):
     """
     Test the Lumina Runner generation loop with mocked models.
     """
     # Setup Mocks
     mock_pipe = MagicMock()
-    mock_pipeline.return_value = mock_pipe
+    mock_pipeline_cls.from_pretrained.return_value = mock_pipe
     
     # Mock Scheduler
     mock_pipe.scheduler.timesteps = [torch.tensor(1)] # Single step for test
