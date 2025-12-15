@@ -21,6 +21,8 @@ dependencies = [
     "matplotlib",
     "scikit-learn<1.6",
     "python-dotenv",
+    "tqdm>=4.66.0",
+    "rich>=13.0.0",
     "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git ; sys_platform == 'darwin'"
 ]
 

@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import logging
 from .converter import SDConverter
 from .wan_converter import WanConverter
 from .hunyuan_converter import HunyuanConverter
@@ -10,6 +11,8 @@ from metal_diffusion.hf_utils import HFManager
 from metal_diffusion.utils import detect_model_type
 from dotenv import load_dotenv
 import warnings
+from rich.console import Console
+from rich.logging import RichHandler
 
 # Suppress Torch "device_type='cuda'" warning on non-CUDA systems
 warnings.filterwarnings("ignore", message="User provided device_type of 'cuda'", category=UserWarning)
@@ -20,6 +23,8 @@ DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", "converted_models")
 
 def main():
     parser = argparse.ArgumentParser(description="Diffusion to Core ML Converter")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress all output except errors")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Download Command
@@ -48,6 +53,18 @@ def main():
     # Run Command
     run_parser = subparsers.add_parser("run", help="Run a converted model locally")
     run_parser.add_argument("model_dir", type=str, help="Path to converted model directory")
+
+    # Validate Command
+    validate_parser = subparsers.add_parser("validate", help="Validate a converted Core ML model")
+    validate_parser.add_argument("model_path", type=str, help="Path to .mlpackage")
+
+    # Info Command
+    info_parser = subparsers.add_parser("info", help="Show model information")
+    info_parser.add_argument("model_path", type=str, help="Path to .mlpackage or model directory")
+
+    # List Models Command
+    list_parser = subparsers.add_parser("list-models", help="List all converted models")
+    list_parser.add_argument("--dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Directory to scan")
     run_parser.add_argument("--prompt", type=str, required=True, help="Text prompt")
     run_parser.add_argument("--output", type=str, default="output.png", help="Output image path")
     run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
@@ -150,6 +167,18 @@ def main():
         
         if args.target_repo:
             hf_manager.upload_model(output_dir, args.target_repo)
+
+    elif args.command == "validate":
+        from .model_utils import validate_model
+        validate_model(args.model_path)
+
+    elif args.command == "info":
+        from .model_utils import show_model_info
+        show_model_info(args.model_path)
+
+    elif args.command == "list-models":
+        from .model_utils import list_models
+        list_models(args.dir)
 
     else:
         parser.print_help()
