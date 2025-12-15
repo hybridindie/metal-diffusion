@@ -26,7 +26,6 @@ class CoreMLFluxWithCLIP:
         import comfy.model_management
         import comfy.sd
         import comfy.utils
-        from alloy.runner import CoreMLRunner
         from alloy.flux_runner import FluxCoreMLRunner
         from .video_wrappers import LTXVideoCoreMLRunner, WanVideoCoreMLRunner
         

@@ -544,55 +544,6 @@ wheels = [
 ]
 
 [[package]]
-name = "metal-diffusion"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "accelerate", marker = "sys_platform == 'darwin'" },
-    { name = "coremltools", marker = "sys_platform == 'darwin'" },
-    { name = "diffusers", marker = "sys_platform == 'darwin'" },
-    { name = "diffusionkit", marker = "sys_platform == 'darwin'" },
-    { name = "huggingface-hub", marker = "sys_platform == 'darwin'" },
-    { name = "invisible-watermark", marker = "sys_platform == 'darwin'" },
-    { name = "matplotlib", marker = "sys_platform == 'darwin'" },
-    { name = "numpy", marker = "sys_platform == 'darwin'" },
-    { name = "pytest", marker = "sys_platform == 'darwin'" },
-    { name = "python-coreml-stable-diffusion", marker = "sys_platform == 'darwin'" },
-    { name = "python-dotenv", marker = "sys_platform == 'darwin'" },
-    { name = "rich", marker = "sys_platform == 'darwin'" },
-    { name = "safetensors", marker = "sys_platform == 'darwin'" },
-    { name = "scikit-learn", marker = "sys_platform == 'darwin'" },
-    { name = "scipy", marker = "sys_platform == 'darwin'" },
-    { name = "sentencepiece", marker = "sys_platform == 'darwin'" },
-    { name = "torch", marker = "sys_platform == 'darwin'" },
-    { name = "tqdm", marker = "sys_platform == 'darwin'" },
-    { name = "transformers", marker = "sys_platform == 'darwin'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate" },
-    { name = "coremltools", specifier = ">=8.0" },
-    { name = "diffusers", specifier = ">=0.31.0" },
-    { name = "diffusionkit" },
-    { name = "huggingface-hub" },
-    { name = "invisible-watermark" },
-    { name = "matplotlib" },
-    { name = "numpy", specifier = "<2.0" },
-    { name = "pytest" },
-    { name = "python-coreml-stable-diffusion", marker = "sys_platform == 'darwin'", git = "https://github.com/apple/ml-stable-diffusion.git" },
-    { name = "python-dotenv" },
-    { name = "rich", specifier = ">=13.0.0" },
-    { name = "safetensors" },
-    { name = "scikit-learn", specifier = "<1.6" },
-    { name = "scipy" },
-    { name = "sentencepiece" },
-    { name = "torch", specifier = "==2.7.0" },
-    { name = "tqdm", specifier = ">=4.66.0" },
-    { name = "transformers" },
-]
-
-[[package]]
 name = "mlx"
 version = "0.30.0"
 source = { registry = "https://pypi.org/simple" }
@@ -836,7 +787,7 @@ wheels = [
 [[package]]
 name = "python-coreml-stable-diffusion"
 version = "1.1.0"
-source = { git = "https://github.com/apple/ml-stable-diffusion.git#e12202c1f6405b83918b58a5d097cd61e3e1f702" }
+source = { git = "https://github.com/apple/ml-stable-diffusion.git?rev=main#e12202c1f6405b83918b58a5d097cd61e3e1f702" }
 dependencies = [
     { name = "coremltools", marker = "sys_platform == 'darwin'" },
     { name = "diffusers", marker = "sys_platform == 'darwin'" },
@@ -1080,6 +1031,53 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
+]
+
+[[package]]
+name = "silicon-alloy"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "accelerate", marker = "sys_platform == 'darwin'" },
+    { name = "coremltools", marker = "sys_platform == 'darwin'" },
+    { name = "diffusers", marker = "sys_platform == 'darwin'" },
+    { name = "huggingface-hub", marker = "sys_platform == 'darwin'" },
+    { name = "matplotlib", marker = "sys_platform == 'darwin'" },
+    { name = "numpy", marker = "sys_platform == 'darwin'" },
+    { name = "psutil", marker = "sys_platform == 'darwin'" },
+    { name = "python-coreml-stable-diffusion", marker = "sys_platform == 'darwin'" },
+    { name = "python-dotenv", marker = "sys_platform == 'darwin'" },
+    { name = "pyyaml", marker = "sys_platform == 'darwin'" },
+    { name = "rich", marker = "sys_platform == 'darwin'" },
+    { name = "safetensors", marker = "sys_platform == 'darwin'" },
+    { name = "scikit-learn", marker = "sys_platform == 'darwin'" },
+    { name = "scipy", marker = "sys_platform == 'darwin'" },
+    { name = "sentencepiece", marker = "sys_platform == 'darwin'" },
+    { name = "torch", marker = "sys_platform == 'darwin'" },
+    { name = "tqdm", marker = "sys_platform == 'darwin'" },
+    { name = "transformers", marker = "sys_platform == 'darwin'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate" },
+    { name = "coremltools", specifier = ">=8.0" },
+    { name = "diffusers", extras = ["torch"], specifier = ">=0.30.0" },
+    { name = "huggingface-hub", specifier = ">=0.24.0" },
+    { name = "matplotlib" },
+    { name = "numpy", specifier = "<2.0.0" },
+    { name = "psutil" },
+    { name = "python-coreml-stable-diffusion", git = "https://github.com/apple/ml-stable-diffusion.git?rev=main" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "safetensors", specifier = ">=0.4.0" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "sentencepiece" },
+    { name = "torch", specifier = ">=2.4.0" },
+    { name = "tqdm" },
+    { name = "transformers", specifier = ">=4.44.0" },
 ]
 
 [[package]]

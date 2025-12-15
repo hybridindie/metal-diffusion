@@ -9,7 +9,6 @@ import comfy.utils
 
 from diffusers import FluxTransformer2DModel, LTXVideoTransformer3DModel, WanTransformer3DModel
 
-from alloy.runner import CoreMLRunner
 from alloy.flux_runner import FluxCoreMLRunner
 from .video_wrappers import LTXVideoCoreMLRunner, WanVideoCoreMLRunner
 

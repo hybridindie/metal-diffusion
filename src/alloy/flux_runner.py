@@ -60,14 +60,12 @@ class FluxCoreMLRunner:
             generator = None
 
         # 1. Encode Prompt
-            pooled_prompt_embeds = None
-        else:
-            prompt_embeds, pooled_prompt_embeds, text_ids = self.pipe.encode_prompt(
-                prompt=prompt,
-                prompt_2=None,
-                device=self.device,
-                num_images_per_prompt=1
-            )
+        prompt_embeds, pooled_prompt_embeds, text_ids = self.pipe.encode_prompt(
+            prompt=prompt,
+            prompt_2=None,
+            device=self.device,
+            num_images_per_prompt=1
+        )
         # generic encode_prompt returns (prompt_embeds, pooled_prompt_embeds, text_ids)
         
         # 2. Prepare Latents & IDs
