@@ -74,9 +74,6 @@ class CoreMLWanVideoLoader:
         return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
 
 
-        return unpacked
-
-        return unpacked
 
 class CoreMLFluxWrapper(torch.nn.Module):
     """Adapts Flux Core ML model to ComfyUI's sampling interface"""
