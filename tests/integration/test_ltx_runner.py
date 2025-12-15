@@ -1,18 +1,16 @@
 import pytest
-from unittest.mock import patch, MagicMock
-import numpy as np
-import torch
-from metal_diffusion.ltx_runner import LTXCoreMLRunner
+from unittest.mock import MagicMock, patch
+from alloy.ltx_runner import LTXCoreMLRunner
 
-@patch("metal_diffusion.ltx_runner.LTXPipeline.from_pretrained")
-@patch("metal_diffusion.ltx_runner.ct.models.MLModel")
-def test_ltx_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
+@patch("alloy.ltx_runner.LTXPipeline.from_pretrained")
+@patch("alloy.ltx_runner.ct.models.MLModel")
+def test_ltx_runner_init(mock_mlmodel, mock_pipeline):
     """
     Test the LTX Runner generation loop with mocked models.
     """
     # Setup Mocks
     mock_pipe = MagicMock()
-    mock_pipeline_cls.return_value = mock_pipe
+    mock_pipeline.return_value = mock_pipe
     # Fix chained .to()
     mock_pipe.to.return_value = mock_pipe
     

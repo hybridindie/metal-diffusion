@@ -1,11 +1,12 @@
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
 import os
-from metal_diffusion.utils import detect_model_type
-from metal_diffusion.flux_runner import FluxCoreMLRunner
-from metal_diffusion.flux_converter import FluxConverter
-from metal_diffusion.ltx_runner import LTXCoreMLRunner
-from metal_diffusion.ltx_converter import LTXConverter
+import pytest
+import torch
+from unittest.mock import patch, MagicMock
+from alloy.utils import detect_model_type
+from alloy.flux_runner import FluxCoreMLRunner
+from alloy.flux_converter import FluxConverter
+from alloy.ltx_runner import LTXCoreMLRunner
+from alloy.ltx_converter import LTXConverter
 
 # Mock Pipeline classes same as before...
 class MockPipeline:
@@ -13,7 +14,7 @@ class MockPipeline:
 
 # ... existing fixtures ...
 
-@patch("metal_diffusion.utils.safe_open")
+@patch("alloy.utils.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_flux(mock_isfile, mock_safe_open):
     mock_isfile.return_value = True
@@ -25,7 +26,7 @@ def test_detect_model_type_flux(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("flux.safetensors")
     assert encoded_type == "flux"
 
-@patch("metal_diffusion.utils.safe_open")
+@patch("alloy.utils.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
     mock_isfile.return_value = True
@@ -37,7 +38,7 @@ def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("ltx.safetensors")
     assert encoded_type == "ltx"
 
-@patch("metal_diffusion.utils.safe_open")
+@patch("alloy.utils.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
     """Test unknown key pattern returns None"""
@@ -50,7 +51,7 @@ def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("unknown.safetensors")
     assert encoded_type is None
 
-@patch("metal_diffusion.utils.safe_open")
+@patch("alloy.utils.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_exception(mock_isfile, mock_safe_open):
     """Test exception handling"""
@@ -63,10 +64,10 @@ def test_detect_model_type_exception(mock_isfile, mock_safe_open):
 
 @pytest.fixture
 def mock_flux_pipeline():
-    with patch("metal_diffusion.flux_runner.FluxPipeline") as mock_runner, \
-         patch("metal_diffusion.flux_converter.FluxPipeline") as mock_converter, \
-         patch("metal_diffusion.flux_runner.DiffusionPipeline"), \
-         patch("metal_diffusion.flux_converter.DiffusionPipeline"):
+    with patch("alloy.flux_runner.FluxPipeline") as mock_runner, \
+         patch("alloy.flux_converter.FluxPipeline") as mock_converter, \
+         patch("alloy.flux_runner.DiffusionPipeline"), \
+         patch("alloy.flux_converter.DiffusionPipeline"):
         
         # Setup mocks
         mock_pipe = MagicMock()
@@ -78,20 +79,18 @@ def mock_flux_pipeline():
 
 @pytest.fixture
 def mock_ltx_pipeline():
-    with patch("metal_diffusion.ltx_runner.LTXPipeline") as mock_runner, \
-         patch("metal_diffusion.ltx_converter.LTXPipeline") as mock_converter:
-        
-        # Setup mocks
-        mock_pipe = MagicMock()
-        mock_pipe.to.return_value = mock_pipe
-        mock_runner.from_single_file.return_value = mock_pipe
-        mock_converter.from_single_file.return_value = mock_pipe
-        
         yield mock_runner, mock_converter, mock_pipe
 
+@patch("alloy.flux_runner.ct.models.MLModel")
+@patch("alloy.ltx_runner.ct.models.MLModel")
+def test_runner_initialization(mock_ltx_mlmodel, mock_flux_mlmodel):
+    # Test Flux Runner
+    mock_flux_mlmodel.return_value = MagicMock()
+    flux_runner = FluxCoreMLRunner("dummy_path") # Would raise error in real life due to missing files
+    assert flux_runner
+
 @patch("os.path.isfile")
-@patch("metal_diffusion.flux_runner.ct.models.MLModel")
-def test_flux_single_file_runner(mock_mlmodel, mock_isfile, mock_flux_pipeline):
+def test_flux_single_file_runner(mock_isfile, mock_flux_pipeline):
     """Test FluxCoreMLRunner uses from_single_file when detecting a file."""
     mock_isfile.return_value = True
     mock_runner_cls, _, _ = mock_flux_pipeline

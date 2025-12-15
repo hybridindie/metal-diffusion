@@ -1,18 +1,19 @@
+```python
 import pytest
-from unittest.mock import patch, MagicMock
-import numpy as np
+from unittest.mock import MagicMock, patch
 import torch
-from metal_diffusion.flux_runner import FluxCoreMLRunner
+import coremltools as ct
+from alloy.flux_runner import FluxCoreMLRunner
 
-@patch("metal_diffusion.flux_runner.DiffusionPipeline.from_pretrained")
-@patch("metal_diffusion.flux_runner.ct.models.MLModel")
-def test_flux_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
+@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
+@patch("alloy.flux_runner.ct.models.MLModel")
+def test_flux_runner_init(mock_mlmodel, mock_pipeline, tmp_path):
     """
     Test the Flux Runner generation loop with mocked models.
     """
     # Setup Mocks
     mock_pipe = MagicMock()
-    mock_pipeline_cls.return_value = mock_pipe
+    mock_pipeline.return_value = mock_pipe
     # Fix chained .to()
     mock_pipe.to.return_value = mock_pipe
     

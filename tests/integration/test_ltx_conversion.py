@@ -22,7 +22,7 @@ def test_ltx_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conver
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("metal_diffusion.ltx_converter.LTXPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.ltx_converter.LTXPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         

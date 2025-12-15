@@ -1,6 +1,6 @@
 import pytest
 import argparse
-from metal_diffusion.cli import main
+from alloy.cli import main
 from unittest.mock import patch, MagicMock
 
 def test_download_args():
@@ -10,7 +10,7 @@ def test_download_args():
                    repo_id="stabilityai/sd-turbo",
                    output_dir="models"
                )):
-        with patch("metal_diffusion.cli.HFManager") as MockHF:
+        with patch("alloy.cli.HFManager") as MockHF:
             main()
             MockHF.return_value.download_model.assert_called_with(
                 "stabilityai/sd-turbo", 
@@ -26,7 +26,7 @@ def test_convert_sd_args():
                    output_dir="converted_models",
                    quantization="float16"
                )):
-        with patch("metal_diffusion.cli.SDConverter") as MockConverter:
+        with patch("alloy.cli.SDConverter") as MockConverter:
             main()
             MockConverter.assert_called_with("models/sd-turbo", "converted_models", "float16")
             MockConverter.return_value.convert.assert_called_once()

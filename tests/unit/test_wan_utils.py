@@ -1,13 +1,8 @@
 import pytest
 import torch
+import pytest
 from unittest.mock import MagicMock, patch
-import sys
-
-# We need to mock diffusers and transformers before importing wan_converter
-# because it does heavy imports at module level (even though lazy-ish?)
-# Actually wan_converter imports are at top level now. We rely on conftest or simple imports.
-
-from metal_diffusion.wan_converter import WanModelWrapper, patched_wan_attn_processor_call, WanAttnProcessor
+from alloy.wan_converter import WanModelWrapper, patched_wan_attn_processor_call, WanAttnProcessor
 
 def test_wan_model_wrapper_output():
     """Verify WanModelWrapper forces return_dict=False"""

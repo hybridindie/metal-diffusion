@@ -1,11 +1,22 @@
 import pytest
-from unittest.mock import patch, MagicMock
-import numpy as np
-import torch
-from metal_diffusion.hunyuan_runner import HunyuanCoreMLRunner
+from unittest.mock import MagicMock, patch
+import coremltools as ct
+from alloy.hunyuan_runner import HunyuanCoreMLRunner
+
+@patch("alloy.hunyuan_runner.ct.models.MLModel")
+def test_hunyuan_runner_init(mock_mlmodel):
+    # Mock the MLModel constructor
+    mock_mlmodel.return_value = MagicMock()
+
+    # Initialize the runner
+    runner = HunyuanCoreMLRunner("dummy_model_dir")
+
+    # Assert that MLModel was called with the correct path
+    mock_mlmodel.assert_called_once_with("dummy_model_dir/Hunyuan_Unet_fp16.mlpackage")
+    assert runner.coreml_model is not None
 
 @patch("diffusers.HunyuanVideoPipeline.from_pretrained")
-@patch("metal_diffusion.hunyuan_runner.ct.models.MLModel")
+@patch("alloy.hunyuan_runner.ct.models.MLModel")
 def test_hunyuan_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
     """
     Test the Hunyuan Runner generation loop with mocked models.

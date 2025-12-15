@@ -22,7 +22,7 @@ def test_hunyuan_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_co
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("metal_diffusion.hunyuan_converter.HunyuanVideoPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.hunyuan_converter.HunyuanVideoPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         

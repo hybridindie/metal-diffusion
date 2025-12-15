@@ -1,12 +1,57 @@
+```python
 import pytest
-import sys
 from unittest.mock import patch, MagicMock
-from metal_diffusion.cli import main
+from alloy.cli import main
+import sys
 
-@patch("metal_diffusion.cli.detect_model_type")
-@patch("metal_diffusion.cli.FluxConverter")
-@patch("metal_diffusion.cli.SDConverter")
-@patch("metal_diffusion.cli.LTXConverter")
+def test_cli_auto_detect_single_file_flux():
+    with patch("sys.argv", ["alloy", "convert", "flux.safetensors"]):
+        with patch("alloy.cli.detect_model_type") as mock_detect:
+            mock_detect.return_value = "flux"
+             
+            with patch("alloy.cli.FluxConverter") as MockConverter:
+                main()
+                MockConverter.assert_called_once()
+                args, kwargs = MockConverter.call_args
+
+def test_cli_auto_detect_single_file_ltx():
+   with patch("sys.argv", ["alloy", "convert", "ltx.safetensors"]):
+        with patch("alloy.cli.detect_model_type") as mock_detect:
+            mock_detect.return_value = "ltx"
+             
+            with patch("alloy.cli.SDConverter") as MockSD, \
+                 patch("alloy.cli.LTXConverter") as MockLTX:
+                main()
+                MockLTX.assert_called_once()
+                MockSD.assert_not_called()
+
+def test_cli_auto_detect_fail_fallback_sd1():
+   # If detection returns None, and no type arg, should error out? 
+   # Actually current logic errors out if unspecified and folder.
+   # For file, detect_model_type returns "sd" ? No, returns None if unknown.
+   # If None, CLI prompts to specify --type.
+    with patch("sys.argv", ["alloy", "convert", "unknown.safetensors"]):
+        with patch("alloy.cli.detect_model_type") as mock_detect:
+            mock_detect.return_value = None
+            
+            with pytest.raises(SystemExit):
+                main()
+
+def test_cli_override_detection():
+    # User specifies --type even if detected
+    with patch("sys.argv", ["alloy", "convert", "flux.safetensors", "--type", "ltx"]):
+         with patch("alloy.cli.detect_model_type") as mock_detect:
+            # Even if detection says flux
+            mock_detect.return_value = "flux"
+            
+            with patch("alloy.cli.LTXConverter") as MockLTX:
+                main()
+                MockLTX.assert_called_once()
+
+@patch("alloy.cli.detect_model_type")
+@patch("alloy.cli.FluxConverter")
+@patch("alloy.cli.SDConverter")
+@patch("alloy.cli.LTXConverter")
 def test_cli_auto_detect_flux(mock_ltx, mock_sd, mock_flux, mock_detect):
     """Test standard CLI conversion flow with auto-detection for Flux."""
     

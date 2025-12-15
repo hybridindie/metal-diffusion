@@ -1,11 +1,50 @@
 import pytest
-from unittest.mock import patch, MagicMock
 import numpy as np
 import torch
-from metal_diffusion.flux_runner import FluxCoreMLRunner
+import coremltools as ct
+from unittest.mock import MagicMock, patch
+from alloy.flux_runner import FluxCoreMLRunner
+from diffusers import FluxPipeline
 
-@patch("metal_diffusion.flux_runner.DiffusionPipeline.from_pretrained")
-@patch("metal_diffusion.flux_runner.ct.models.MLModel")
+@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
+@patch("alloy.flux_runner.ct.models.MLModel")
+def test_flux2_loading(mock_mlmodel, mock_pipeline):
+    # Setup
+    mock_pipe = MagicMock()
+    # Mocking Flux2 specific components
+    mock_pipe.transformer = MagicMock()
+    # Flux.1 has 'pooled_projections', Flux.2 does not.
+    # To simulate Flux.2, we ensure 'pooled_projections' is NOT in the config or structure
+    # But effectively, FluxCoreMLRunner detects Flux.2 by checking isinstance(transformer, Flux2Transformer...)
+    # Since we can't easily mock the class type check without the class definition available in diffusers yet (if it was fictional),
+    # we rely on the Runner's 'is_flux2' flag which is set during init.
+    
+    # However, standard diffusers FluxPipeline can load both.
+    
+    # Let's mock the class type check in the runner
+    with patch("alloy.flux_runner.Flux2Transformer2DModel", create=True):
+         # If we set create=True, it mocks the class existence
+         pass
+
+    # Actually, let's just test that the runner CAN handle the flag if we could force it
+    # But the runner detects it from the pipeline.
+    
+    # Mock specific class for Flux2
+    class MockFlux2Transformer:
+        pass
+    
+    mock_pipe.transformer = MockFlux2Transformer()
+    mock_pipeline.return_value = mock_pipe
+    
+    # We need to patch the import in the runner file or make sure the class exists
+    with patch("alloy.flux_runner.Flux2Transformer2DModel", type(mock_pipe)):
+         runner = FluxCoreMLRunner("dummy_model_id")
+         # Logic inside runner: is_flux2 = isinstance(pipe.transformer, Flux2Transformer2DModel)
+         # If we patch the Class in the module...
+         pass
+
+@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
+@patch("alloy.flux_runner.ct.models.MLModel")
 def test_flux2_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
     """
     Test the Flux Runner generation loop with mocked Flux 2 models.
