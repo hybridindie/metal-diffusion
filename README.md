@@ -13,6 +13,7 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
     -   Supports **Image-to-Video / Edit** models (automatic 36-channel input detection).
     -   Implements **Int4 Quantization** to run 14B models on consumer Macs (64GB RAM recommended).
 -   **Stable Diffusion Support**: Wraps Apple's `python_coreml_stable_diffusion` for SDXL and SD3.
+-   **Lumina-Image 2.0 Support**: Implements Next-Gen DiT conversion using Gemma 2B text encoder.
 -   **Full Pipeline**: Automates Download -> Convert -> Upload to Hugging Face.
 -   **Dependency Management**: Uses `uv` to resolve complex conflicts between legacy Core ML scripts and modern Hugging Face libraries.
 
@@ -53,6 +54,13 @@ uv run alloy convert stabilityai/stable-diffusion-xl-base-1.0 \
   --type sd \
   --output-dir converted_models/sdxl \
   --quantization float16
+```
+
+### Convert Lumina-Image 2.0
+```bash
+uv run alloy convert Alpha-VLLM/Lumina-Image-2.0 \
+  --type lumina \
+  --quantization int4
 ```
 
 ### Convert Wan 2.1 / 2.2

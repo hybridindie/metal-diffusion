@@ -106,7 +106,7 @@ CoreMLConverter
 
 **Inputs**:
 - `model_source` (string): Hugging Face ID (e.g., `black-forest-labs/FLUX.1-schnell`) or local path
-- `model_type`: flux, ltx, wan, hunyuan, sd
+- `model_type`: flux, ltx, wan, hunyuan, lumina, sd
 - `quantization`: int4 (recommended), int8, float16
 - `output_name` (string): Optional custom folder name
 - `force_reconvert` (bool): If True, overwrites existing conversion

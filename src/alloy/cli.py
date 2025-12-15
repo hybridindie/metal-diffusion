@@ -10,6 +10,8 @@ from alloy.flux_converter import FluxConverter
 from alloy.flux_runner import FluxCoreMLRunner
 from alloy.ltx_runner import LTXCoreMLRunner
 from alloy.hunyuan_runner import HunyuanCoreMLRunner
+from alloy.lumina_runner import LuminaCoreMLRunner
+from alloy.lumina_converter import LuminaConverter
 from alloy.model_utils import validate_model, show_model_info, list_models
 from alloy.hf_utils import HFManager
 from alloy.utils import detect_model_type
@@ -41,7 +43,7 @@ def main():
     convert_parser.add_argument("model_id", type=str, help="Hugging Face model ID or path")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", "-q", type=str, default="float16", choices=["float16", "float32", "int8", "int4"], help="Quantization")
-    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "lumina"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     
     # Upload Command
@@ -53,7 +55,7 @@ def main():
     pipeline_parser = subparsers.add_parser("pipeline", help="Run full pipeline: Download -> Convert -> Upload")
     pipeline_parser.add_argument("repo_id", type=str, help="Hugging Face Repo ID")
     pipeline_parser.add_argument("--target-repo", type=str, required=True, help="Target HF Repo ID")
-    pipeline_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], required=True, help="Type of model")
+    pipeline_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "lumina"], required=True, help="Type of model")
     
     # Run Command
     run_parser = subparsers.add_parser("run", help="Run a converted model locally")
@@ -79,7 +81,7 @@ def main():
     
     run_parser.add_argument("--prompt", type=str, required=True, help="Text prompt")
     run_parser.add_argument("--output", type=str, default="output.png", help="Output image path")
-    run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
+    run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "lumina"], help="Type of model (optional if auto-detectable)")
     run_parser.add_argument("--height", type=int, default=512, help="Height")
     run_parser.add_argument("--width", type=int, default=512, help="Width")
     run_parser.add_argument("--steps", type=int, default=20, help="Number of inference steps")
@@ -117,6 +119,8 @@ def main():
             converter = LTXConverter(args.model_id, args.output_dir, args.quantization)
         elif model_type == "hunyuan":
             converter = HunyuanConverter(args.model_id, args.output_dir, args.quantization)
+        elif model_type == "lumina":
+            converter = LuminaConverter(args.model_id, args.output_dir, args.quantization)
         elif model_type == "wan":
             # Wan might need local files
             # local_path = hf_manager.download_model(args.repo_id, local_dir=download_dir)
@@ -128,7 +132,7 @@ def main():
         converter.convert()
         
     elif args.command == "run":
-        from .runner import run_sd_pipeline, WanCoreMLRunner, HunyuanCoreMLRunner, LTXCoreMLRunner, FluxCoreMLRunner
+        from .runner import run_sd_pipeline, WanCoreMLRunner, HunyuanCoreMLRunner, LTXCoreMLRunner, FluxCoreMLRunner, LuminaCoreMLRunner
         
         model_type = args.type
         if model_type is None:
@@ -173,6 +177,9 @@ def main():
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
         elif model_type == "hunyuan":
             runner = HunyuanCoreMLRunner(args.model_dir, model_id=args.base_model)
+            runner.generate(args.prompt, args.output, height=args.height, width=args.width)
+        elif model_type == "lumina":
+            runner = LuminaCoreMLRunner(args.model_dir, model_id=args.base_model or "Alpha-VLLM/Lumina-Image-2.0")
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
         else: # ltx
             runner = LTXCoreMLRunner(args.model_dir, model_id=args.base_model)
