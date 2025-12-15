@@ -1,4 +1,7 @@
-# Metal Diffusion Converter
+# Metal Diffusion ⚡️
+> [!IMPORTANT]
+> **🚧 Work in Progress 🚧**
+> This project is currently under active development. APIs and CLI commands are subject to change. Use with caution.
 
 A unified toolchain for converting open-source diffusion models (Stable Diffusion, Wan 2.1/2.2) into Apple's **Core ML** format for hardware-accelerated inference on macOS.
 
