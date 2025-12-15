@@ -11,10 +11,16 @@
    - TestPyPI: Same process on test.pypi.org
    - Scope: "Entire account" (or specific to silicon-alloy once published)
 
-3. **Add Secrets to GitHub**:
-   - Go to repository → Settings → Secrets and variables → Actions
-   - Add `PYPI_API_TOKEN` (your PyPI token)
-   - Add `TEST_PYPI_API_TOKEN` (your TestPyPI token)
+3. **Setup Trusted Publishing (Recommended)**:
+   - Go to [PyPI Manage Project](https://pypi.org/manage/project/silicon-alloy/settings/publishing/) -> Publishing.
+   - Click "Add a new publisher" -> "GitHub".
+   - **Owner**: `hybridindie` (or your username)
+   - **Repository**: `alloy`
+   - **Workflow name**: `publish.yml`
+   - **Environment name**: `pypi`
+
+   *Alternatively, use legacy API Tokens (not recommended for new setups):*
+   - Add `PYPI_API_TOKEN` to GitHub Secrets.
 
 ## Manual Publishing
 

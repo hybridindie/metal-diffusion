@@ -6,10 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "John Doe", email = "john@example.com"}
+    {name = "John Dilts", email = "john@hybridindie.com"}
 ]
 maintainers = [
-    {name = "John Doe", email = "john@example.com"}
+    {name = "John Dilts", email = "john@hybridindie.com"}
 ]
 keywords = ["core-ml", "diffusion", "flux", "ltx-video", "apple-silicon", "machine-learning"]
 classifiers = [
@@ -47,10 +47,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hybridindie/metal-diffusion"
-Documentation = "https://github.com/hybridindie/metal-diffusion#readme"
-Repository = "https://github.com/hybridindie/metal-diffusion"
-Issues = "https://github.com/hybridindie/metal-diffusion/issues"
+Homepage = "https://github.com/hybridindie/alloy"
+Documentation = "https://github.com/hybridindie/alloy#readme"
+Repository = "https://github.com/hybridindie/alloy"
+Issues = "https://github.com/hybridindie/alloy/issues"
 
 [project.scripts]
 alloy = "alloy.cli:main"
