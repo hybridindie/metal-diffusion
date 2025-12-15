@@ -74,12 +74,12 @@ uv run metal-diffusion convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
 
 ### Civitai / Single-File Models
 Support for directly loading `.safetensors` files (e.g., from Civitai) for **Flux** and **LTX-Video**. 
-Simply provide the path to the file instead of a Hugging Face repo ID.
+
+**Auto-Detection**: The CLI automatically detects the model architecture (Flux vs LTX) from the file header, so you can often skip the `--type` argument.
 
 ```bash
-# Convert a single file checkpoint
+# Convert a single file checkpoint (Type auto-detected!)
 uv run metal-diffusion convert /path/to/flux_schnell.safetensors \
-  --type flux \
   --output-dir converted_models/flux_civiai \
   --quantization int4
 ```
