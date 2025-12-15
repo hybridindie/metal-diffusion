@@ -1,7 +1,7 @@
 import torch
 import coremltools as ct
 from diffusers import HunyuanVideoTransformer3DModel, HunyuanVideoPipeline
-from .converter import ModelConverter
+from .base import ModelConverter
 import os
 import shutil
 from typing import Optional, Dict, Any

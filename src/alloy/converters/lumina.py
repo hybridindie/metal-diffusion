@@ -3,12 +3,12 @@ import torch.nn as nn
 import coremltools as ct
 from typing import Dict, Any, Tuple, Optional
 import logging
-from .converter import BaseConverter
+from .base import ModelConverter
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-class LuminaConverter(BaseConverter):
+class LuminaConverter(ModelConverter):
     """
     Converter for Lumina-Image 2.0 models (Next-Gen DiT).
     Uses Gemma-2B as text encoder and Lumina2Transformer2DModel.

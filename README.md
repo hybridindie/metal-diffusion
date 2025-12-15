@@ -12,6 +12,12 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
     -   Supports **Wan 2.1** and **Wan 2.2** (Text-to-Video).
     -   Supports **Image-to-Video / Edit** models (automatic 36-channel input detection).
     -   Implements **Int4 Quantization** to run 14B models on consumer Macs (64GB RAM recommended).
+-   **Hunyuan Video Support**:
+    -   Supports **HunyuanVideo** (Transformer conversion).
+    -   Hybrid Runner: PyTorch Text Encoder + Core ML Transformer + PyTorch VAE.
+-   **LTX-Video Support**:
+    -   Supports **Lightricks/LTX-Video**.
+    -   Efficient Core ML implementation for video generation.
 -   **Flux ControlNet Support**:
     -   Full support for Flux ControlNet residuals (Base Model + ControlNet Model).
     -   **ComfyUI Nodes**: Dedicated nodes for loading and applying Core ML ControlNets.
@@ -188,15 +194,6 @@ Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
 
 See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 8 nodes.
 
-## Performance Benchmarks
-
-See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed performance data on various Apple Silicon chips.
-
-Key highlights (M2 Max):
-- **Flux.1-Schnell (1024x1024)**: ~2.3s
-- **LTX-Video (25 frames)**: ~28s
-- **Memory Usage**: ~8GB (int4) vs 22GB (PyTorch)
-
 ## Utility Commands
 
 ### Validate Models
@@ -219,10 +216,10 @@ alloy list-models --dir /path/to/models
 
 ## Architecture
 
--   **`main.py`**: CLI entry point.
--   **`converter.py`**: Base class and Stable Diffusion conversion logic.
--   **`wan_converter.py`**: Custom implementation for Wan 2.x, featuring lazy imports and dynamic input shaping.
--   **`hf_utils.py`**: Utilities for Hugging Face authentication and file operations.
+-   **`src/alloy/cli.py`**: CLI entry point.
+-   **`src/alloy/converters/`**: Model conversion logic (Flux, Wan, LTX, Hunyuan, Stable Diffusion).
+-   **`src/alloy/runners/`**: Inference runners (PyTorch/Core ML hybrids).
+-   **`src/alloy/utils/`**: Utilities for file handling, Hugging Face auth, and benchmarking.
 -   **`pyproject.toml`**: Dependency overrides to force compatibility between `coremltools` and `diffusers`.
 
 ## Requirements

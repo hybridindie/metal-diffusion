@@ -3,11 +3,11 @@ import numpy as np
 import torch
 import coremltools as ct
 from unittest.mock import MagicMock, patch
-from alloy.flux_runner import FluxCoreMLRunner
+from alloy.runners.flux import FluxCoreMLRunner
 from diffusers import FluxPipeline
 
-@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
-@patch("alloy.flux_runner.ct.models.MLModel")
+@patch("alloy.runners.flux.DiffusionPipeline.from_pretrained")
+@patch("alloy.runners.flux.ct.models.MLModel")
 @pytest.mark.skip(reason="Flaky due to conditional imports of Flux2")
 def test_flux2_loading(mock_mlmodel, mock_pipeline):
     # Setup
@@ -44,8 +44,8 @@ def test_flux2_loading(mock_mlmodel, mock_pipeline):
          # If we patch the Class in the module...
          pass
 
-@patch("alloy.flux_runner.DiffusionPipeline.from_pretrained")
-@patch("alloy.flux_runner.ct.models.MLModel")
+@patch("alloy.runners.flux.DiffusionPipeline.from_pretrained")
+@patch("alloy.runners.flux.ct.models.MLModel")
 def test_flux2_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
     """
     Test the Flux Runner generation loop with mocked Flux 2 models.
@@ -88,7 +88,7 @@ def test_flux2_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_p
     
     # Init Runner
     # Patch Flux2Pipeline to be the type of our mock so isinstance passes
-    with patch("alloy.flux_runner.Flux2Pipeline", type(mock_pipe)):
+    with patch("alloy.runners.flux.Flux2Pipeline", type(mock_pipe)):
         runner = FluxCoreMLRunner("dummy_model_dir")
         
         # Run Generate

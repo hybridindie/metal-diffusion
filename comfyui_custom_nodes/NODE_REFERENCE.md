@@ -6,6 +6,8 @@
 - [CoreMLFluxLoader](#coremlfluxloader) - Flux image generation
 - [CoreMLLTXVideoLoader](#coremlltxvideoloader) - LTX video generation  
 - [CoreMLWanVideoLoader](#coremlwanvideoloader) - Wan video generation
+- [CoreMLControlNetLoader](#coremlcontrolnetloader) - Load ControlNet models
+- [CoreMLApplyControlNet](#coremlapplycontrolnet) - Apply ControlNet
 
 ### Integrated Loaders
 - [CoreMLFluxWithCLIP](#coremlfluxwithclip) - All-in-one Flux loader
@@ -189,6 +191,53 @@ CoreMLWanVideoLoader → VideoKSampler
 ```
 
 **Status**: 🚧 Node structure ready, implementation in progress
+
+---
+
+### CoreMLControlNetLoader
+
+**Category**: Alloy
+**Purpose**: Load a converted ControlNet model (Core ML)
+
+**Inputs**:
+- `controlnet_path` (controlnet dropdown): Path to `.mlpackage`
+
+**Outputs**:
+- `COREML_CONTROLNET`: ControlNet model object
+
+**Usage**:
+```
+CoreMLControlNetLoader → CoreMLApplyControlNet
+```
+
+---
+
+### CoreMLApplyControlNet
+
+**Category**: Alloy
+**Purpose**: Apply a Core ML ControlNet to the Flux model
+
+**Inputs**:
+- `model` (MODEL): Core ML Flux model (must be from CoreMLFluxLoader/Wrapper)
+- `controlnet` (COREML_CONTROLNET): Loaded ControlNet
+- `image` (IMAGE): Control image (Canny/Depth map etc.)
+- `strength` (FLOAT, default 1.0): Control strength
+
+**Outputs**:
+- `MODEL`: Model with ControlNet attached
+
+**Usage**:
+```
+CoreMLFluxLoader
+      ↓
+CoreMLApplyControlNet ← CoreMLControlNetLoader
+      ↓
+   KSampler
+```
+
+**Notes**:
+- Multiple ControlNets can be chained.
+- Ensure the ControlNet model matches the base model (Flux.1).
 
 ---
 

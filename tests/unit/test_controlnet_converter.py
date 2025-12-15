@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 import torch
 import coremltools as ct
-from alloy.controlnet_converter import FluxControlNetConverter, FluxControlNetWrapper, NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
+from alloy.converters.controlnet import FluxControlNetConverter, FluxControlNetWrapper, NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
 
 class TestFluxControlNetConverter(unittest.TestCase):
     def setUp(self):
@@ -13,10 +13,10 @@ class TestFluxControlNetConverter(unittest.TestCase):
             quantization="float16"
         )
 
-    @patch("alloy.controlnet_converter.FluxControlNetModel")
-    @patch("alloy.controlnet_converter.ct.convert")
-    @patch("alloy.controlnet_converter.torch.jit.trace")
-    def test_convert_flow(self, mock_trace, mock_convert, mock_model_cls):
+    @patch("alloy.converters.controlnet.FluxControlNetModel")
+    @patch("alloy.converters.controlnet.ct")
+    @patch("alloy.converters.controlnet.torch.jit.trace")
+    def test_convert_flow(self, mock_trace, mock_ct, mock_model_cls):
         # Mock Model
         mock_model = MagicMock()
         mock_model.config.joint_attention_dim = 64
@@ -32,9 +32,9 @@ class TestFluxControlNetConverter(unittest.TestCase):
         mock_traced = MagicMock()
         mock_trace.return_value = mock_traced
         
-        # Core ML Conversion
+        # Mocks
         mock_ml_model = MagicMock()
-        mock_convert.return_value = mock_ml_model
+        mock_ct.convert.return_value = mock_ml_model
         
         # Run
         try:
@@ -45,16 +45,20 @@ class TestFluxControlNetConverter(unittest.TestCase):
         # Verify
         mock_model_cls.from_pretrained.assert_called_once()
         mock_trace.assert_called_once()
-        mock_convert.assert_called_once()
+        mock_ct.convert.assert_called_once()
         
         # Check Inputs/Outputs passed to ct.convert
-        args, kwargs = mock_convert.call_args
+        args, kwargs = mock_ct.convert.call_args
         inputs = kwargs["inputs"]
         outputs = kwargs["outputs"]
         
         self.assertEqual(len(inputs), 7) # control, hidden, enc, time, img, txt, guide
         self.assertEqual(len(outputs), NUM_DOUBLE_BLOCKS + NUM_SINGLE_BLOCKS)
-        self.assertEqual(outputs[0].name, "c_double_0")
+        
+        # Verify calls to TensorType
+        # Check if c_double_0 was created
+        found_c_double_0 = any(call.kwargs.get("name") == "c_double_0" for call in mock_ct.TensorType.call_args_list)
+        self.assertTrue(found_c_double_0, "c_double_0 output tensor not created")
 
 class TestFluxControlNetWrapper(unittest.TestCase):
     def test_forward_flattening(self):

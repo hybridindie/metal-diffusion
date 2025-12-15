@@ -129,7 +129,7 @@ def patched_wan_attn_processor_call(
 # Apply patch
 WanAttnProcessor.__call__ = patched_wan_attn_processor_call
 print("Applied monkey patch to WanAttnProcessor for Core ML compatibility.")
-from .converter import ModelConverter
+from .base import ModelConverter
 import os
 import shutil
 
@@ -181,7 +181,7 @@ class WanConverter(ModelConverter):
         
         
         # Determine input shapes dynamically
-        in_channels = getattr(transformer.config, "in_channels", 16)
+        in_channels = int(getattr(transformer.config, "in_channels", 16))
         print(f"Detected in_channels: {in_channels} (Mode: {'I2V' if in_channels > 16 else 'T2V'})")
         
         

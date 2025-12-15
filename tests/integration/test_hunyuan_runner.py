@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 import torch
 import numpy as np
 import coremltools as ct
-from alloy.hunyuan_runner import HunyuanCoreMLRunner
+from alloy.runners.hunyuan import HunyuanCoreMLRunner
 
-@patch("alloy.hunyuan_runner.ct.models.MLModel")
-def test_hunyuan_runner_init(mock_mlmodel):
+@patch("alloy.runners.hunyuan.HunyuanVideoPipeline")
+@patch("alloy.runners.hunyuan.ct.models.MLModel")
+def test_hunyuan_runner_init(mock_mlmodel, mock_pipeline):
     # Mock the MLModel constructor
     mock_mlmodel.return_value = MagicMock()
 
@@ -15,17 +16,17 @@ def test_hunyuan_runner_init(mock_mlmodel):
 
     # Assert that MLModel was called with the correct path
     mock_mlmodel.assert_called_once_with("dummy_model_dir/HunyuanVideo_Transformer.mlpackage")
-    assert runner.coreml_model is not None
+    assert runner.coreml_transformer is not None
 
-@patch("diffusers.HunyuanVideoPipeline.from_pretrained")
-@patch("alloy.hunyuan_runner.ct.models.MLModel")
-def test_hunyuan_runner_generate_mocked(mock_pipeline_cls, mock_mlmodel_cls, tmp_path):
+@patch("alloy.runners.hunyuan.HunyuanVideoPipeline")
+@patch("alloy.runners.hunyuan.ct.models.MLModel")
+def test_hunyuan_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
     """
     Test the Hunyuan Runner generation loop with mocked models.
     """
     # Setup Mocks
     mock_pipe = MagicMock()
-    mock_pipeline_cls.return_value = mock_pipe
+    mock_pipeline_cls.from_pretrained.return_value = mock_pipe
     # Fix chained .to() call returning a new mock (needs to return SAME mock)
     mock_pipe.to.return_value = mock_pipe
     

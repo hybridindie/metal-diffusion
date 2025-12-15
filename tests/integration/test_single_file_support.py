@@ -2,11 +2,11 @@ import os
 import pytest
 import torch
 from unittest.mock import patch, MagicMock
-from alloy.utils import detect_model_type
-from alloy.flux_runner import FluxCoreMLRunner
-from alloy.flux_converter import FluxConverter
-from alloy.ltx_runner import LTXCoreMLRunner
-from alloy.ltx_converter import LTXConverter
+from alloy.utils.general import detect_model_type
+from alloy.runners.flux import FluxCoreMLRunner
+from alloy.converters.flux import FluxConverter
+from alloy.runners.ltx import LTXCoreMLRunner
+from alloy.converters.ltx import LTXConverter
 
 # Mock Pipeline classes same as before...
 class MockPipeline:
@@ -14,7 +14,7 @@ class MockPipeline:
 
 # ... existing fixtures ...
 
-@patch("alloy.utils.safe_open")
+@patch("alloy.utils.general.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_flux(mock_isfile, mock_safe_open):
     mock_isfile.return_value = True
@@ -26,7 +26,7 @@ def test_detect_model_type_flux(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("flux.safetensors")
     assert encoded_type == "flux"
 
-@patch("alloy.utils.safe_open")
+@patch("alloy.utils.general.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
     mock_isfile.return_value = True
@@ -38,7 +38,7 @@ def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("ltx.safetensors")
     assert encoded_type == "ltx"
 
-@patch("alloy.utils.safe_open")
+@patch("alloy.utils.general.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
     """Test unknown key pattern returns None"""
@@ -51,7 +51,7 @@ def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
     encoded_type = detect_model_type("unknown.safetensors")
     assert encoded_type is None
 
-@patch("alloy.utils.safe_open")
+@patch("alloy.utils.general.safe_open")
 @patch("os.path.isfile")
 def test_detect_model_type_exception(mock_isfile, mock_safe_open):
     """Test exception handling"""
@@ -64,10 +64,10 @@ def test_detect_model_type_exception(mock_isfile, mock_safe_open):
 
 @pytest.fixture
 def mock_flux_pipeline():
-    with patch("alloy.flux_runner.FluxPipeline") as mock_runner, \
-         patch("alloy.flux_converter.FluxPipeline") as mock_converter, \
-         patch("alloy.flux_runner.DiffusionPipeline"), \
-         patch("alloy.flux_converter.DiffusionPipeline"):
+    with patch("alloy.runners.flux.FluxPipeline") as mock_runner, \
+         patch("alloy.converters.flux.FluxPipeline") as mock_converter, \
+         patch("alloy.runners.flux.DiffusionPipeline"), \
+         patch("alloy.converters.flux.DiffusionPipeline"):
         
         # Setup mocks
         mock_pipe = MagicMock()
@@ -79,8 +79,8 @@ def mock_flux_pipeline():
 
 @pytest.fixture
 def mock_ltx_pipeline():
-    with patch("alloy.ltx_runner.LTXPipeline") as mock_runner, \
-         patch("alloy.ltx_converter.LTXPipeline") as mock_converter:
+    with patch("alloy.runners.ltx.LTXPipeline") as mock_runner, \
+         patch("alloy.converters.ltx.LTXPipeline") as mock_converter:
         
         # Setup mocks
         mock_pipe = MagicMock()
@@ -90,10 +90,10 @@ def mock_ltx_pipeline():
         
         yield mock_runner, mock_converter, mock_pipe
 
-@patch("alloy.flux_runner.ct.models.MLModel")
-@patch("alloy.ltx_runner.ct.models.MLModel")
-@patch("alloy.flux_runner.FluxPipeline")
-@patch("alloy.flux_runner.DiffusionPipeline")
+@patch("alloy.runners.flux.ct.models.MLModel")
+@patch("alloy.runners.ltx.ct.models.MLModel")
+@patch("alloy.runners.flux.FluxPipeline")
+@patch("alloy.runners.flux.DiffusionPipeline")
 def test_runner_initialization(mock_diff_pipe, mock_flux_pipe, mock_ltx_mlmodel, mock_flux_mlmodel):
     # Test Flux Runner
     mock_flux_mlmodel.return_value = MagicMock()

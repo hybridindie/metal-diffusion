@@ -68,7 +68,8 @@ def test_cli_auto_detect_flux(mock_ltx, mock_sd, mock_flux, mock_detect):
     mock_detect.assert_called_with("flux.safetensors")
     
     # Verify FluxConverter was initialized and run
-    mock_flux.assert_called_with("flux.safetensors", "out", "float16", loras=None)
+    # Verify FluxConverter was initialized and run
+    mock_flux.assert_called_with("flux.safetensors", "out", "float16", loras=None, controlnet_compatible=False)
     mock_flux.return_value.convert.assert_called_once()
     
     # Verify others NOT called

@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 import torch
 import numpy as np
 import coremltools as ct
-from alloy.ltx_runner import LTXCoreMLRunner
+from alloy.runners.ltx import LTXCoreMLRunner
 
-@patch("alloy.ltx_runner.LTXPipeline.from_pretrained")
-@patch("alloy.ltx_runner.ct.models.MLModel")
-def test_ltx_runner_init(mock_pipeline, mock_mlmodel, tmp_path):
+@patch("alloy.runners.ltx.LTXPipeline.from_pretrained")
+@patch("alloy.runners.ltx.ct.models.MLModel")
+def test_ltx_runner_init(mock_mlmodel, mock_pipeline, tmp_path):
     """
     Test the LTX Runner generation loop with mocked models.
     """
