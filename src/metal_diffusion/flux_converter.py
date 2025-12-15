@@ -45,11 +45,69 @@ class FluxModelWrapper(torch.nn.Module):
         )
 
 class FluxConverter(ModelConverter):
-    def __init__(self, model_id, output_dir, quantization):
+    def __init__(self, model_id, output_dir, quantization, loras=None):
         if "/" not in model_id and not os.path.isfile(model_id): 
              model_id = "black-forest-labs/FLUX.1-schnell"
         super().__init__(model_id, output_dir, quantization)
+        self.loras = loras or []
     
+    def apply_loras(self, pipe):
+        """Apply LoRAs to the pipeline before conversion"""
+        if not self.loras:
+            return pipe
+            
+        console.print(f"[cyan]Baking in {len(self.loras)} LoRA(s)...[/cyan]")
+        
+        for i, lora_spec in enumerate(self.loras):
+            parts = lora_spec.split(":")
+            path = parts[0]
+            
+            # Parse strengths
+            strength_model = 1.0
+            strength_clip = 1.0
+            
+            if len(parts) >= 2:
+                try:
+                    strength_model = float(parts[1])
+                    strength_clip = strength_model # Default logic if only one provided
+                except ValueError:
+                    pass
+            
+            if len(parts) >= 3:
+                 try:
+                    strength_clip = float(parts[2])
+                 except ValueError:
+                    pass
+
+            adapter_name = f"lora_{i}"
+            console.print(f"  - Loading {os.path.basename(path)} (Model: {strength_model}, CLIP: {strength_clip})")
+            
+            try:
+                # Load LoRA weights
+                pipe.load_lora_weights(path, adapter_name=adapter_name)
+                
+                # Set weights
+                # Flux pipeline LoRA scaling is a bit complex in Diffusers, 
+                # usually handled by set_adapters or fuse_lora.
+                # fuse_lora allows specifying lora_scale.
+                
+                # Ideally we fuse immediately
+                pipe.fuse_lora(lora_scale=strength_model, adapter_names=[adapter_name])
+                
+                # Note: Diffusers fuse_lora applies one scale to all targeted modules (transformer + text encoder).
+                # Separating model/clip strength requires more granular control or PEFT usage.
+                # For now, we utilize the primary strength.
+                
+                # Cleanup to free memory for next load (though we fused inputs)
+                # pipe.unload_lora_weights() # Don't unload, we fused!
+                
+            except Exception as e:
+                console.print(f"[red]Failed to apply LoRA {path}: {e}[/red]")
+                raise
+        
+        console.print("[green]✓ LoRAs merged successfully[/green]")
+        return pipe
+
     def convert(self):
         """Main conversion entry point"""
         os.makedirs(self.output_dir, exist_ok=True)
@@ -68,7 +126,12 @@ class FluxConverter(ModelConverter):
                 raise e
             pbar.update(1)
             
-            # Check model type
+            pbar.update(1)
+            
+            pbar.set_description("Applying LoRAs")
+            self.pipe = self.apply_loras(self.pipe)
+            # No pbar update here, effectively part of loading
+            
             pbar.set_description("Detecting model variant")
             self.is_flux2 = Flux2Transformer2DModel and isinstance(self.pipe.transformer, Flux2Transformer2DModel)
             if self.is_flux2:

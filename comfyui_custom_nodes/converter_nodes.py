@@ -20,7 +20,11 @@ class CoreMLConverter:
             "model_type": (["flux", "ltx", "wan", "hunyuan", "sd"],),
             "quantization": (["float16", "int4", "int8"],),
             "output_name": ("STRING", {"default": "", "multiline": False}),
+            "output_name": ("STRING", {"default": "", "multiline": False}),
             "force_reconvert": ("BOOLEAN", {"default": False})
+        },
+        "optional": {
+            "lora_stack": ("LORA_CONFIG",)
         }}
     
     RETURN_TYPES = ("STRING",)
@@ -29,7 +33,7 @@ class CoreMLConverter:
     CATEGORY = "MetalDiffusion/Conversion"
     OUTPUT_NODE = True
     
-    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert):
+    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, lora_stack=None):
         """
         Convert model to Core ML, using cache if available.
         
@@ -39,7 +43,15 @@ class CoreMLConverter:
         if not output_name:
             # Auto-generate name from source
             source_name = model_source.replace("/", "_").replace(".", "_")
-            output_name = f"{source_name}_{quantization}"
+            
+            # Append LoRA hash to ensure unique caching for different LoRA combos
+            if lora_stack:
+                import hashlib
+                lora_str = "".join([f"{l['path']}{l['strength_model']}{l['strength_clip']}" for l in lora_stack])
+                lora_hash = hashlib.md5(lora_str.encode()).hexdigest()[:8]
+                output_name = f"{source_name}_lora{lora_hash}_{quantization}"
+            else:
+                output_name = f"{source_name}_{quantization}"
         
         # Build output path
         output_base = os.path.join("converted_models", output_name)
@@ -75,10 +87,22 @@ class CoreMLConverter:
             }
             
             converter_class = converter_map[model_type]
+            # Prepare LoRA args for converter
+            kwargs = {}
+            if model_type == 'flux':
+                 # Convert ComfyUI LoRA stack to CLI format strings "path:str_model:str_clip"
+                 if lora_stack:
+                     lora_args = []
+                     for l in lora_stack:
+                         arg = f"{l['path']}:{l['strength_model']}:{l['strength_clip']}"
+                         lora_args.append(arg)
+                     kwargs['loras'] = lora_args
+            
             converter = converter_class(
                 model_source,
                 output_base,
-                quantization
+                quantization,
+                **kwargs
             )
             
             # Run conversion

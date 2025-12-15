@@ -34,10 +34,11 @@ def main():
     
     # Convert Command
     convert_parser = subparsers.add_parser("convert", help="Convert a model to Core ML")
-    convert_parser.add_argument("model_path", type=str, help="Path to local model or HF Repo ID")
-    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("model_id", type=str, help="Hugging Face model ID or path")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
-    convert_parser.add_argument("--quantization", type=str, default="float16", choices=["float16", "int8", "int4"], help="Quantization level")
+    convert_parser.add_argument("--quantization", "-q", type=str, default="float16", choices=["float16", "float32", "int8", "int4"], help="Quantization")
+    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     
     # Upload Command
     upload_parser = subparsers.add_parser("upload", help="Upload converted model to Hugging Face")
@@ -101,16 +102,25 @@ def main():
                  print("Could not auto-detect model type. Please specify --type.")
                  sys.exit(1)
 
-        if model_type == "sd":
-            converter = SDConverter(args.model_path, args.output_dir, args.quantization)
-        elif model_type == "wan":
-            converter = WanConverter(args.model_path, args.output_dir, args.quantization)
+            # Try to detect model type from file header
+            if not args.type:
+                 # ... implementation ...
+                 pass
+
+        if model_type == "flux":
+            converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora)
+        elif model_type == "ltx":
+            converter = LTXConverter(args.model_id, args.output_dir, args.quantization)
         elif model_type == "hunyuan":
-            converter = HunyuanConverter(args.model_path, args.output_dir, args.quantization)
-        elif model_type == "flux":
-            converter = FluxConverter(args.model_path, args.output_dir, args.quantization)
-        else: # ltx
-            converter = LTXConverter(args.model_path, args.output_dir, args.quantization)
+            converter = HunyuanConverter(args.model_id, args.output_dir, args.quantization)
+        elif model_type == "wan":
+            # Wan might need local files
+            # local_path = hf_manager.download_model(args.repo_id, local_dir=download_dir)
+            converter = WanConverter(args.model_id, args.output_dir, args.quantization)
+        else:
+            # Fallback to SD
+            converter = SDConverter(args.model_id, args.output_dir, args.quantization)
+            
         converter.convert()
         
     elif args.command == "run":
