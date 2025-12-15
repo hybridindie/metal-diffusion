@@ -37,26 +37,53 @@ cp -r ~/models/flux_coreml/Flux_Transformer.mlpackage ~/ComfyUI/models/unet/
 ```
 
 ### 3. Use in Workflow
-- Add the **"Core ML Transformer Loader"** node
+- **Use the Core ML nodes** in your workflow:
+   - **For Images (Flux)**: Use "Core ML Flux Loader" 
+   - **For Video (LTX/Wan)**: Use "Core ML LTX-Video Loader" or "Core ML Wan Video Loader" (coming soon!)
 - Select your `.mlpackage` and model type (flux/ltx/wan)
 - Connect it like a standard UNet/Transformer
 - Use with your favorite KSampler!
 
 ## Nodes
 
-### Core ML Transformer Loader
+### Core ML Flux Loader (Image)
+Loads Flux models converted to Core ML for image generation.
+
 **Inputs:**
 - `model_path`: Path to the `.mlpackage` (from `models/unet/`)
-- `model_type`: Type of model (`flux`, `ltx`, or `wan`)
 
 **Outputs:**
-- `MODEL`: A ComfyUI-compatible model ready for sampling
+- `MODEL`: A ComfyUI-compatible model ready for KSampler
 
-## Current Limitations
+### Core ML LTX-Video Loader
+Loads LTX-Video models for video generation (placeholder - full implementation coming soon).
 
-- **Flux Only**: Only Flux models are fully implemented. LTX and Wan support coming soon.
-- **No LoRA support yet**: Standard Core ML constraints apply.
-- **Text Encoders**: Currently requires separate CLIP/T5 nodes (hybrid execution).
+**Inputs:**
+- `model_path`: Path to the `.mlpackage`
+- `num_frames`: Number of frames to generate (default: 25)
+
+**Outputs:**
+- `MODEL`: Video model ready for sampling
+
+### Core ML Wan Video Loader
+Loads Wan models for video generation (placeholder - full implementation coming soon).
+
+**Inputs:**
+- `model_path`: Path to the `.mlpackage`
+- `num_frames`: Number of frames to generate (default: 16)
+
+**Outputs:**
+- `MODEL`: Video model ready for sampling
+
+## Current Status
+
+**✅ Ready to Use:**
+- **Flux Image Generation**: Fully functional with Core ML acceleration
+
+**🚧 Coming Soon:**
+- **LTX-Video**: Node structure ready, video latent pack/unpack in progress
+- **Wan Video**: Node structure ready, implementation pending
+- **LoRA Support**: Standard Core ML constraints apply
 
 ## Roadmap
 

@@ -7,62 +7,89 @@ import comfy.model_patcher
 import comfy.lora
 import comfy.utils
 from metal_diffusion.flux_runner import FluxCoreMLRunner
+from .video_wrappers import CoreMLLTXVideoWrapper, CoreMLWanVideoWrapper
 
-class CoreMLTransformerLoader:
+class CoreMLFluxLoader:
+    """Flux Image Generation - Core ML Accelerated"""
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { 
-            "model_path": (folder_paths.get_filename_list("unet"),), 
-            "model_type": (["flux", "ltx", "wan"],)
+            "model_path": (folder_paths.get_filename_list("unet"),)
         }}
 
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_coreml_model"
     CATEGORY = "MetalDiffusion"
 
-    def load_coreml_model(self, model_path, model_type):
+    def load_coreml_model(self, model_path):
         base_path = folder_paths.get_full_path("unet", model_path)
-        print(f"Loading Core ML Model from: {base_path}")
+        print(f"Loading Flux Core ML Model from: {base_path}")
         
-        # Initialize Core ML Model (Just the wrapper logic here)
-        # We need to wrap it in a pseudo-Torch module for Comfy
-        wrapper = CoreMLModelWrapper(base_path, model_type)
-        
-        # Wrap in Comfy's ModelPatcher
-        # Comfy expects a model object that has `diffusion_model` usually?
-        # Or if we return "MODEL", it should be a ModelPatcher.
-        
-        # We need a dummy config to fake a standard model structure if we want full compat?
-        # For simplicity, let's create a minimal object that behaves like a Comfy Model.
-        
+        wrapper = CoreMLFluxWrapper(base_path)
         return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
 
 
-class CoreMLModelWrapper(torch.nn.Module):
-    def __init__(self, model_path, model_type):
+class CoreMLLTXVideoLoader:
+    """LTX-Video Generation - Core ML Accelerated"""
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { 
+            "model_path": (folder_paths.get_filename_list("unet"),),
+            "num_frames": ("INT", {"default": 25, "min": 1, "max": 257, "step": 1})
+        }}
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
+    CATEGORY = "MetalDiffusion/Video"
+
+    def load_coreml_model(self, model_path, num_frames):
+        base_path = folder_paths.get_full_path("unet", model_path)
+        print(f"Loading LTX-Video Core ML Model from: {base_path}")
+        
+        wrapper = CoreMLLTXVideoWrapper(base_path, num_frames)
+        return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
+
+
+class CoreMLWanVideoLoader:
+    """Wan Video Generation - Core ML Accelerated"""
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { 
+            "model_path": (folder_paths.get_filename_list("unet"),),
+            "num_frames": ("INT", {"default": 16, "min": 1, "max": 128, "step": 1})
+        }}
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
+    CATEGORY = "MetalDiffusion/Video"
+
+    def load_coreml_model(self, model_path, num_frames):
+        base_path = folder_paths.get_full_path("unet", model_path)
+        print(f"Loading Wan Core ML Model from: {base_path}")
+        
+        wrapper = CoreMLWanVideoWrapper(base_path, num_frames)
+        return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
+
+
+class CoreMLFluxWrapper(torch.nn.Module):
+    """Adapts Flux Core ML model to ComfyUI's sampling interface"""
+    def __init__(self, model_path):
         super().__init__()
-        self.model_type = model_type
         # Load Core ML model
-        # We use coremltools directly for prediction
         self.coreml_model = ct.models.MLModel(model_path)
         
         # Configuration (minimal needed for samplers)
-        # Flux Schnell defaults
         self.latent_format = comfy.latent_formats.SDXL() # Dummy default
-        # Ideally we'd detect. For now simple.
-        
-        self.adm_channels = 0 # ?
+        self.adm_channels = 0
         
     def forward(self, x, timestep, **kwargs):
-        # This acts as the "apply_model" or "forward" of the UNet/Transformer
-        # x: Latents (B, C, H, W)
-        # timestep: Tensor (B,)
-        # kwargs: "transformer_options", "context", etc.
-        
-        if self.model_type == "flux":
-            return self._forward_flux(x, timestep, **kwargs)
-        else:
-            raise NotImplementedError(f"Model type {self.model_type} not fully implemented yet in wrapper.")
+        """
+        Adapts standard UNet-style inputs to Flux Core ML packed inputs.
+        x: Latents (B, C, H, W)
+        timestep: Tensor (B,)
+        kwargs: "transformer_options", "context", etc.
+        """
+        return self._forward_flux(x, timestep, **kwargs)
 
     def _forward_flux(self, latents, timestep, **kwargs):
         """
@@ -161,9 +188,13 @@ class CoreMLModelWrapper(torch.nn.Module):
         return unpacked
 
 NODE_CLASS_MAPPINGS = {
-    "CoreMLTransformerLoader": CoreMLTransformerLoader
+    "CoreMLFluxLoader": CoreMLFluxLoader,
+    "CoreMLLTXVideoLoader": CoreMLLTXVideoLoader,
+    "CoreMLWanVideoLoader": CoreMLWanVideoLoader
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "CoreMLTransformerLoader": "Core ML Transformer Loader (Flux/LTX)" 
+    "CoreMLFluxLoader": "Core ML Flux Loader (Image)",
+    "CoreMLLTXVideoLoader": "Core ML LTX-Video Loader",
+    "CoreMLWanVideoLoader": "Core ML Wan Video Loader"
 }
