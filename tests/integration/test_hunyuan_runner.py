@@ -1,5 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
+import torch
+import numpy as np
 import coremltools as ct
 from alloy.hunyuan_runner import HunyuanCoreMLRunner
 
@@ -12,19 +14,19 @@ def test_hunyuan_runner_init(mock_mlmodel):
     runner = HunyuanCoreMLRunner("dummy_model_dir")
 
     # Assert that MLModel was called with the correct path
-    mock_mlmodel.assert_called_once_with("dummy_model_dir/Hunyuan_Unet_fp16.mlpackage")
+    mock_mlmodel.assert_called_once_with("dummy_model_dir/HunyuanVideo_Transformer.mlpackage")
     assert runner.coreml_model is not None
 
 @patch("diffusers.HunyuanVideoPipeline.from_pretrained")
 @patch("alloy.hunyuan_runner.ct.models.MLModel")
-def test_hunyuan_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
+def test_hunyuan_runner_generate_mocked(mock_pipeline_cls, mock_mlmodel_cls, tmp_path):
     """
     Test the Hunyuan Runner generation loop with mocked models.
     """
     # Setup Mocks
     mock_pipe = MagicMock()
     mock_pipeline_cls.return_value = mock_pipe
-    # Fix chained .to() call returning a new mock
+    # Fix chained .to() call returning a new mock (needs to return SAME mock)
     mock_pipe.to.return_value = mock_pipe
     
     # Mock Scheduler
@@ -33,7 +35,6 @@ def test_hunyuan_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp
     
     # Mock Encode Prompt
     # returns prompt_embeds, pooled_prompt_embeds, attention_mask
-    # Shapes: (2, L, 4096), (2, 768), (2, L)
     mock_pipe.encode_prompt.return_value = (
         torch.randn(2, 10, 4096), 
         torch.randn(2, 768), 

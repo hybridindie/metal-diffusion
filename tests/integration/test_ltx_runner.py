@@ -1,10 +1,13 @@
 import pytest
 from unittest.mock import MagicMock, patch
+import torch
+import numpy as np
+import coremltools as ct
 from alloy.ltx_runner import LTXCoreMLRunner
 
 @patch("alloy.ltx_runner.LTXPipeline.from_pretrained")
 @patch("alloy.ltx_runner.ct.models.MLModel")
-def test_ltx_runner_init(mock_mlmodel, mock_pipeline):
+def test_ltx_runner_init(mock_pipeline, mock_mlmodel, tmp_path):
     """
     Test the LTX Runner generation loop with mocked models.
     """
@@ -28,7 +31,7 @@ def test_ltx_runner_init(mock_mlmodel, mock_pipeline):
     
     # Mock Core ML Model
     mock_coreml_model = MagicMock()
-    mock_mlmodel_cls.return_value = mock_coreml_model
+    mock_mlmodel.return_value = mock_coreml_model
     # predict returns dict with "sample"
     # Output shape: Packed latents (1, 256, 128)
     dummy_output = np.random.randn(1, 256, 128).astype(np.float32)

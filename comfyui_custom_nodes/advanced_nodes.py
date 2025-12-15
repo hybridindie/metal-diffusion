@@ -3,7 +3,8 @@
 import folder_paths
 import comfy.utils
 import comfy.model_management
-from alloy.model_utils import get_model_info_safe
+import coremltools as ct
+from pathlib import Path
 
 
 class CoreMLModelAnalyzer:

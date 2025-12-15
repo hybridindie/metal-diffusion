@@ -10,7 +10,7 @@ import comfy.utils
 from diffusers import FluxTransformer2DModel, LTXVideoTransformer3DModel, WanTransformer3DModel
 
 from alloy.flux_runner import FluxCoreMLRunner
-from .video_wrappers import LTXVideoCoreMLRunner, WanVideoCoreMLRunner
+from .video_wrappers import CoreMLLTXVideoWrapper, CoreMLWanVideoWrapper
 
 class CoreMLFluxLoader:
     """Flux Image Generation - Core ML Accelerated"""

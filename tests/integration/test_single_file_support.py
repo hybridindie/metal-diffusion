@@ -79,18 +79,31 @@ def mock_flux_pipeline():
 
 @pytest.fixture
 def mock_ltx_pipeline():
+    with patch("alloy.ltx_runner.LTXPipeline") as mock_runner, \
+         patch("alloy.ltx_converter.LTXPipeline") as mock_converter:
+        
+        # Setup mocks
+        mock_pipe = MagicMock()
+        mock_pipe.to.return_value = mock_pipe
+        mock_runner.from_single_file.return_value = mock_pipe
+        mock_converter.from_single_file.return_value = mock_pipe
+        
         yield mock_runner, mock_converter, mock_pipe
 
 @patch("alloy.flux_runner.ct.models.MLModel")
 @patch("alloy.ltx_runner.ct.models.MLModel")
-def test_runner_initialization(mock_ltx_mlmodel, mock_flux_mlmodel):
+@patch("alloy.flux_runner.FluxPipeline")
+@patch("alloy.flux_runner.DiffusionPipeline")
+def test_runner_initialization(mock_diff_pipe, mock_flux_pipe, mock_ltx_mlmodel, mock_flux_mlmodel):
     # Test Flux Runner
     mock_flux_mlmodel.return_value = MagicMock()
-    flux_runner = FluxCoreMLRunner("dummy_path") # Would raise error in real life due to missing files
+    
+    flux_runner = FluxCoreMLRunner("dummy_path")
     assert flux_runner
 
+@patch("coremltools.models.MLModel")
 @patch("os.path.isfile")
-def test_flux_single_file_runner(mock_isfile, mock_flux_pipeline):
+def test_flux_single_file_runner(mock_isfile, mock_mlmodel, mock_flux_pipeline):
     """Test FluxCoreMLRunner uses from_single_file when detecting a file."""
     mock_isfile.return_value = True
     mock_runner_cls, _, _ = mock_flux_pipeline
@@ -122,7 +135,7 @@ def test_flux_single_file_converter(mock_isfile, mock_flux_pipeline, tmp_path):
     assert "flux.safetensors" in mock_converter_cls.from_single_file.call_args[0]
 
 @patch("os.path.isfile")
-@patch("metal_diffusion.ltx_runner.ct.models.MLModel")
+@patch("coremltools.models.MLModel")
 def test_ltx_single_file_runner(mock_mlmodel, mock_isfile, mock_ltx_pipeline):
     """Test LTXCoreMLRunner uses from_single_file when detecting a file."""
     mock_isfile.return_value = True

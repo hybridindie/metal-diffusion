@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from metal_diffusion.flux_converter import FluxConverter
+from alloy.flux_converter import FluxConverter
 import os
 import torch
 
@@ -22,7 +22,7 @@ def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conve
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("metal_diffusion.flux_converter.DiffusionPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.flux_converter.DiffusionPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         

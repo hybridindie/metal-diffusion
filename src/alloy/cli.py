@@ -99,7 +99,7 @@ def main():
         model_type = args.type
         if model_type is None:
             print("Auto-detecting model type...")
-            model_type = detect_model_type(args.model_path)
+            model_type = detect_model_type(args.model_id)
             if model_type:
                 print(f"Detected type: {model_type}")
             else:

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from metal_diffusion.ltx_converter import LTXConverter
+from alloy.ltx_converter import LTXConverter
 import os
 import torch
 

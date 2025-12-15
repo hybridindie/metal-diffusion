@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from metal_diffusion.wan_converter import WanConverter
+from alloy.wan_converter import WanConverter
 import os
 
 @patch("torch.jit.trace")
@@ -23,7 +23,7 @@ def test_wan_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conver
     
     # Initialize Converter
     # We mock the pipeline loading inside WanConverter.convert
-    with patch("metal_diffusion.wan_converter.WanPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("alloy.wan_converter.WanPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         

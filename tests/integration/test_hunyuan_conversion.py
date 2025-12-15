@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from metal_diffusion.hunyuan_converter import HunyuanConverter
+from alloy.hunyuan_converter import HunyuanConverter
 import os
 import torch
 

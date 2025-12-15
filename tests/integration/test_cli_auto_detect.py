@@ -1,4 +1,3 @@
-```python
 import pytest
 from unittest.mock import patch, MagicMock
 from alloy.cli import main
@@ -60,7 +59,7 @@ def test_cli_auto_detect_flux(mock_ltx, mock_sd, mock_flux, mock_detect):
     
     # Mock argv: convert flux.safetensors --output-dir out
     # Note: NO --type specified
-    test_args = ["metal-diffusion", "convert", "flux.safetensors", "--output-dir", "out"]
+    test_args = ["alloy", "convert", "flux.safetensors", "--output-dir", "out"]
     
     with patch.object(sys, 'argv', test_args):
         main()
@@ -69,15 +68,15 @@ def test_cli_auto_detect_flux(mock_ltx, mock_sd, mock_flux, mock_detect):
     mock_detect.assert_called_with("flux.safetensors")
     
     # Verify FluxConverter was initialized and run
-    mock_flux.assert_called_with("flux.safetensors", "out", "float16")
+    mock_flux.assert_called_with("flux.safetensors", "out", "float16", loras=None)
     mock_flux.return_value.convert.assert_called_once()
     
     # Verify others NOT called
     mock_sd.assert_not_called()
     mock_ltx.assert_not_called()
 
-@patch("metal_diffusion.cli.detect_model_type")
-@patch("metal_diffusion.cli.LTXConverter")
+@patch("alloy.cli.detect_model_type")
+@patch("alloy.cli.LTXConverter")
 def test_cli_auto_detect_ltx(mock_ltx, mock_detect):
     """Test standard CLI conversion flow with auto-detection for LTX."""
     
@@ -85,7 +84,7 @@ def test_cli_auto_detect_ltx(mock_ltx, mock_detect):
     mock_detect.return_value = "ltx"
     
     # Mock argv
-    test_args = ["metal-diffusion", "convert", "ltx.safetensors", "--output-dir", "out"]
+    test_args = ["alloy", "convert", "ltx.safetensors", "--output-dir", "out"]
     
     with patch.object(sys, 'argv', test_args):
         main()
@@ -94,14 +93,14 @@ def test_cli_auto_detect_ltx(mock_ltx, mock_detect):
     mock_ltx.assert_called_with("ltx.safetensors", "out", "float16")
     mock_ltx.return_value.convert.assert_called_once()
 
-@patch("metal_diffusion.cli.detect_model_type")
+@patch("alloy.cli.detect_model_type")
 def test_cli_auto_detect_failure(mock_detect):
     """Test CLI exit when detection fails."""
     
     # Mock auto-detection to return None
     mock_detect.return_value = None
     
-    test_args = ["metal-diffusion", "convert", "unknown.safetensors"]
+    test_args = ["alloy", "convert", "unknown.safetensors"]
     
     with patch.object(sys, 'argv', test_args):
         with pytest.raises(SystemExit) as excinfo:

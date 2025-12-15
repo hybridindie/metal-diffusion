@@ -1,4 +1,6 @@
-
+import torch
+import coremltools as ct
+import comfy.latent_formats
 
 class CoreMLLTXVideoWrapper(torch.nn.Module):
     """Adapts LTX-Video Core ML model to ComfyUI's video sampling interface"""

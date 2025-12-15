@@ -21,7 +21,7 @@ def test_convert_sd_args():
     with patch("argparse.ArgumentParser.parse_args",
                return_value=argparse.Namespace(
                    command="convert",
-                   model_path="models/sd-turbo",
+                   model_id="models/sd-turbo",
                    type="sd",
                    output_dir="converted_models",
                    quantization="float16"
@@ -35,12 +35,12 @@ def test_convert_wan_args():
     with patch("argparse.ArgumentParser.parse_args",
                return_value=argparse.Namespace(
                    command="convert",
-                   model_path="models/wan-1.3b",
+                   model_id="models/wan-1.3b",
                    type="wan",
                    output_dir="converted_models",
                    quantization="int4"
                )):
-        with patch("metal_diffusion.cli.WanConverter") as MockConverter:
+        with patch("alloy.cli.WanConverter") as MockConverter:
             main()
             MockConverter.assert_called_with("models/wan-1.3b", "converted_models", "int4")
             MockConverter.return_value.convert.assert_called_once()
