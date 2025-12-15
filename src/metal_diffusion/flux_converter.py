@@ -8,6 +8,10 @@ except ImportError:
     Flux2Transformer2DModel = None # Handle older diffusers?
 from .converter import ModelConverter
 import os
+from tqdm import tqdm
+from rich.console import Console
+
+console = Console()
 
 class FluxModelWrapper(torch.nn.Module):
     def __init__(self, model):
@@ -47,38 +51,50 @@ class FluxConverter(ModelConverter):
         super().__init__(model_id, output_dir, quantization)
     
     def convert(self):
-        print(f"Loading Flux pipeline: {self.model_id}...")
-        try:
-            if os.path.isfile(self.model_id):
-                print(f"Detected single file checkpoint: {self.model_id}")
-                self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
-            else:
-                 # We load the pipeline to access        print(f"Loading Pipeline: {self.model_id}")
-                 self.pipe = DiffusionPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
-        except Exception as e:
-            print(f"Error loading pipeline: {e}")
-            raise e
+        """Main conversion entry point"""
+        os.makedirs(self.output_dir, exist_ok=True)
         
-        # Check model type
-        self.is_flux2 = Flux2Transformer2DModel and isinstance(self.pipe.transformer, Flux2Transformer2DModel)
-        if self.is_flux2:
-            print("Detected Flux.2 Model")
+        with tqdm(total=4, desc="[cyan]Converting Flux Model[/cyan]", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}') as pbar:
+            pbar.set_description("Loading pipeline")
+            try:
+                if os.path.isfile(self.model_id):
+                    console.print(f"[yellow]Detected single file:[/yellow] {self.model_id}")
+                    self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+                else:
+                    console.print(f"[cyan]Loading from HF:[/cyan] {self.model_id}")
+                    self.pipe = DiffusionPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
+            except Exception as e:
+                console.print(f"[red]Error loading pipeline:[/red] {e}")
+                raise e
+            pbar.update(1)
+            
+            # Check model type
+            pbar.set_description("Detecting model variant")
+            self.is_flux2 = Flux2Transformer2DModel and isinstance(self.pipe.transformer, Flux2Transformer2DModel)
+            if self.is_flux2:
+                console.print("[green]✓[/green] Detected Flux.2 Model")
+            else:
+                console.print("[green]✓[/green] Detected Flux.1 Model")
+            pbar.update(1)
+
+            transformer = self.pipe.transformer
+            transformer.eval()
+
+            ml_model_dir = os.path.join(self.output_dir, "Flux_Transformer.mlpackage")
+            if os.path.exists(ml_model_dir):
+                console.print(f"[yellow]Model exists, skipping:[/yellow] {ml_model_dir}")
+                pbar.update(2)
+            else:
+                pbar.set_description("Converting transformer")
+                self.convert_transformer(transformer, ml_model_dir, pbar)
+
+        console.print(f"[bold green]✓ Conversion complete![/bold green] Saved to {self.output_dir}")
+
+    def convert_transformer(self, transformer, ml_model_dir, pbar=None):
+        if pbar:
+            pbar.set_description("Preparing model (FP32)")
         else:
-            print("Detected Flux.1 Model")
-
-        transformer = self.pipe.transformer
-        transformer.eval()
-
-        ml_model_dir = os.path.join(self.output_dir, "Flux_Transformer.mlpackage")
-        if os.path.exists(ml_model_dir):
-            print(f"Model already exists at {ml_model_dir}, skipping.")
-        else:
-            self.convert_transformer(transformer, ml_model_dir)
-
-        print(f"Flux conversion complete. Model saved to {self.output_dir}")
-
-    def convert_transformer(self, transformer, ml_model_dir):
-        print("Converting Transformer (FP32 trace)...")
+            console.print("Converting Transformer (FP32 trace)...")
         transformer = transformer.to(dtype=torch.float32)
         
         # Dimensions based on Flux architecture
@@ -141,15 +157,21 @@ class FluxConverter(ModelConverter):
              # Remove pooled_projections (index 2)
              example_inputs.pop(2)
 
-        print("Tracing...")
+        if pbar:
+            pbar.set_description("Tracing PyTorch model")
+        else:
+            console.print("Tracing model...")
         wrapper = FluxModelWrapper(transformer)
         wrapper.eval()
         
-        print("Tracing model...")
         # Use strict=False just in case
         traced_model = torch.jit.trace(wrapper, example_inputs, strict=False)
         
-        print("Converting to Core ML...")
+        if pbar:
+            pbar.update(1)
+            pbar.set_description("Converting to Core ML")
+        else:
+            console.print("Converting to Core ML...")
         
         inputs = [
             ct.TensorType(name="hidden_states", shape=hidden_states.shape),
@@ -165,7 +187,7 @@ class FluxConverter(ModelConverter):
             # Pop pooled_projections (index 2)
             inputs.pop(2)
 
-        model = ct.convert(
+        ml_model = ct.convert(
             traced_model,
             inputs=inputs,
             outputs=[ct.TensorType(name="sample")],
@@ -174,13 +196,18 @@ class FluxConverter(ModelConverter):
         )
         
         if self.quantization in ["int4", "4bit", "mixed"]:
-            print("Applying Int4 quantization to Transformer...")
+            if pbar:
+                pbar.set_description(f"Quantizing ({self.quantization})")
+            else:
+                console.print(f"Applying {self.quantization.capitalize()} quantization...")
             op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
                 mode="linear_symmetric",
                 weight_threshold=512
             )
             config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
-            model = ct.optimize.coreml.linear_quantize_weights(model, config)
+            ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
             
-        model.save(ml_model_dir)
-        print(f"Transformer converted: {ml_model_dir}")
+        ml_model.save(ml_model_dir)
+        if pbar:
+            pbar.update(1)
+        console.print(f"[green]✓[/green] Saved: {ml_model_dir}")
