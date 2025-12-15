@@ -1,0 +1,169 @@
+import torch
+import numpy as np
+import coremltools as ct
+import folder_paths
+import comfy.model_management
+import comfy.model_patcher
+import comfy.lora
+import comfy.utils
+from metal_diffusion.flux_runner import FluxCoreMLRunner
+
+class CoreMLTransformerLoader:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { 
+            "model_path": (folder_paths.get_filename_list("unet"),), 
+            "model_type": (["flux", "ltx", "wan"],)
+        }}
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
+    CATEGORY = "MetalDiffusion"
+
+    def load_coreml_model(self, model_path, model_type):
+        base_path = folder_paths.get_full_path("unet", model_path)
+        print(f"Loading Core ML Model from: {base_path}")
+        
+        # Initialize Core ML Model (Just the wrapper logic here)
+        # We need to wrap it in a pseudo-Torch module for Comfy
+        wrapper = CoreMLModelWrapper(base_path, model_type)
+        
+        # Wrap in Comfy's ModelPatcher
+        # Comfy expects a model object that has `diffusion_model` usually?
+        # Or if we return "MODEL", it should be a ModelPatcher.
+        
+        # We need a dummy config to fake a standard model structure if we want full compat?
+        # For simplicity, let's create a minimal object that behaves like a Comfy Model.
+        
+        return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
+
+
+class CoreMLModelWrapper(torch.nn.Module):
+    def __init__(self, model_path, model_type):
+        super().__init__()
+        self.model_type = model_type
+        # Load Core ML model
+        # We use coremltools directly for prediction
+        self.coreml_model = ct.models.MLModel(model_path)
+        
+        # Configuration (minimal needed for samplers)
+        # Flux Schnell defaults
+        self.latent_format = comfy.latent_formats.SDXL() # Dummy default
+        # Ideally we'd detect. For now simple.
+        
+        self.adm_channels = 0 # ?
+        
+    def forward(self, x, timestep, **kwargs):
+        # This acts as the "apply_model" or "forward" of the UNet/Transformer
+        # x: Latents (B, C, H, W)
+        # timestep: Tensor (B,)
+        # kwargs: "transformer_options", "context", etc.
+        
+        if self.model_type == "flux":
+            return self._forward_flux(x, timestep, **kwargs)
+        else:
+            raise NotImplementedError(f"Model type {self.model_type} not fully implemented yet in wrapper.")
+
+    def _forward_flux(self, latents, timestep, **kwargs):
+        """
+        Adapts standard UNet-style inputs (Latents, Timestep, Context) 
+        to Flux Core ML packed inputs.
+        Reuse logic from FluxCoreMLRunner.
+        """
+        transformer_options = kwargs.get("transformer_options", {})
+        cond = transformer_options.get("cond_or_uncond", [])
+        
+        # Flux expects packed latents.
+        # Check input shape
+        B, C, H, W = latents.shape
+        
+        # Prepare Flux Inputs
+        # 1. Pack Latents
+        # FluxCoreMLRunner._pack_latents is static input: (latents, bs, ch, h, w)
+        # We need access to it.
+        packed_latents = FluxCoreMLRunner._pack_latents(latents, B, C, H, W)
+        packed_latents_np = packed_latents.cpu().numpy().astype(np.float32)
+
+        # 2. Prepare IDs (Img, Txt)
+        # Usually these come from Conditioning? 
+        # ComfyUI passes 'c' or 'cond' in kwargs usually contains 'crossattn'?
+        # For Flux, 'context' is the text embedding.
+        context = kwargs.get("context", None) # (B, Seq, Dim)
+        if context is None:
+            # Fallback/Debug
+             context = torch.zeros(B, 256, 4096)
+        
+        context_np = context.cpu().numpy().astype(np.float32)
+             
+        # Text IDs?
+        # FluxCoreMLRunner generates simplified IDs.
+        # We can regenerate them on CPU. 
+        # Txt IDs: (SeqLen, 3)
+        seq_len = context.shape[1]
+        txt_ids = torch.zeros(seq_len, 3).float()
+        txt_ids_np = txt_ids.cpu().numpy().astype(np.float32)
+        
+        # Img IDs
+        img_ids = FluxCoreMLRunner._prepare_latent_image_ids(B, H // 2, W // 2, "cpu", torch.float32)
+        img_ids_np = img_ids.cpu().numpy().astype(np.float32)
+        
+        # 3. Timestep
+        # Comfy passes timestep as tensor.
+        t_input = np.array([timestep[0].item()]).astype(np.float32)
+        
+        # 4. Guidance
+        # Flux guidances? Usually handled by sampler, but Flux expects it as input.
+        # transformer_options['cond'] might have 'guidance'?
+        guidance_scale = 1.0 # Default
+        guidance_input = np.array([guidance_scale]).astype(np.float32)
+        
+        # 5. Pooled Projections
+        # Comfy usually passes this in 'y' or similar?
+        pooled_projections = kwargs.get("y", None)
+        inputs = {
+            "hidden_states": packed_latents_np,
+            "encoder_hidden_states": context_np,
+            "timestep": t_input,
+            "img_ids": img_ids_np,
+            "txt_ids": txt_ids_np,
+            "guidance": guidance_input
+        }
+        
+        if pooled_projections is not None:
+             inputs["pooled_projections"] = pooled_projections.cpu().numpy().astype(np.float32)
+             
+        # Run Core ML
+        out = self.coreml_model.predict(inputs)
+        
+        # Unpack
+        noise_pred = torch.from_numpy(out["sample"]).to(latents.device)
+        
+        # Unpack dimensions
+        # FluxCoreMLRunner._unpack_latents(latents, height, width, scale_factor)
+        # Scale factor=8 usually for Flux? 
+        vae_scale_factor = 8 
+        unpacked = FluxCoreMLRunner._unpack_latents(noise_pred, H*2*vae_scale_factor, W*2*vae_scale_factor, vae_scale_factor=1) 
+        # H, W in unpack are original image dims? 
+        # Wait, FluxCoreMLRunner._unpack_latents logic:
+        # height = 2 * (int(height) // (vae_scale_factor * 2))
+        # It expects "image height/width".
+        # Comfy passes Latent Height/Width.
+        # We need to reverse logic.
+        
+        # Re-implementing simplified unpack for arbitrary latent size:
+        # Packed shape: (B, Patches, Channels)
+        # Patches = (H/2 * W/2). Channels = 64 (16*4).
+        # We want (B, 16, H, W).
+        unpacked = noise_pred.view(B, H//2, W//2, C//4, 2, 2)
+        unpacked = unpacked.permute(0, 3, 1, 4, 2, 5)
+        unpacked = unpacked.reshape(B, C, H, W)
+        
+        return unpacked
+
+NODE_CLASS_MAPPINGS = {
+    "CoreMLTransformerLoader": CoreMLTransformerLoader
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "CoreMLTransformerLoader": "Core ML Transformer Loader (Flux/LTX)" 
+}

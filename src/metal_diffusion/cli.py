@@ -6,7 +6,8 @@ from .wan_converter import WanConverter
 from .hunyuan_converter import HunyuanConverter
 from .ltx_converter import LTXConverter
 from .flux_converter import FluxConverter
-from .hf_utils import HFManager, download_model, upload_folder
+from metal_diffusion.hf_utils import HFManager
+from metal_diffusion.utils import detect_model_type
 from dotenv import load_dotenv
 import warnings
 
@@ -29,7 +30,7 @@ def main():
     # Convert Command
     convert_parser = subparsers.add_parser("convert", help="Convert a model to Core ML")
     convert_parser.add_argument("model_path", type=str, help="Path to local model or HF Repo ID")
-    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], required=True, help="Type of model to convert/run")
+    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", type=str, default="float16", choices=["float16", "int8", "int4"], help="Quantization level")
     
@@ -49,7 +50,7 @@ def main():
     run_parser.add_argument("model_dir", type=str, help="Path to converted model directory")
     run_parser.add_argument("--prompt", type=str, required=True, help="Text prompt")
     run_parser.add_argument("--output", type=str, default="output.png", help="Output image path")
-    run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], default="sd", help="Type of model")
+    run_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux"], help="Type of model (optional if auto-detectable)")
     run_parser.add_argument("--height", type=int, default=512, help="Height")
     run_parser.add_argument("--width", type=int, default=512, help="Width")
     run_parser.add_argument("--steps", type=int, default=20, help="Number of inference steps")
@@ -63,13 +64,23 @@ def main():
         hf_manager.download_model(args.repo_id, local_dir=os.path.join(args.output_dir, args.repo_id.split("/")[-1]))
 
     elif args.command == "convert":
-        if args.type == "sd":
+        model_type = args.type
+        if model_type is None:
+            print("Auto-detecting model type...")
+            model_type = detect_model_type(args.model_path)
+            if model_type:
+                print(f"Detected type: {model_type}")
+            else:
+                 print("Could not auto-detect model type. Please specify --type.")
+                 sys.exit(1)
+
+        if model_type == "sd":
             converter = SDConverter(args.model_path, args.output_dir, args.quantization)
-        elif args.type == "wan":
+        elif model_type == "wan":
             converter = WanConverter(args.model_path, args.output_dir, args.quantization)
-        elif args.type == "hunyuan":
+        elif model_type == "hunyuan":
             converter = HunyuanConverter(args.model_path, args.output_dir, args.quantization)
-        elif args.type == "flux":
+        elif model_type == "flux":
             converter = FluxConverter(args.model_path, args.output_dir, args.quantization)
         else: # ltx
             converter = LTXConverter(args.model_path, args.output_dir, args.quantization)
@@ -77,15 +88,26 @@ def main():
         
     elif args.command == "run":
         from .runner import run_sd_pipeline, WanCoreMLRunner, HunyuanCoreMLRunner, LTXCoreMLRunner, FluxCoreMLRunner
-        if args.type == "sd":
+        
+        model_type = args.type
+        if model_type is None:
+            print("Auto-detecting model type...")
+            model_type = detect_model_type(args.model_dir)
+            if model_type:
+                print(f"Detected type: {model_type}")
+            else:
+                 print("Could not auto-detect model type. Please specify --type.")
+                 sys.exit(1)
+
+        if model_type == "sd":
             run_sd_pipeline(args.model_dir, args.prompt, args.output, base_model=args.base_model)
-        elif args.type == "wan":
+        elif model_type == "wan":
             runner = WanCoreMLRunner(args.model_dir, model_id=args.base_model)
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
-        elif args.type == "hunyuan":
+        elif model_type == "hunyuan":
             runner = HunyuanCoreMLRunner(args.model_dir, model_id=args.base_model)
             runner.generate(args.prompt, args.output, height=args.height, width=args.width)
-        elif args.type == "flux":
+        elif model_type == "flux":
             runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
             runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
         else: # ltx

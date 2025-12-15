@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from metal_diffusion.flux_runner import FluxCoreMLRunner
 
-@patch("metal_diffusion.flux_runner.FluxPipeline.from_pretrained")
+@patch("metal_diffusion.flux_runner.DiffusionPipeline.from_pretrained")
 @patch("metal_diffusion.flux_runner.ct.models.MLModel")
 def test_flux_runner_generate_mocked(mock_mlmodel_cls, mock_pipeline_cls, tmp_path):
     """

@@ -1,14 +1,65 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import os
+from metal_diffusion.utils import detect_model_type
 from metal_diffusion.flux_runner import FluxCoreMLRunner
 from metal_diffusion.flux_converter import FluxConverter
 from metal_diffusion.ltx_runner import LTXCoreMLRunner
 from metal_diffusion.ltx_converter import LTXConverter
 
-# Mock Pipeline classes
+# Mock Pipeline classes same as before...
 class MockPipeline:
     pass
+
+# ... existing fixtures ...
+
+@patch("metal_diffusion.utils.safe_open")
+@patch("os.path.isfile")
+def test_detect_model_type_flux(mock_isfile, mock_safe_open):
+    mock_isfile.return_value = True
+    mock_f = MagicMock()
+    mock_f.keys.return_value = ["double_blocks.0.img_mod.lin.weight", "single_blocks.0.lin.weight"]
+    mock_f.__enter__.return_value = mock_f
+    mock_safe_open.return_value = mock_f
+    
+    encoded_type = detect_model_type("flux.safetensors")
+    assert encoded_type == "flux"
+
+@patch("metal_diffusion.utils.safe_open")
+@patch("os.path.isfile")
+def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
+    mock_isfile.return_value = True
+    mock_f = MagicMock()
+    mock_f.keys.return_value = ["transformer.blocks.0.scale_shift_table", "caption_projection.weight"]
+    mock_f.__enter__.return_value = mock_f
+    mock_safe_open.return_value = mock_f
+    
+    encoded_type = detect_model_type("ltx.safetensors")
+    assert encoded_type == "ltx"
+
+@patch("metal_diffusion.utils.safe_open")
+@patch("os.path.isfile")
+def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
+    """Test unknown key pattern returns None"""
+    mock_isfile.return_value = True
+    mock_f = MagicMock()
+    mock_f.keys.return_value = ["random.keys.only"]
+    mock_f.__enter__.return_value = mock_f
+    mock_safe_open.return_value = mock_f
+    
+    encoded_type = detect_model_type("unknown.safetensors")
+    assert encoded_type is None
+
+@patch("metal_diffusion.utils.safe_open")
+@patch("os.path.isfile")
+def test_detect_model_type_exception(mock_isfile, mock_safe_open):
+    """Test exception handling"""
+    mock_isfile.return_value = True
+    mock_safe_open.side_effect = Exception("Corrupt file")
+    
+    encoded_type = detect_model_type("corrupt.safetensors")
+    assert encoded_type is None
+
 
 @pytest.fixture
 def mock_flux_pipeline():

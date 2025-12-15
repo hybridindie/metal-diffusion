@@ -22,7 +22,7 @@ def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conve
     mock_trace.return_value = MagicMock()
     
     # Initialize Converter
-    with patch("metal_diffusion.flux_converter.FluxPipeline.from_pretrained") as mock_pipeline_cls:
+    with patch("metal_diffusion.flux_converter.DiffusionPipeline.from_pretrained") as mock_pipeline_cls:
         mock_pipe = MagicMock()
         mock_pipeline_cls.return_value = mock_pipe
         
@@ -39,7 +39,7 @@ def test_flux_conversion_pipeline_mocked(mock_mlmodel, mock_quantize, mock_conve
         # Verification
         
         # 1. Pipeline Loaded
-        mock_pipeline_cls.assert_called_with(model_id, torch_dtype=torch.bfloat16)
+        mock_pipeline_cls.assert_called_with(model_id, torch_dtype=torch.float32)
         
         # 2. Transformer Conversion Called
         assert mock_trace.call_count >= 1
