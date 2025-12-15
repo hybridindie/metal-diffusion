@@ -62,10 +62,3 @@ class SDConverter(ModelConverter):
             print(f"Conversion failed: {e}")
             raise
 
-class WanConverter(ModelConverter):
-    def convert(self):
-        """
-        Custom conversion logic for Wan 2.1 models.
-        """
-        print(f"Converting Wan 2.1 model {self.model_id}...")
-        raise NotImplementedError("Wan 2.1 conversion logic is not yet implemented.")

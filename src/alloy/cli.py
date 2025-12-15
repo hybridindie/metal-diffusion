@@ -7,6 +7,7 @@ from alloy.wan_converter import WanConverter
 from alloy.hunyuan_converter import HunyuanConverter
 from alloy.ltx_converter import LTXConverter
 from alloy.flux_converter import FluxConverter
+from alloy.controlnet_converter import FluxControlNetConverter
 from alloy.flux_runner import FluxCoreMLRunner
 from alloy.ltx_runner import LTXCoreMLRunner
 from alloy.hunyuan_runner import HunyuanCoreMLRunner
@@ -43,8 +44,9 @@ def main():
     convert_parser.add_argument("model_id", type=str, help="Hugging Face model ID or path")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", "-q", type=str, default="float16", choices=["float16", "float32", "int8", "int4"], help="Quantization")
-    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "lumina"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
+    convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
     
     # Upload Command
     upload_parser = subparsers.add_parser("upload", help="Upload converted model to Hugging Face")
@@ -114,7 +116,9 @@ def main():
                  pass
 
         if model_type == "flux":
-            converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora)
+            converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)
+        elif model_type == "flux-controlnet":
+            converter = FluxControlNetConverter(args.model_id, args.output_dir, args.quantization)
         elif model_type == "ltx":
             converter = LTXConverter(args.model_id, args.output_dir, args.quantization)
         elif model_type == "hunyuan":

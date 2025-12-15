@@ -1,12 +1,12 @@
 {
-    "name": "metal-diffusion",
+    "name": "Alloy",
     "description": "Core ML accelerated diffusion models for Apple Silicon (Flux, LTX-Video, Wan)",
     "version": "0.1.0",
-    "repository": "https://github.com/hybridindie/metal-diffusion",
+    "repository": "https://github.com/hybridindie/silicon-alloy",
     "install_type": "git-clone",
-    "reference": "https://github.com/hybridindie/metal-diffusion#comfyui-integration",
+    "reference": "https://github.com/hybridindie/silicon-alloy#comfyui-integration",
     "pip": [
-        "metal-diffusion",
+        "silicon-alloy",
         "torch>=2.7.0",
         "coremltools>=8.0",
         "diffusers>=0.31.0",
@@ -17,10 +17,10 @@
         "rich>=13.0.0"
     ],
     "files": [
-        "https://github.com/hybridindie/metal-diffusion/comfyui_custom_nodes"
+        "https://github.com/hybridindie/silicon-alloy/comfyui_custom_nodes"
     ],
     "nodename_pattern": "Core ML (Flux|LTX|Wan)",
-    "author": "metal-diffusion",
-    "title": "Metal Diffusion - Core ML Nodes",
+    "author": "silicon-alloy",
+    "title": "Silicon Alloy - Core ML Nodes",
     "js_path": "comfyui_custom_nodes"
 }
