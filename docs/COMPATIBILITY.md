@@ -4,15 +4,16 @@
 
 ### Flux Models
 
-| Model | Convert | Run | ComfyUI | Single File | Status |
-|-------|---------|-----|---------|-------------|--------|
-| FLUX.1-Schnell | ✅ | ✅ | ✅ | ✅ | Stable |
-| FLUX.1-Dev | ✅ | ✅ | ✅ | ✅ | Stable |
-| FLUX.2 | ✅ | ✅ | ✅ | ❌ | Beta |
+| Model | Convert | Run | ComfyUI | Single File | LoRA | Status |
+|-------|---------|-----|---------|-------------|------|--------|
+| FLUX.1-Schnell | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
+| FLUX.1-Dev | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
+| FLUX.2 | ✅ | ✅ | ✅ | ❌ | ❌ | Beta |
 
 **Notes**:
 - **Schnell**: 4 steps, guidance_scale=0.0
 - **Dev**: 20-50 steps, guidance_scale=3.5
+- **LoRA**: Supported via "Baking" (CLI or ComfyUI)
 - **FLUX.2**: Newer architecture, no pooled projections
 - **Single File**: Civitai `.safetensors` support
 
@@ -98,7 +99,7 @@
 
 | Feature | Status | ETA |
 |---------|--------|-----|
-| Flux LoRA | 🚧 Planned | Q1 2025 |
+| Flux LoRA | ✅ "Baking" | Released |
 | SD LoRA | ⚠️ Via Apple | Now |
 
 ---

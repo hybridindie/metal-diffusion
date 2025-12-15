@@ -159,7 +159,7 @@ See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for ful
 
 ## Performance Benchmarks
 
-See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed performance data on M1/M2/M3 chips.
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed performance data on various Apple Silicon chips.
 
 Key highlights (M2 Max):
 - **Flux.1-Schnell (1024x1024)**: ~2.3s
