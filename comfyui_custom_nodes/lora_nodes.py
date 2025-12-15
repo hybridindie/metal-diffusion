@@ -22,7 +22,7 @@ class CoreMLLoraConfig:
     RETURN_TYPES = ("LORA_CONFIG",)
     RETURN_NAMES = ("lora_config",)
     FUNCTION = "configure_lora"
-    CATEGORY = "MetalDiffusion/Conversion"
+    CATEGORY = "Alloy/Conversion"
     
     def configure_lora(self, lora_name, strength_model, strength_clip, previous_lora=None):
         # build config entry

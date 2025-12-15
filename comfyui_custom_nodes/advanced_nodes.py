@@ -1,10 +1,9 @@
 """Advanced ComfyUI nodes for Metal Diffusion"""
 
-import torch
-import coremltools as ct
 import folder_paths
-from pathlib import Path
-import json
+import comfy.utils
+import comfy.model_management
+from alloy.model_utils import get_model_info_safe
 
 
 class CoreMLModelAnalyzer:

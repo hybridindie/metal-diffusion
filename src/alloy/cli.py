@@ -2,11 +2,18 @@ import argparse
 import os
 import sys
 import logging
-from .converter import SDConverter
-from .wan_converter import WanConverter
-from .hunyuan_converter import HunyuanConverter
-from .ltx_converter import LTXConverter
-from .flux_converter import FluxConverter
+from alloy.converter import SDConverter, ModelConverter
+from alloy.wan_converter import WanConverter
+from alloy.hunyuan_converter import HunyuanConverter
+from alloy.ltx_converter import LTXConverter
+from alloy.flux_converter import FluxConverter
+from alloy.runner import CoreMLRunner
+from alloy.flux_runner import FluxCoreMLRunner
+from alloy.ltx_runner import LTXCoreMLRunner
+from alloy.hunyuan_runner import HunyuanCoreMLRunner
+from alloy.model_utils import validate_model, show_model_info, list_models, print_model_tree
+from alloy.benchmark import Benchmark
+from alloy.batch import BatchProcessor
 from metal_diffusion.hf_utils import HFManager
 from metal_diffusion.utils import detect_model_type
 from dotenv import load_dotenv

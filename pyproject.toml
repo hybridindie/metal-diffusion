@@ -26,36 +26,36 @@ classifiers = [
 ]
 
 [project.urls]
+dependencies = [
+    "torch>=2.4.0",
+    "diffusers[torch]>=0.30.0",
+    "transformers>=4.44.0",
+    "coremltools>=8.0",
+    "huggingface-hub>=0.24.0",
+    "safetensors>=0.4.0",
+    "numpy<2.0.0",  # coremltools compatibility
+    "scipy",
+    "accelerate",
+    "sentencepiece",
+    "matplotlib",
+    "scikit-learn",
+    "python-dotenv",
+    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git@main",
+    "tqdm",
+    "rich",
+    "psutil",
+    "pyyaml"
+]
+
+[project.urls]
 Homepage = "https://github.com/hybridindie/metal-diffusion"
 Documentation = "https://github.com/hybridindie/metal-diffusion#readme"
 Repository = "https://github.com/hybridindie/metal-diffusion"
 Issues = "https://github.com/hybridindie/metal-diffusion/issues"
-dependencies = [
-    "torch==2.7.0",
-    "coremltools>=8.0",
-    "diffusers>=0.31.0",
-    "transformers",
-    "huggingface_hub",
-    "numpy<2.0",
-    "scipy",
-    "accelerate",
-    "safetensors",
-    "sentencepiece",
-    "pytest",
-    "diffusionkit",
-    "invisible-watermark",
-    "matplotlib",
-    "scikit-learn<1.6",
-    "python-dotenv",
-    "tqdm>=4.66.0",
-    "rich>=13.0.0",
-    "psutil>=5.9.0",
-    "pyyaml>=6.0",
-    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git ; sys_platform == 'darwin'"
-]
 
 [project.scripts]
-metal-diffusion = "metal_diffusion.cli:main"
+alloy = "alloy.cli:main"
+metal-diffusion = "alloy.cli:main"  # Backwards compatibility
 
 [build-system]
 requires = ["hatchling"]

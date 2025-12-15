@@ -17,14 +17,18 @@ class CoreMLFluxWithCLIP:
                           {"default": "black-forest-labs/FLUX.1-schnell"}),
         }}
 
-    RETURN_TYPES = ("MODEL", "CLIP", "VAE")
-    FUNCTION = "load_all"
-    CATEGORY = "MetalDiffusion"
+    RETURN_NAMES = ("MODEL", "CLIP", "VAE")
+    FUNCTION = "load_model"
+    CATEGORY = "Alloy"
 
-    def load_all(self, transformer_path, clip_model):
+    def load_model(self, transformer_path, clip_model):
         """Load Core ML transformer + PyTorch text encoders + VAE"""
-        import coremltools as ct
-        from metal_diffusion.flux_runner import FluxCoreMLRunner
+        import comfy.model_management
+        import comfy.sd
+        import comfy.utils
+        from alloy.runner import CoreMLRunner
+        from alloy.flux_runner import FluxCoreMLRunner
+        from .video_wrappers import LTXVideoCoreMLRunner, WanVideoCoreMLRunner
         
         # Get full path to transformer
         transformer_full_path = folder_paths.get_full_path("unet", transformer_path)

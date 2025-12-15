@@ -6,8 +6,12 @@ import comfy.model_management
 import comfy.model_patcher
 import comfy.lora
 import comfy.utils
-from metal_diffusion.flux_runner import FluxCoreMLRunner
-from .video_wrappers import CoreMLLTXVideoWrapper, CoreMLWanVideoWrapper
+
+from diffusers import FluxTransformer2DModel, LTXVideoTransformer3DModel, WanTransformer3DModel
+
+from alloy.runner import CoreMLRunner
+from alloy.flux_runner import FluxCoreMLRunner
+from .video_wrappers import LTXVideoCoreMLRunner, WanVideoCoreMLRunner
 
 class CoreMLFluxLoader:
     """Flux Image Generation - Core ML Accelerated"""
@@ -17,9 +21,9 @@ class CoreMLFluxLoader:
             "model_path": (folder_paths.get_filename_list("unet"),)
         }}
 
-    RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_coreml_model"
-    CATEGORY = "MetalDiffusion"
+    RETURN_NAMES = ("MODEL",)
+    FUNCTION = "load_model"
+    CATEGORY = "Alloy"
 
     def load_coreml_model(self, model_path):
         base_path = folder_paths.get_full_path("unet", model_path)

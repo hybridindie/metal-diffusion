@@ -1,4 +1,4 @@
-# Metal Diffusion ⚡️
+# Alloy ⚡️
 > [!IMPORTANT]
 > **🚧 Work in Progress 🚧**
 > This project is currently under active development. APIs and CLI commands are subject to change. Use with caution.
@@ -45,11 +45,11 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 
 ## Usage
 
-You can run the tool using `uv run metal-diffusion`.
+You can run the tool using `uv run alloy`.
 
 ### Convert Stable Diffusion (SDXL/SD3)
 ```bash
-uv run metal-diffusion convert stabilityai/stable-diffusion-xl-base-1.0 \
+uv run alloy convert stabilityai/stable-diffusion-xl-base-1.0 \
   --type sd \
   --output-dir converted_models/sdxl \
   --quantization float16
@@ -60,12 +60,12 @@ Supports both T2V (Text-to-Video) and I2V (Image-to-Video). The converter automa
 
 ```bash
 # Basic Conversion
-uv run metal-diffusion convert black-forest-labs/FLUX.1-schnell \
+uv run alloy convert black-forest-labs/FLUX.1-schnell \
   --output-dir converted_models/flux \
   --quantization int4
 
 # With LoRA Baking
-uv run metal-diffusion convert black-forest-labs/FLUX.1-schnell \
+uv run alloy convert black-forest-labs/FLUX.1-schnell \
   --output-dir converted_models/flux_style \
   --quantization int4 \
   --lora "path/to/style.safetensors:0.8:1.0" \
@@ -98,7 +98,7 @@ Downloads a model, converts it, and uploads the Core ML package to your Hugging 
 Verify your converted models by generating an image directly.
 
 ```bash
-uv run metal-diffusion run converted_models/wan2.2  \
+uv run alloy run converted_models/wan2.2  \
   --prompt "A astronaut riding a horse on mars, photorealistic, 4k" \
   --type wan \
   --output result.png
@@ -108,7 +108,7 @@ uv run metal-diffusion run converted_models/wan2.2  \
 Measure real performance on your hardware:
 
 ```bash
-uv run metal-diffusion run converted_models/flux \
+uv run alloy run converted_models/flux \
   --prompt "test image" \
   --benchmark \
   --benchmark-runs 5 \
@@ -134,7 +134,7 @@ Metal Diffusion includes **custom nodes** for seamless ComfyUI integration with 
 pip install -e .
 
 # 2. Link to ComfyUI
-ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/metal-diffusion
+ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/alloy
 
 # 3. Restart ComfyUI
 ```
@@ -170,17 +170,17 @@ Key highlights (M2 Max):
 
 ### Validate Models
 ```bash
-metal-diffusion validate converted_models/flux/Flux_Transformer.mlpackage
+alloy validate converted_models/flux/Flux_Transformer.mlpackage
 ```
 
 ### Show Model Info
 ```bash
-metal-diffusion info converted_models/flux/Flux_Transformer.mlpackage
+alloy info converted_models/flux/Flux_Transformer.mlpackage
 ```
 
 ### List All Converted Models
 ```bash
-metal-diffusion list-models
+alloy list-models
 # or specify directory
 metal-diffusion list-models --dir /path/to/models
 ```

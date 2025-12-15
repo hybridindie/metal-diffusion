@@ -1,3 +1,8 @@
+# Helper function to find metal-diffusion root
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/src")
+
 from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 from .integrated_nodes import NODE_CLASS_MAPPINGS as INTEGRATED_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as INTEGRATED_DISPLAY_MAPPINGS
 from .advanced_nodes import NODE_CLASS_MAPPINGS as ADVANCED_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS as ADVANCED_DISPLAY_MAPPINGS

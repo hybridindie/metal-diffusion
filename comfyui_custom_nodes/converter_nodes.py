@@ -30,7 +30,7 @@ class CoreMLConverter:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("model_path",)
     FUNCTION = "convert_model"
-    CATEGORY = "MetalDiffusion/Conversion"
+    CATEGORY = "Alloy/Conversion"
     OUTPUT_NODE = True
     
     def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, lora_stack=None):
@@ -72,11 +72,11 @@ class CoreMLConverter:
         
         try:
             # Import converters
-            from metal_diffusion.flux_converter import FluxConverter
-            from metal_diffusion.ltx_converter import LTXConverter
-            from metal_diffusion.wan_converter import WanConverter
-            from metal_diffusion.hunyuan_converter import HunyuanConverter
-            from metal_diffusion.converter import SDConverter
+            from alloy.flux_converter import FluxConverter
+            from alloy.ltx_converter import LTXConverter
+            from alloy.wan_converter import WanConverter
+            from alloy.hunyuan_converter import HunyuanConverter
+            from alloy.converter import SDConverter
             
             converter_map = {
                 'flux': FluxConverter,
@@ -139,7 +139,7 @@ class CoreMLQuickConverter:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("model_path",)
     FUNCTION = "quick_convert"
-    CATEGORY = "MetalDiffusion/Conversion"
+    CATEGORY = "Alloy/Conversion"
     OUTPUT_NODE = True
     
     def quick_convert(self, preset, custom_model="", custom_type="flux"):
