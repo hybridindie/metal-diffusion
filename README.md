@@ -132,20 +132,32 @@ ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_node
 # 3. Restart ComfyUI
 ```
 
-### Quick Start
+### Quick Start (ComfyUI)
 
-1. **Convert your model** (e.g., Flux Schnell)
-2. **Place `.mlpackage`** in `ComfyUI/models/unet/`
-3. **Use the "Core ML Transformer Loader" node** in your workflow
-4. **Connect to KSampler** and generate!
+1. **Install Metal Diffusion** via ComfyUI Manager
+2. **Convert Model** using the `CoreMLQuickConverter` node
+   - Select preset (e.g., "Flux Schnell")
+   - Run once to convert (caches automatically)
+3. **Load Model** using `CoreMLFluxWithCLIP`
+4. **Generate!**
 
 ### Example Workflows
 
 Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
-- **Basic Text-to-Image**: Simple Flux workflow with Core ML acceleration
-- **Image-to-Image**: Style transfer and artistic modifications
+- **Basic Text-to-Image**: Simple Flux workflow
+- **All-in-One**: Integrated CLIP/T5/VAE loading
+- **Smart Conversion**: Convert models directly in ComfyUI
 
-See the [ComfyUI README](comfyui_custom_nodes/README.md) for detailed instructions.
+See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 8 nodes.
+
+## Performance Benchmarks
+
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed performance data on M1/M2/M3 chips.
+
+Key highlights (M2 Max):
+- **Flux.1-Schnell (1024x1024)**: ~2.3s
+- **LTX-Video (25 frames)**: ~28s
+- **Memory Usage**: ~8GB (int4) vs 22GB (PyTorch)
 
 ## Utility Commands
 

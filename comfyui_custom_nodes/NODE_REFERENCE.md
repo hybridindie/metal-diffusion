@@ -10,6 +10,10 @@
 ### Integrated Loaders
 - [CoreMLFluxWithCLIP](#coremlfluxwithclip) - All-in-one Flux loader
 
+### Conversion
+- [CoreMLConverter](#coremlconverter) - Advanced conversion with options
+- [CoreMLQuickConverter](#coremlquickconverter) - One-click conversion presets
+
 ### Utilities
 - [CoreMLModelAnalyzer](#coremlmodelanalyzer) - Inspect model details
 - [CoreMLBatchSampler](#cormlbatchsampler) - Parallel batch generation
@@ -41,6 +45,8 @@ CoreMLFluxLoader → KSampler
 
 ---
 
+---
+
 ### CoreMLFluxWithCLIP
 
 **Category**: MetalDiffusion  
@@ -65,13 +71,56 @@ CoreMLFluxWithCLIP → MODEL+CLIP+VAE → KSampler
 **Advantages**:
 - One node instead of three
 - Automatic CLIP/T5 loading
-- Simplified workflows
-- LoRA compatible (text encoders are PyTorch)
+
+---
+
+### CoreMLConverter
+
+**Category**: MetalDiffusion/Conversion  
+**Purpose**: Convert models to Core ML with full control
+
+**Inputs**:
+- `model_source` (string): Hugging Face ID (e.g., `black-forest-labs/FLUX.1-schnell`) or local path
+- `model_type`: flux, ltx, wan, hunyuan, sd
+- `quantization`: int4 (recommended), int8, float16
+- `output_name` (string): Optional custom folder name
+- `force_reconvert` (bool): If True, overwrites existing conversion
+
+**Outputs**:
+- `model_path` (STRING): Path to the converted `.mlpackage`
+
+**Usage**:
+```
+CoreMLConverter → CoreMLFluxLoader
+```
 
 **Notes**:
-- First run downloads text encoders from HF
-- ~6GB memory for text encoders
-- Text encoding on CPU/MPS (transformer on ANE)
+- ⚠️ **Blocks UI**: Conversion takes 5-15 minutes. Console shows progress.
+- **Smart Cache**: Skips conversion if model already exists (unless forced).
+
+---
+
+### CoreMLQuickConverter
+
+**Category**: MetalDiffusion/Conversion  
+**Purpose**: One-click conversion for popular models
+
+**Inputs**:
+- `preset`:
+  - `Flux Schnell (Fast)` → int4
+  - `Flux Dev (Quality)` → int4
+  - `LTX Video` → int4
+  - `Custom` → Use optional inputs below
+- `custom_model` (optional): HF ID for custom
+- `custom_type` (optional): Model type for custom
+
+**Outputs**:
+- `model_path` (STRING): Path to converted model
+
+**Usage**:
+```
+CoreMLQuickConverter (Preset: Flux Schnell) → CoreMLFluxLoader
+```
 
 ---
 
