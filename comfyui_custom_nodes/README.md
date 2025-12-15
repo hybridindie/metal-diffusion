@@ -4,6 +4,15 @@ Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI
 
 ## Installation
 
+### Option 1: ComfyUI Manager (Recommended)
+
+1. Open ComfyUI Manager
+2. Search for "Metal Diffusion"
+3. Click Install
+4. Restart ComfyUI
+
+### Option 2: Manual Installation
+
 1. **Install metal-diffusion package** (if not already installed):
    ```bash
    cd /path/to/metal-diffusion

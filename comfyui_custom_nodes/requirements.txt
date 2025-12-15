@@ -1,0 +1,9 @@
+metal-diffusion
+torch>=2.7.0
+coremltools>=8.0
+diffusers>=0.31.0
+transformers
+huggingface_hub
+numpy<2.0
+safetensors
+rich>=13.0.0
