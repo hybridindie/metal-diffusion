@@ -1,0 +1,263 @@
+{
+    "last_node_id": 15,
+    "last_link_id": 15,
+    "nodes": [
+        {
+            "id": 1,
+            "type": "CoreMLLoraConfig",
+            "pos": [
+                50,
+                50
+            ],
+            "size": {
+                "0": 300,
+                "1": 150
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [
+                {
+                    "name": "lora_config",
+                    "type": "LORA_CONFIG",
+                    "links": [
+                        1
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLLoraConfig"
+            },
+            "widgets_values": [
+                "pixel_art_style.safetensors",
+                0.8,
+                1.0
+            ]
+        },
+        {
+            "id": 2,
+            "type": "CoreMLLoraConfig",
+            "pos": [
+                50,
+                250
+            ],
+            "size": {
+                "0": 300,
+                "1": 150
+            },
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "previous_lora",
+                    "type": "LORA_CONFIG",
+                    "link": 1
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "lora_config",
+                    "type": "LORA_CONFIG",
+                    "links": [
+                        2
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLLoraConfig"
+            },
+            "widgets_values": [
+                "detailed_hands.safetensors",
+                1.0,
+                1.0
+            ]
+        },
+        {
+            "id": 3,
+            "type": "CoreMLConverter",
+            "pos": [
+                400,
+                150
+            ],
+            "size": {
+                "0": 350,
+                "1": 200
+            },
+            "flags": {},
+            "order": 2,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "lora_stack",
+                    "type": "LORA_CONFIG",
+                    "link": 2
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "links": [
+                        3
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLConverter"
+            },
+            "widgets_values": [
+                "black-forest-labs/FLUX.1-schnell",
+                "flux",
+                "int4",
+                "Flux_Style_Mix",
+                false
+            ]
+        },
+        {
+            "id": 4,
+            "type": "CoreMLFluxLoader",
+            "pos": [
+                800,
+                150
+            ],
+            "size": {
+                "0": 300,
+                "1": 100
+            },
+            "flags": {},
+            "order": 3,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "link": 3,
+                    "widget": {
+                        "name": "model_path"
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "MODEL",
+                    "type": "MODEL",
+                    "links": [
+                        4
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLFluxLoader"
+            },
+            "widgets_values": [
+                ""
+            ]
+        },
+        {
+            "id": 5,
+            "type": "CoreMLFluxWithCLIP",
+            "pos": [
+                800,
+                300
+            ],
+            "size": {
+                "0": 300,
+                "1": 150
+            },
+            "flags": {},
+            "order": 4,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "transformer_path",
+                    "type": "STRING",
+                    "link": 3
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "MODEL",
+                    "type": "MODEL",
+                    "links": [],
+                    "slot_index": 0
+                },
+                {
+                    "name": "CLIP",
+                    "type": "CLIP",
+                    "links": [],
+                    "slot_index": 1
+                },
+                {
+                    "name": "VAE",
+                    "type": "VAE",
+                    "links": [],
+                    "slot_index": 2
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLFluxWithCLIP"
+            },
+            "widgets_values": [
+                "",
+                "black-forest-labs/FLUX.1-schnell"
+            ]
+        },
+        {
+            "id": 10,
+            "type": "Note",
+            "pos": [
+                50,
+                450
+            ],
+            "size": {
+                "0": 300,
+                "1": 100
+            },
+            "flags": {},
+            "order": 5,
+            "mode": 0,
+            "inputs": [],
+            "outputs": [],
+            "properties": {},
+            "widgets_values": [
+                "Chain CoreMLLoraConfig nodes to bake multiple LoRAs into one optimized model. Connect to CoreMLConverter."
+            ]
+        }
+    ],
+    "links": [
+        [
+            1,
+            1,
+            0,
+            2,
+            0,
+            "LORA_CONFIG"
+        ],
+        [
+            2,
+            2,
+            0,
+            3,
+            0,
+            "LORA_CONFIG"
+        ],
+        [
+            3,
+            3,
+            0,
+            4,
+            0,
+            "STRING"
+        ]
+    ],
+    "groups": [],
+    "config": {},
+    "extra": {},
+    "version": 0.4
+}
