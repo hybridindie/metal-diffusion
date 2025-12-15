@@ -99,17 +99,35 @@ uv run metal-diffusion run converted_models/wan2.2  \
 
 ## ComfyUI Integration
 
-To use these models with **ComfyUI** (specifically with the `ComfyUI-CoreMLSuite` custom nodes):
+Metal Diffusion includes **custom nodes** for seamless ComfyUI integration with Core ML acceleration!
 
-1.  **Locate the `.mlpackage`**: Inside your output directory (e.g., `converted_models/wan2.2/Wan2.1_Transformer.mlpackage`).
-2.  **Move to ComfyUI**:
-    *   Copy the `.mlpackage` folder to `ComfyUI/models/unet/` (or `models/coreml/` depending on your node setup).
-3.  **Load in ComfyUI**:
-    *   Use the **CoreML Unet Loader** node.
-    *   Select your model directory.
-    *   Connect to a standard VAE and CLIP (since we currently run Text Encoding/VAE in hybrid mode or standard nodes often expect separated components).
+### Installation
 
-*Note: For Wan 2.1, ensure you use the correct input dimensions (T2V=16ch, I2V=36ch) which match the converted model's expectation.*
+```bash
+# 1. Install metal-diffusion
+pip install -e .
+
+# 2. Link to ComfyUI
+ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/metal-diffusion
+
+# 3. Restart ComfyUI
+```
+
+### Quick Start
+
+1. **Convert your model** (e.g., Flux Schnell)
+2. **Place `.mlpackage`** in `ComfyUI/models/unet/`
+3. **Use the "Core ML Transformer Loader" node** in your workflow
+4. **Connect to KSampler** and generate!
+
+### Example Workflows
+
+Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
+- **Basic Text-to-Image**: Simple Flux workflow with Core ML acceleration
+- **Image-to-Image**: Style transfer and artistic modifications
+
+See the [ComfyUI README](comfyui_custom_nodes/README.md) for detailed instructions.
+
 
 ## Architecture
 
