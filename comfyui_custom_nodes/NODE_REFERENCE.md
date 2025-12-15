@@ -1,4 +1,4 @@
-# Metal Diffusion ComfyUI Nodes - Complete Reference
+# Alloy ComfyUI Nodes - Complete Reference
 
 ## Node Categories
 
@@ -24,7 +24,7 @@
 
 ### CoreMLFluxLoader
 
-**Category**: MetalDiffusion  
+**Category**: Alloy  
 **Purpose**: Load Flux Core ML transformer for image generation
 
 **Inputs**:
@@ -49,7 +49,7 @@ CoreMLFluxLoader → KSampler
 
 ### CoreMLFluxWithCLIP
 
-**Category**: MetalDiffusion  
+**Category**: Alloy  
 **Purpose**: All-in-one loader with integrated text encoders
 
 **Inputs**:
@@ -76,7 +76,7 @@ CoreMLFluxWithCLIP → MODEL+CLIP+VAE → KSampler
 
 ### CoreMLLoraConfig
 
-**Category**: MetalDiffusion/Conversion  
+**Category**: Alloy/Conversion  
 **Purpose**: Define LoRA configuration for baking (chainable)
 
 **Inputs**:
@@ -101,7 +101,7 @@ CoreMLConverter
 
 ### CoreMLConverter
 
-**Category**: MetalDiffusion/Conversion  
+**Category**: Alloy/Conversion  
 **Purpose**: Convert models to Core ML with full control
 
 **Inputs**:
@@ -128,7 +128,7 @@ CoreMLConverter → CoreMLFluxLoader
 
 ### CoreMLQuickConverter
 
-**Category**: MetalDiffusion/Conversion  
+**Category**: Alloy/Conversion  
 **Purpose**: One-click conversion for popular models
 
 **Inputs**:
@@ -152,7 +152,7 @@ CoreMLQuickConverter (Preset: Flux Schnell) → CoreMLFluxLoader
 
 ### CoreMLLTXVideoLoader
 
-**Category**: MetalDiffusion/Video  
+**Category**: Alloy/Video  
 **Purpose**: Load LTX-Video model for video generation
 
 **Inputs**:
@@ -173,7 +173,7 @@ CoreMLLTXVideoLoader → VideoKSampler
 
 ### CoreMLWanVideoLoader
 
-**Category**: MetalDiffusion/Video  
+**Category**: Alloy/Video  
 **Purpose**: Load Wan model for video generation
 
 **Inputs**:
@@ -194,7 +194,7 @@ CoreMLWanVideoLoader → VideoKSampler
 
 ### CoreMLModelAnalyzer
 
-**Category**: MetalDiffusion/Utilities  
+**Category**: Alloy/Utilities  
 **Purpose**: Analyze and display Core ML model information
 
 **Inputs**:
@@ -224,7 +224,7 @@ CoreMLModelAnalyzer → ShowText
 
 ### CoreMLBatchSampler
 
-**Category**: MetalDiffusion/Advanced  
+**Category**: Alloy/Advanced  
 **Purpose**: Generate multiple images in one go
 
 **Inputs**:

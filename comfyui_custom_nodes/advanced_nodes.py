@@ -21,7 +21,7 @@ class CoreMLModelAnalyzer:
     
     RETURN_TYPES = ("STRING",)
     FUNCTION = "analyze_model"
-    CATEGORY = "MetalDiffusion/Utilities"
+    CATEGORY = "Alloy/Utilities"
     OUTPUT_NODE = True
     
     def analyze_model(self, model_path):
@@ -97,7 +97,7 @@ class CoreMLBatchSampler:
     
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "batch_sample"
-    CATEGORY = "MetalDiffusion/Advanced"
+    CATEGORY = "Alloy/Advanced"
     
     def batch_sample(self, model, positive, negative, latent_image, seed, steps, cfg, sampler_name, scheduler, denoise, batch_size):
         """

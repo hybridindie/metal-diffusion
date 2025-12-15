@@ -81,7 +81,7 @@ uv run alloy convert black-forest-labs/FLUX.1-schnell \
 ```
 
 # Image-to-Video (36 channels)
-uv run metal-diffusion convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
+uv run alloy convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
   --type wan \
   --output-dir converted_models/wan_i2v \
   --quantization int4
@@ -94,7 +94,7 @@ Support for directly loading `.safetensors` files (e.g., from Civitai) for **Flu
 
 ```bash
 # Convert a single file checkpoint (Type auto-detected!)
-uv run metal-diffusion convert /path/to/flux_schnell.safetensors \
+uv run alloy convert /path/to/flux_schnell.safetensors \
   --output-dir converted_models/flux_civiai \
   --quantization int4
 ```
@@ -133,12 +133,12 @@ Results are saved to JSON for further analysis.
 
 ## ComfyUI Integration
 
-Metal Diffusion includes **custom nodes** for seamless ComfyUI integration with Core ML acceleration!
+Alloy includes **custom nodes** for seamless ComfyUI integration with Core ML acceleration!
 
 ### Installation
 
 ```bash
-# 1. Install metal-diffusion
+# 1. Install silicon-alloy
 pip install -e .
 
 # 2. Link to ComfyUI
@@ -149,7 +149,7 @@ ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_node
 
 ### Quick Start (ComfyUI)
 
-1. **Install Metal Diffusion** via ComfyUI Manager
+1. **Install Alloy** via ComfyUI Manager
 2. **Convert Model** using the `CoreMLQuickConverter` node
    - Select preset (e.g., "Flux Schnell")
    - Run once to convert (caches automatically)
@@ -190,7 +190,7 @@ alloy info converted_models/flux/Flux_Transformer.mlpackage
 ```bash
 alloy list-models
 # or specify directory
-metal-diffusion list-models --dir /path/to/models
+alloy list-models --dir /path/to/models
 ```
 
 

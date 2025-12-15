@@ -43,7 +43,7 @@ class CoreMLLTXVideoLoader:
 
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_coreml_model"
-    CATEGORY = "MetalDiffusion/Video"
+    CATEGORY = "Alloy/Video"
 
     def load_coreml_model(self, model_path, num_frames):
         base_path = folder_paths.get_full_path("unet", model_path)
@@ -64,7 +64,7 @@ class CoreMLWanVideoLoader:
 
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_coreml_model"
-    CATEGORY = "MetalDiffusion/Video"
+    CATEGORY = "Alloy/Video"
 
     def load_coreml_model(self, model_path, num_frames):
         base_path = folder_paths.get_full_path("unet", model_path)

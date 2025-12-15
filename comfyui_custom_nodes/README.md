@@ -1,4 +1,4 @@
-# Metal Diffusion - ComfyUI Custom Nodes
+# Alloy - ComfyUI Custom Nodes
 
 Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI on Apple Silicon.
 
@@ -7,7 +7,7 @@ Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI
 ### Option 1: ComfyUI Manager (Recommended)
 
 1. Open ComfyUI Manager
-2. Search for "Metal Diffusion"
+2. Search for "Alloy"
 3. Click Install
 4. Restart ComfyUI
 
@@ -21,10 +21,10 @@ Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI
 
 2. **Link to ComfyUI**:
    ```bash
-   ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/metal-diffusion
+   ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/alloy
    ```
 
-3. **Restart ComfyUI** and the nodes will appear in the "MetalDiffusion" category.
+3. **Restart ComfyUI** and the nodes will appear in the "Alloy" category.
 
 ## Usage
 
@@ -37,7 +37,7 @@ Custom nodes to use Core ML-accelerated transformers (Flux, LTX, Wan) in ComfyUI
 
 ### Method 2: CLI Conversion (Classic)
 
-1. **Convert via CLI**: `metal-diffusion convert ...`
+1. **Convert via CLI**: `alloy convert ...`
 2. **Place in models/unet/**
 3. **Load via `CoreMLFluxLoader`**
 
@@ -70,8 +70,8 @@ The suite includes **8 Custom Nodes**:
 
 ## Troubleshooting
 
-**"Module not found: metal_diffusion"**
-- Ensure you ran `pip install -e .` from the metal-diffusion root directory.
+**"Module not found: alloy"**
+- Ensure you ran `pip install -e .` from the project root directory.
 
 **"Model path not found"**
 - Check that the `.mlpackage` is in `ComfyUI/models/unet/`

@@ -4,7 +4,7 @@
 
 ### Installation Issues
 
-#### "Command not found: metal-diffusion"
+#### "Command not found: alloy"
 **Problem**: The CLI tool is not accessible after installation.
 
 **Solution**:
@@ -14,10 +14,10 @@ pip install -e .
 
 # Or use uv
 uv sync
-uv run metal-diffusion --help
+uv run alloy --help
 ```
 
-#### "No module named 'metal_diffusion'"
+#### "No module named 'alloy'"
 **Problem**: Python cannot find the package.
 
 **Solution**:
@@ -41,7 +41,7 @@ uv run metal-diffusion --help
 **Solutions**:
 1. **Use int4 quantization** (most effective):
    ```bash
-   metal-diffusion convert <model> --quantization int4
+   alloy convert <model> --quantization int4
    ```
 
 2. **Close other applications** to free up RAM
@@ -93,7 +93,7 @@ uv run metal-diffusion --help
 
 2. **Enable verbose logging**:
    ```bash
-   metal-diffusion convert <model> --verbose
+   alloy convert <model> --verbose
    ```
 
 3. **First conversion is always slower** due to downloads
@@ -120,12 +120,12 @@ pip install --upgrade coremltools>=8.0
 **Solutions**:
 1. **Verify model path**: Ensure `.mlpackage` is being loaded
    ```bash
-   metal-diffusion info <path-to-model>
+   alloy info <path-to-model>
    ```
 
 2. **Use int4 quantization** for better ANE utilization:
    ```bash
-   metal-diffusion convert <model> --quantization int4
+   alloy convert <model> --quantization int4
    ```
 
 3. **Check macOS version**: Neural Engine requires macOS 14+ (Sonoma)
@@ -149,7 +149,7 @@ pip install --upgrade coremltools>=8.0
 2. **Model mismatch**: Using wrong model type
    ```bash
    # Ensure type matches actual model
-   metal-diffusion run <path> --type flux
+   alloy run <path> --type flux
    ```
 
 #### "Black/corrupted images"
@@ -159,7 +159,7 @@ pip install --upgrade coremltools>=8.0
 1. **Check VAE**: Ensure VAE is compatible
 2. **Try different seeds**:
    ```bash
-   metal-diffusion run <path> --prompt "..." --seed 42
+   alloy run <path> --prompt "..." --seed 42
    ```
 3. **Reduce steps** (Flux Schnell works best with 4 steps)
 4. **Reconvert model** if issue persists
@@ -169,7 +169,7 @@ pip install --upgrade coremltools>=8.0
 ### ComfyUI Integration Issues
 
 #### "Node not found" in ComfyUI
-**Problem**: Metal Diffusion nodes don't appear.
+**Problem**: Alloy nodes don't appear.
 
 **Solutions**:
 1. **Check symlink**:
@@ -181,7 +181,7 @@ pip install --upgrade coremltools>=8.0
    ```bash
    cd /path/to/metal-diffusion
    pip install -e .
-   ln -sf $(pwd)/comfyui_custom_nodes ~/ComfyUI/custom_nodes/metal-diffusion
+   ln -sf $(pwd)/comfyui_custom_nodes ~/ComfyUI/custom_nodes/alloy
    ```
 
 3. **Restart ComfyUI** completely
@@ -206,17 +206,17 @@ pip install --upgrade coremltools>=8.0
 ### Validation Issues
 
 #### "Validation failed" for converted model
-**Problem**: `metal-diffusion validate` reports errors.
+**Problem**: `alloy validate` reports errors.
 
 **Steps**:
 1. **Check detailed error**:
    ```bash
-   metal-diffusion validate <model> --verbose
+   alloy validate <model> --verbose
    ```
 
 2. **Reconvert with float16** instead of int4:
    ```bash
-   metal-diffusion convert <model> --quantization float16
+   alloy convert <model> --quantization float16
    ```
 
 3. **Verify source model** is not corrupted
@@ -256,17 +256,17 @@ pip install --upgrade coremltools>=8.0
 
 1. **Try validation**:
    ```bash
-   metal-diffusion validate <your-model>
+   alloy validate <your-model>
    ```
 
 2. **Check model info**:
    ```bash
-   metal-diffusion info <your-model>
+   alloy info <your-model>
    ```
 
 3. **Enable verbose logging**:
    ```bash
-   metal-diffusion convert <model> --verbose
+   alloy convert <model> --verbose
    ```
 
 ### Reporting Issues
@@ -277,10 +277,10 @@ Include in your bug report:
 - RAM amount
 - Command used
 - Full error output with `--verbose`
-- Output from `metal-diffusion info <model>`
+- Output from `alloy info <model>`
 
 ### Resources
 
 - **GitHub Issues**: [hybridindie/metal-diffusion](https://github.com/hybridindie/metal-diffusion/issues)
-- **Model Info**: Use `metal-diffusion list-models` to see all converted models
+- **Model Info**: Use `alloy list-models` to see all converted models
 - **Discord/Community**: [Coming soon]

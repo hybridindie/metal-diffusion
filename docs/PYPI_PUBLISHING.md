@@ -9,7 +9,7 @@
 2. **Generate API Tokens**:
    - PyPI: Account settings → API tokens → "Add API token"
    - TestPyPI: Same process on test.pypi.org
-   - Scope: "Entire account" (or specific to metal-diffusion once published)
+   - Scope: "Entire account" (or specific to silicon-alloy once published)
 
 3. **Add Secrets to GitHub**:
    - Go to repository → Settings → Secrets and variables → Actions
@@ -31,7 +31,7 @@ python -m build
 twine check dist/*
 
 # View contents
-tar -tzf dist/metal-diffusion-*.tar.gz
+tar -tzf dist/silicon-alloy-*.tar.gz
 ```
 
 ### Publish to Test PyPI
@@ -41,7 +41,7 @@ tar -tzf dist/metal-diffusion-*.tar.gz
 twine upload --repository testpypi dist/*
 
 # Test installation
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ metal-diffusion
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ silicon-alloy
 ```
 
 ### Publish to PyPI
@@ -51,7 +51,7 @@ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://
 twine upload dist/*
 
 # Verify
-pip install metal-diffusion
+pip install silicon-alloy
 ```
 
 ## Automated Publishing (GitHub Actions)
@@ -120,13 +120,13 @@ After publishing:
 
 1. **Verify installation**:
    ```bash
-   pip install metal-diffusion
+   pip install silicon-alloy
    metal-diffusion --help
    ```
 
 2. **Update README badge**:
    ```markdown
-   ![PyPI](https://img.shields.io/pypi/v/metal-diffusion)
+   ![PyPI](https://img.shields.io/pypi/v/silicon-alloy)
    ```
 
 3. **Announce release** (Twitter, Discord, etc.)

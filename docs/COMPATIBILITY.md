@@ -246,6 +246,6 @@
 ## Updating This Matrix
 
 Found a compatibility issue or tested a new model? Please:
-1. Open an issue on [GitHub](https://github.com/hybridindie/metal-diffusion)
+1. Open an issue on [GitHub](https://github.com/hybridindie/alloy)
 2. Include: macOS version, model name, error details
 3. Tag with `compatibility`

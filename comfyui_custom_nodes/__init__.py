@@ -1,4 +1,4 @@
-# Helper function to find metal-diffusion root
+# Helper function to find alloy root
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/src")
