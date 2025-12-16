@@ -203,24 +203,37 @@ class FluxConverter(ModelConverter):
                     console.print(f"[yellow]Detected single file:[/yellow] {self.model_id}")
                     if not self.loras:
                         # Optimization: Load only transformer for single-file to avoid downloading
-                        # gated/missing VAE/TextEncoders (which triggers Auth check).
                         try:
                             console.print("[dim]Attempting to load transformer only (avoiding full pipeline download)...[/dim]")
-                            # Try local only first to avoid config download
-                            try:
-                                transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32, local_files_only=True)
-                            except Exception:
-                                # Fallback if local config missing (might need to fetch config.json)
-                                # But user wants to avoid DL. Let's try, and warn if it fails.
-                                # Actually, from_single_file might fail if it can't find config in the file or locally.
-                                console.print("[dim]Local config not found, falling back to default (may fetch config)...[/dim]")
-                                transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32)
-                                
+                            
+                            # Workaround: FluxTransformer2DModel from_single_file might try to fetch config
+                            # We can try to provide a minimal config manually if we know it's Flux.1-Dev/Schnell?
+                            # But that's risky. 
+                            # Let's simple enforce local_files_only=True and catch the specific error.
+                            
+                            transformer = FluxTransformer2DModel.from_single_file(
+                                self.model_id, 
+                                torch_dtype=torch.float32, 
+                                local_files_only=True
+                            )
+                            
                             from types import SimpleNamespace
                             self.pipe = SimpleNamespace(transformer=transformer)
                         except Exception as e:
-                            console.print(f"[dim]Transformer-only load failed ({e}), falling back to full pipeline...[/dim]")
-                            self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+                            console.print(f"[dim]Local-only load failed ({e}).[/dim]")
+                            # If we are here, likely config.json is missing or the file is invalid.
+                            # We should NOT blindly fall back to download if we want to avoid authentication.
+                            # But if the user has internet and access, downloading config (1KB) is usually fine.
+                            # The problem is if it's GATED and they are not logged in.
+                            
+                            console.print("[yellow]Warning: Could not load config locally. Attempting to fetch config from Hub (requires Auth if gated)...[/yellow]")
+                            try:
+                                transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32)
+                                from types import SimpleNamespace
+                                self.pipe = SimpleNamespace(transformer=transformer)
+                            except Exception as e_hub:
+                                console.print(f"[red]Failed to load transformer from Hub/File:[/red] {e_hub}")
+                                raise e_hub
                     else:
                         self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
                 else:
@@ -398,6 +411,16 @@ class FluxConverter(ModelConverter):
         )
         
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
+            # Free memory before quantization
+            del traced_model
+            del wrapper
+            del transformer
+            del inputs
+            # Also clear the pipeline ref from self if possible, though convert() holds it?
+            # self.pipe is in convert(), we are in convert_transformer
+            import gc
+            gc.collect()
+            
             if pbar:
                 pbar.set_description(f"Quantizing ({self.quantization})")
             else:
