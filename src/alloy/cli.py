@@ -46,7 +46,7 @@ def main():
     convert_parser = subparsers.add_parser("convert", help="Convert a model to Core ML")
     convert_parser.add_argument("model_id", type=str, help="Hugging Face model ID or path")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
-    convert_parser.add_argument("--quantization", "-q", type=str, default="float16", choices=["float16", "float32", "int8", "int4"], help="Quantization")
+    convert_parser.add_argument("--quantization", "-q", type=str, default=None, choices=["float16", "float32", "int8", "int4"], help="Quantization (defaults to float16, or detects from filename)")
     convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
@@ -117,6 +117,18 @@ def main():
             if not args.type:
                  # ... implementation ...
                  pass
+        
+        # Auto-detect quantization if not specified
+        if args.quantization is None:
+            model_lower = args.model_id.lower()
+            if "int8" in model_lower or "fp8" in model_lower: # Treat fp8 as int8 target for CoreML usually
+                 print("[cyan]Auto-detected quantization: int8[/cyan] (from filename)")
+                 args.quantization = "int8"
+            elif "int4" in model_lower or "q4" in model_lower:
+                 print("[cyan]Auto-detected quantization: int4[/cyan] (from filename)")
+                 args.quantization = "int4"
+            else:
+                 args.quantization = "float16" # Default
 
         if model_type == "flux":
             converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)

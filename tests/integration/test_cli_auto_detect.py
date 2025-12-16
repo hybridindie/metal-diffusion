@@ -109,3 +109,26 @@ def test_cli_auto_detect_failure(mock_detect):
         
         assert excinfo.value.code == 1
 
+@patch("alloy.cli.detect_model_type")
+def test_cli_auto_detect_quantization_int8(mock_detect):
+    """Test auto-detection of int8 quantization from filename."""
+    mock_detect.return_value = "flux"
+    
+    with patch("alloy.cli.FluxConverter") as MockFlux:
+        test_args = ["alloy", "convert", "flux1-dev_fp8.safetensors", "--output-dir", "out"]
+        with patch.object(sys, 'argv', test_args):
+            main()
+            
+        MockFlux.assert_called_with("flux1-dev_fp8.safetensors", "out", "int8", loras=None, controlnet_compatible=False)
+
+@patch("alloy.cli.detect_model_type")
+def test_cli_auto_detect_quantization_default(mock_detect):
+    """Test default float16 if no quantization specified and no filename match."""
+    mock_detect.return_value = "flux"
+    
+    with patch("alloy.cli.FluxConverter") as MockFlux:
+        test_args = ["alloy", "convert", "flux1-dev.safetensors", "--output-dir", "out"]
+        with patch.object(sys, 'argv', test_args):
+            main()
+            
+        MockFlux.assert_called_with("flux1-dev.safetensors", "out", "float16", loras=None, controlnet_compatible=False)
