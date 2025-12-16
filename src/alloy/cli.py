@@ -165,6 +165,13 @@ def main():
                 else:
                      print(f"You requested {target} quantization, which is higher precision than the input.")
                      print("This will increase file size without restoring quality.")
+            
+            # Warning for double quantization (Int8 -> Int4)
+            # If source is already quantized (rank < 2) and we are going lower.
+            elif source_rank < 2:
+                 print(f"[bold yellow]Warning:[/bold yellow] Input model is already quantized ({detected_precision}).")
+                 print(f"Quantizing further to {target} may cause significant quality degradation due to double-quantization artifacts.")
+                 print("It is recommended to use an FP16 or FP32 source model for best results.")
                 
         if model_type == "flux":
             converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)

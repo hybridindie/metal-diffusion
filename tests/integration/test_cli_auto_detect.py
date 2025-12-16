@@ -190,3 +190,20 @@ def test_cli_quantization_warning_upscale(mock_precision, capsys):
     assert "Warning" in captured.out
     assert "higher precision than the input" in captured.out
 
+@patch("alloy.cli.detect_safetensors_precision")
+def test_cli_quantization_warning_double_quant(mock_precision, capsys):
+    """Test warning when user requests double quantization (e.g. Int8 -> Int4)."""
+    mock_precision.return_value = "int8"
+    
+    with patch("alloy.cli.FluxConverter"):
+        with patch("alloy.cli.detect_model_type") as m_type:
+            m_type.return_value = "flux"
+            # User requests int4 on int8 file
+            test_args = ["alloy", "convert", "flux.safetensors", "--quantization", "int4"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+    
+    captured = capsys.readouterr()
+    assert "Warning" in captured.out
+    assert "degradation due to double-quantization" in captured.out
+
