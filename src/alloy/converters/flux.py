@@ -411,32 +411,51 @@ class FluxConverter(ModelConverter):
         )
         
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            # Free memory before quantization
-            del traced_model
-            del wrapper
-            del transformer
-            del inputs
-            # Also clear the pipeline ref from self if possible, though convert() holds it?
-            # self.pipe is in convert(), we are in convert_transformer
-            import gc
-            gc.collect()
+            # OOM Prevention Strategy:
+            # 1. Save unquantized FP16 model to temp disk.
+            # 2. Clear RAM.
+            # 3. Load from disk.
+            # 4. Quantize.
+            # 5. Save final.
             
-            if pbar:
-                pbar.set_description(f"Quantizing ({self.quantization})")
-            else:
-                console.print(f"Applying {self.quantization.capitalize()} quantization...")
+            import tempfile
+            import shutil
             
-            nbits = 4 if self.quantization in ["int4", "4bit", "mixed"] else 8
-            
-            # Use appropriate config based on nbits
-            op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
-                mode="linear_symmetric",
-                dtype="int8" if nbits == 8 else "int4", 
-                weight_threshold=512
-            )
-            config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
-            ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
-            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                intermediate_path = os.path.join(temp_dir, "Flux_Intermediate.mlpackage")
+                console.print(f"[dim]Saving intermediate FP16 model to {intermediate_path} to free RAM...[/dim]")
+                ml_model.save(intermediate_path)
+                
+                # Clear heavy objects
+                del ml_model
+                del traced_model
+                del wrapper
+                del transformer
+                del inputs
+                import gc
+                gc.collect()
+                
+                console.print("[dim]Reloading for quantization...[/dim]")
+                # Load with CPU only for quantization processing to be safe/stable
+                ml_model = ct.models.MLModel(intermediate_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                
+                if pbar:
+                    pbar.set_description(f"Quantizing ({self.quantization})")
+                else:
+                    console.print(f"Applying {self.quantization.capitalize()} quantization...")
+                
+                nbits = 4 if self.quantization in ["int4", "4bit", "mixed"] else 8
+                
+                op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
+                    mode="linear_symmetric",
+                    dtype="int8" if nbits == 8 else "int4", 
+                    weight_threshold=512
+                )
+                config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
+                ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
+                
+        # Final Save
+        console.print(f"[dim]Saving final model to {ml_model_dir}...[/dim]")
         ml_model.save(ml_model_dir)
         if pbar:
             pbar.update(1)

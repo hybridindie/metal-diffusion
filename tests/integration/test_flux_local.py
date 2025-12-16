@@ -54,14 +54,16 @@ def test_flux_local_file_int8_optimization(mock_convert_trans, mock_quantize, mo
 @patch("os.path.isfile")
 @patch("alloy.converters.flux.ct.convert")
 @patch("alloy.converters.flux.ct.optimize.coreml.linear_quantize_weights")
+@patch("alloy.converters.flux.ct.models.MLModel")
 @patch("alloy.converters.flux.torch.jit.trace")
-def test_flux_int8_quantization_flow(mock_trace, mock_quantize, mock_ct_convert, mock_isfile, mock_pipeline, mock_transformer, mock_detect, tmp_path):
+def test_flux_int8_quantization_flow(mock_trace, mock_load_mlmodel, mock_quantize, mock_ct_convert, mock_isfile, mock_pipeline, mock_transformer, mock_detect, tmp_path):
     # Setup
     fake_file = "/path/to/local/flux.safetensors"
     mock_detect.return_value = "flux"
     mock_isfile.return_value = True
     
     mock_trans_instance = MagicMock()
+    # Ensure config present for all lookups
     mock_trans_instance.config.in_channels = 64
     mock_trans_instance.config.num_attention_heads = 4
     mock_trans_instance.config.attention_head_dim = 64
@@ -70,10 +72,17 @@ def test_flux_int8_quantization_flow(mock_trace, mock_quantize, mock_ct_convert,
     
     mock_transformer.from_single_file.return_value = mock_trans_instance
     
-    # Mock coreml model
-    mock_mlmodel = MagicMock()
-    mock_ct_convert.return_value = mock_mlmodel
-    mock_quantize.return_value = MagicMock() # Quantized model
+    # 1. CT Convert returns FP16 model
+    mock_fp16_model = MagicMock()
+    mock_ct_convert.return_value = mock_fp16_model
+    
+    # 2. Re-load from disk returns FP16 model (clean)
+    mock_reloaded = MagicMock()
+    mock_load_mlmodel.return_value = mock_reloaded
+    
+    # 3. Quantize returns Int8 model
+    mock_int8_model = MagicMock()
+    mock_quantize.return_value = mock_int8_model
     
     # Run CLI
     test_args = ["alloy", "convert", fake_file, "--output-dir", str(tmp_path), "--quantization", "int8"]
@@ -82,24 +91,24 @@ def test_flux_int8_quantization_flow(mock_trace, mock_quantize, mock_ct_convert,
         try:
              main()
         except:
-             # It might crash if mocks aren't perfect but we check specific calls
              pass
              
-    # 1. Verify local_files_only called first
-    # We expect from_single_file called with local_files_only=True
-    # It might be called twice if first fails, but here we explicitly succeed it.
-    calls = mock_transformer.from_single_file.call_args_list
-    assert len(calls) > 0
-    # Check at least one call has local_files_only=True
-    assert any(call.kwargs.get('local_files_only') is True for call in calls)
+    # Verifications
     
-    # 2. Verify Quantization
-    # Should call linear_quantize_weights
+    # FP16 model should have been saved (intermediate)
+    # Check mock_fp16_model.save called
+    assert mock_fp16_model.save.called
+    
+    # Should have re-loaded MLModel
+    mock_load_mlmodel.assert_called_once()
+    
+    # Quantize called on RELOADED model
     mock_quantize.assert_called_once()
+    assert mock_quantize.call_args[0][0] == mock_reloaded
     
-    # Check config for int8
-    # optimization config arg
-    config_arg = mock_quantize.call_args[0][1] # 2nd arg
-    # We can't easily inspect the C++ object properties of optimization config in mock?
-    # We can inspect the wrapper creation if we mocked OpLinearQuantizerConfig
-    pass
+    # Final model (Int8) saved
+    assert mock_int8_model.save.called
+    
+    # Verify local_files_only usage
+    calls = mock_transformer.from_single_file.call_args_list
+    assert any(call.kwargs.get('local_files_only') is True for call in calls)
