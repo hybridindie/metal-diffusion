@@ -3,6 +3,7 @@ import coremltools as ct
 from diffusers import LTXVideoTransformer3DModel, LTXPipeline
 from .base import ModelConverter
 import os
+from alloy.utils.coreml import safe_quantize_model
 import shutil
 from typing import Optional, Dict, Any
 
@@ -146,14 +147,8 @@ class LTXConverter(ModelConverter):
             minimum_deployment_target=ct.target.macOS14
         )
         
-        if self.quantization in ["int4", "4bit", "mixed"]:
-            print("Applying Int4 quantization to Transformer...")
-            op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
-                mode="linear_symmetric",
-                weight_threshold=512
-            )
-            config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
-            model = ct.optimize.coreml.linear_quantize_weights(model, config)
+        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
+            model = safe_quantize_model(model, self.quantization)
             
         model.save(ml_model_dir)
         print(f"Transformer converted: {ml_model_dir}")

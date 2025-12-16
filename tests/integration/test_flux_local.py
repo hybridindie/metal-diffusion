@@ -53,8 +53,8 @@ def test_flux_local_file_int8_optimization(mock_convert_trans, mock_quantize, mo
 @patch("alloy.converters.flux.FluxPipeline")
 @patch("os.path.isfile")
 @patch("alloy.converters.flux.ct.convert")
-@patch("alloy.converters.flux.ct.optimize.coreml.linear_quantize_weights")
-@patch("alloy.converters.flux.ct.models.MLModel")
+@patch("alloy.utils.coreml.ct.optimize.coreml.linear_quantize_weights")
+@patch("alloy.utils.coreml.ct.models.MLModel")
 @patch("alloy.converters.flux.torch.jit.trace")
 def test_flux_int8_quantization_flow(mock_trace, mock_load_mlmodel, mock_quantize, mock_ct_convert, mock_isfile, mock_pipeline, mock_transformer, mock_detect, tmp_path):
     # Setup

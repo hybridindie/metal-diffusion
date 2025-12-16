@@ -5,8 +5,10 @@ import os
 import torch
 
 @patch("torch.jit.trace")
+@patch("alloy.utils.coreml.ct.models.MLModel")
+@patch("alloy.utils.coreml.ct.optimize.coreml.linear_quantize_weights")
 @patch("alloy.converters.ltx.ct")
-def test_ltx_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
+def test_ltx_conversion_pipeline_mocked(mock_ct, mock_quantize, mock_mlmodel_cls, mock_trace, tmp_path):
     """
     Test the full LTX conversion flow orchestrator with mocked heavy ops.
     """
@@ -51,7 +53,14 @@ def test_ltx_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
         assert mock_ct.convert.call_count >= 1
         
         # 4. Quantization Called
-        assert mock_ct.optimize.coreml.linear_quantize_weights.call_count >= 1
+        assert mock_quantize.call_count >= 1
         
         # 5. Save Called
-        mock_ct.optimize.coreml.linear_quantize_weights.return_value.save.assert_called()
+        # safe_quantize_model saves intermediate but returns model. 
+        # Converter saves the RETURNED model at end of convert logic?
+        # LTX code:
+        # if quant: model = safe_quantize_model(...)
+        # model.save(ml_model_dir)
+        # So we check if the returned mock from safe_quantize_model (which returns ml_model in real code)
+        # In mock: mock_quantize.return_value is the quantized model.
+        mock_quantize.return_value.save.assert_called()

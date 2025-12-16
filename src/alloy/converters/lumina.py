@@ -6,6 +6,7 @@ import logging
 from .base import ModelConverter
 import numpy as np
 import os
+from alloy.utils.coreml import safe_quantize_model
 
 logger = logging.getLogger(__name__)
 
@@ -158,14 +159,9 @@ class LuminaConverter(ModelConverter):
         )
 
         # Quantize
-        if self.quantization == "int8":
-            from coremltools.optimize.coreml import linear_quantize_weights, OpLinearQuantizerConfig
-            config = OpLinearQuantizerConfig(mode="linear_symmetric", weight_threshold=512)
-            mlmodel = linear_quantize_weights(mlmodel, config=config)
-        elif self.quantization == "int4":
-             from coremltools.optimize.coreml import linear_quantize_weights, OpLinearQuantizerConfig
-             config = OpLinearQuantizerConfig(mode="linear_symmetric", dtype="int4", weight_threshold=512)
-             mlmodel = linear_quantize_weights(mlmodel, config=config)
+        # Quantize
+        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
+            mlmodel = safe_quantize_model(mlmodel, self.quantization)
 
         self._save_model(mlmodel, name)
         logger.info(f"Saved {name}")

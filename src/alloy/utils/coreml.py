@@ -1,0 +1,63 @@
+import os
+import coremltools as ct
+import tempfile
+import shutil
+import gc
+from rich.console import Console
+
+console = Console()
+
+def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
+    """
+    Safely quantizes a Core ML model by offloading the intermediate FP16 model to disk
+    to prevent OOM errors, then reloading and applying quantization.
+    
+    Args:
+        ml_model: The source MLModel object (FP16/FP32).
+        quantization_type (str): "int8", "int4", "mixed", etc.
+        op_config: Optional specific OpLinearQuantizerConfig. If None, defaults are derived from type.
+        pbar: Optional tqdm progress bar to update descriptions.
+        
+    Returns:
+        The quantized MLModel object.
+    """
+    if quantization_type not in ["int4", "4bit", "mixed", "int8", "8bit"]:
+        return ml_model
+
+    # OOM Prevention Strategy:
+    # 1. Save unquantized FP16 model to temp disk.
+    # 2. Clear RAM.
+    # 3. Load from disk.
+    # 4. Quantize.
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        intermediate_path = os.path.join(temp_dir, "Intermediate_Model.mlpackage")
+        console.print(f"[dim]Saving intermediate model to {intermediate_path} to free RAM...[/dim]")
+        ml_model.save(intermediate_path)
+        
+        # Clear heavy objects from memory
+        del ml_model
+        gc.collect()
+        
+        console.print("[dim]Reloading for quantization...[/dim]")
+        # Load with CPU only for quantization processing to be safe/stable
+        ml_model = ct.models.MLModel(intermediate_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+        
+        if pbar:
+            pbar.set_description(f"Quantizing ({quantization_type})")
+        else:
+            console.print(f"Applying {quantization_type.capitalize()} quantization...")
+        
+        nbits = 4 if quantization_type in ["int4", "4bit", "mixed"] else 8
+        
+        if op_config is None:
+            op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
+                mode="linear_symmetric",
+                dtype="int8" if nbits == 8 else "int4", 
+                weight_threshold=512
+            )
+            
+        config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
+        ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
+        
+    return ml_model

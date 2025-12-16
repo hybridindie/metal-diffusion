@@ -9,6 +9,7 @@ from diffusers.models.transformers.transformer_wan import (
 from diffusers.models.attention_dispatch import dispatch_attention_fn
 from typing import Optional, Tuple
 import torch.nn.functional as F
+from alloy.utils.coreml import safe_quantize_model
 
 class WanModelWrapper(torch.nn.Module):
     def __init__(self, model):
@@ -230,21 +231,8 @@ class WanConverter(ModelConverter):
         )
         
         # Quantization
-        if self.quantization in ["int4", "4bit", "mixed"]:
-            print("Applying Int4 quantization to Transformer...")
-            from coremltools.models.neural_network import quantization_utils
-            # Use new compression API if available in ct 8.0+
-            op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
-                mode="linear_symmetric",
-                weight_threshold=512
-            )
-            config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
-            model = ct.optimize.coreml.linear_quantize_weights(model, config)
-            
-            # Since ct.optimize is complex, let's use simple weight generic if needed:
-            # model = ct.compression.quantize(model, nbits=4) # approximate old API
-            # Let's stick to simple palettization for now, using newer API is safer to just save as is if unclear
-            pass
+        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
+            model = safe_quantize_model(model, self.quantization)
 
         model.save(os.path.join(output_dir, "Wan2.1_Transformer.mlpackage"))
         print("Transformer converted.")
