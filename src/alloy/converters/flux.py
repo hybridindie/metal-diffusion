@@ -412,16 +412,35 @@ class FluxConverter(ModelConverter):
         )
         
         # Quantization
+        # Quantization
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            # Clean up local variables before calling util to help GC
-            del traced_model
-            del wrapper
-            del transformer
-            del inputs
-            import gc
-            gc.collect()
+            # OOM Prevention:
+            # For massive models like Flux (24GB+ FP16), we cannot hold the original model in RAM
+            # while loading the one for quantization.
+            # We must:
+            # 1. Save to temp disk.
+            # 2. Delete ALL references to heavy objects (traced_model, ml_model).
+            # 3. GC.
+            # 4. Pass the PATH to safe_quantize_model.
             
-            ml_model = safe_quantize_model(ml_model, self.quantization, pbar=pbar)
+            with tempfile.TemporaryDirectory() as quant_temp_dir:
+                temp_path = os.path.join(quant_temp_dir, "fp16_temp.mlpackage")
+                console.print(f"[dim]Saving FP16 model to {temp_path} to free RAM...[/dim]")
+                ml_model.save(temp_path)
+                
+                # Delete logic variables to free RAM
+                del traced_model
+                del wrapper
+                del transformer
+                del inputs
+                del ml_model
+                
+                import gc
+                gc.collect()
+                
+                # Re-load and quantize from path (safe_quantize_model cleans up its own mess, but we own temp_path)
+                # Note: safe_quantize_model will load it CPU-only and apply quantization.
+                ml_model = safe_quantize_model(temp_path, self.quantization, pbar=pbar)
                 
         # Final Save
         console.print(f"[dim]Saving final model to {ml_model_dir}...[/dim]")

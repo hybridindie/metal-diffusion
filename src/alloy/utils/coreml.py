@@ -7,82 +7,62 @@ from rich.console import Console
 
 console = Console()
 
-def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
+def safe_quantize_model(model_or_path, quantization_type, op_config=None, pbar=None):
     """
-    Safely quantizes a Core ML model by offloading the intermediate FP16 model to disk
-    to prevent OOM errors, then reloading and applying quantization.
+    Safely quantizes a Core ML model. Can accept either an MLModel object or a path to one.
+    If a path is provided, it allows the caller strict control over memory (e.g. deleting the object before calling).
     
     Args:
-        ml_model: The source MLModel object (FP16/FP32).
+        model_or_path: MLModel object OR string path to .mlpackage.
         quantization_type (str): "int8", "int4", "mixed", etc.
-        op_config: Optional specific OpLinearQuantizerConfig. If None, defaults are derived from type.
-        pbar: Optional tqdm progress bar to update descriptions.
+        op_config: Optional specific OpLinearQuantizerConfig.
+        pbar: Optional tqdm progress bar.
         
     Returns:
         The quantized MLModel object.
     """
     if quantization_type not in ["int4", "4bit", "mixed", "int8", "8bit"]:
-        return ml_model
+        # If it's a path and we aren't quantizing, we must load it to return an object
+        if isinstance(model_or_path, str):
+             return ct.models.MLModel(model_or_path)
+        return model_or_path
 
-    # OOM Prevention Strategy:
-    # 1. Save unquantized FP16 model to temp disk.
-    # 2. Clear RAM.
-    # 3. Load from disk.
-    # 4. Quantize.
+    # Stability Fix: Force loky (joblib) to use 1 CPU
+    os.environ["LOKY_MAX_CPU_COUNT"] = "1"
     
-    # Use mkdtemp to control cleanup timing explicitly
-    temp_dir = tempfile.mkdtemp(prefix="alloy_quant_")
+    # Setup paths and cleanup needed?
+    # If input is object: we handle temp file creation/cleanup.
+    # If input is path: we use that path, and DO NOT clean it up (caller owns it).
     
-    # Define a cleanup function
-    def _cleanup():
-        if os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                console.print(f"[dim yellow]Warning: Could not clean up temp dir {temp_dir}: {e}[/dim yellow]")
+    temp_dir_created = None
+    intermediate_path = None
     
-    # Signal handling to ensure cleanup on cancellation (e.g. Ctrl+C)
-    import signal
-    original_sigint = signal.getsignal(signal.SIGINT)
-    original_sigterm = signal.getsignal(signal.SIGTERM)
-    
-    def _signal_handler(signum, frame):
-        console.print(f"\n[bold red]Interrupted! Cleaning up temporary files...[/bold red]")
-        _cleanup()
-        # Restore original handler and forward signal if possible, or exit
-        if callable(original_sigint) and signum == signal.SIGINT:
-             original_sigint(signum, frame)
-        elif callable(original_sigterm) and signum == signal.SIGTERM:
-             original_sigterm(signum, frame)
-        else:
-             import sys
-             sys.exit(1)
-             
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
-
     try:
-        intermediate_path = os.path.join(temp_dir, "Intermediate_Model.mlpackage")
-        console.print(f"[dim]Saving intermediate model to {intermediate_path} to free RAM...[/dim]")
-        ml_model.save(intermediate_path)
-        
-        # Clear heavy objects from memory
-        del ml_model
-        gc.collect()
-        
-        console.print("[dim]Reloading for quantization...[/dim]")
-        # Load with CPU only for quantization processing
-        ml_model = ct.models.MLModel(intermediate_path, compute_units=ct.ComputeUnit.CPU_ONLY)
-        
+        if isinstance(model_or_path, str):
+            intermediate_path = model_or_path
+            console.print("[dim]Loading model from disk for quantization (Memory Optimized)...[/dim]")
+            # Load with CPU only
+            ml_model = ct.models.MLModel(intermediate_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+        else:
+            # It's an object. We must save it to disk to free RAM (if possible, but we can't free caller's ref)
+            # This path is risky for large models, prefer passing path.
+            temp_dir_created = tempfile.mkdtemp(prefix="alloy_quant_")
+            intermediate_path = os.path.join(temp_dir_created, "Intermediate_Model.mlpackage")
+            console.print(f"[dim]Saving intermediate model to {intermediate_path} to free RAM...[/dim]")
+            model_or_path.save(intermediate_path)
+            
+            # Delete local ref
+            del model_or_path
+            gc.collect()
+            
+            console.print("[dim]Reloading for quantization...[/dim]")
+            ml_model = ct.models.MLModel(intermediate_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+
         if pbar:
             pbar.set_description(f"Quantizing ({quantization_type})")
         else:
             console.print(f"Applying {quantization_type.capitalize()} quantization...")
-        
-        # Stability Fix: Force loky (joblib) to use 1 CPU to prevent semaphore leaks/crashes
-        # on macOS during shutdown of parallel workers.
-        os.environ["LOKY_MAX_CPU_COUNT"] = "1"
-        
+            
         nbits = 4 if quantization_type in ["int4", "4bit", "mixed"] else 8
         
         op_config_to_use = op_config
@@ -100,10 +80,11 @@ def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
         gc.collect()
 
     finally:
-        # Restore original signal handlers
-        signal.signal(signal.SIGINT, original_sigint)
-        signal.signal(signal.SIGTERM, original_sigterm)
-        # Execute cleanup
-        _cleanup()
+        # Cleanup ONLY if we created the temp dir
+        if temp_dir_created and os.path.exists(temp_dir_created):
+            try:
+                shutil.rmtree(temp_dir_created)
+            except Exception as e:
+                console.print(f"[dim yellow]Warning: Could not clean up temp dir {temp_dir_created}: {e}[/dim yellow]")
         
     return ml_model
