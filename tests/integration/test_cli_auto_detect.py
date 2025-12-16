@@ -119,14 +119,13 @@ def test_cli_auto_detect_quantization_int8():
         with patch("alloy.cli.FluxConverter") as MockFlux:
             test_args = ["alloy", "convert", "flux_model_int8.safetensors", "--output-dir", "out"]
             with patch.object(sys, 'argv', test_args):
-                # Expect FluxConverter called with float16 (Guard triggered because source is int8)
-                # Expect FluxConverter called with float16 (Guard triggered because source is int8)
-                # To get int8, user must use --force-quantization
+                # Expect FluxConverter called with int8 (Allowed)
+                # Guard no longer downgrades, just warns/notes.
                 main()
                 MockFlux.assert_called()
                 call_args = MockFlux.call_args
                 # Call args: (name, out, quant, ...)
-                assert call_args[0][2] == "float16"
+                assert call_args[0][2] == "int8"
 
 @patch("alloy.cli.detect_model_type")
 def test_cli_auto_detect_quantization_default(mock_detect):
@@ -160,9 +159,9 @@ def test_cli_auto_detect_quantization_robust_int8(mock_detect):
                 main()
                 
             # Should follow robust detection
-            # Expect FluxConverter called with float16 (Guard triggered)
+            # Expect FluxConverter called with int8 (Allowed)
             mock_precision.assert_called_with("flux_model.safetensors")
-            MockFlux.assert_called_with("flux_model.safetensors", "out", "float16", loras=None, controlnet_compatible=False)
+            MockFlux.assert_called_with("flux_model.safetensors", "out", "int8", loras=None, controlnet_compatible=False)
 
 @patch("alloy.cli.detect_safetensors_precision")
 def test_cli_quantization_guard_redundant_skip(mock_precision, capsys):
@@ -178,14 +177,15 @@ def test_cli_quantization_guard_redundant_skip(mock_precision, capsys):
             with patch.object(sys, 'argv', test_args):
                 main()
                 
-            # Expect FluxConverter called with float16 (guard skipped it)
+            # Expect FluxConverter called with int8 (Allowed because user wants to maintain size)
             # Args pass: (id, out, quantization, ...)
-            args, _ = MockFlux.call_args
-            assert args[2] == "float16"
+            MockFlux.assert_called()
+            call_args = MockFlux.call_args
+            assert call_args[0][2] == "int8"
 
     captured = capsys.readouterr()
-    assert "Skipping quantization" in captured.out
-    assert "Output will be Float16" in captured.out
+    assert "Applying int8 quantization to output to maintain file size" in captured.out
+    assert "involves re-quantization" in captured.out
 
 @patch("alloy.cli.detect_safetensors_precision")
 def test_cli_quantization_guard_redundant_force(mock_precision, capsys):

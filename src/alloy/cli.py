@@ -153,12 +153,9 @@ def main():
              
              if target == detected_precision and target in ["int8", "int4"]:
                  if not args.force_quantization:
-                     print(f"[bold yellow]Warning:[/bold yellow] Input model is detected as {detected_precision}.")
-                     print(f"[bold yellow]Requested quantization ({target}) matches input.[/bold yellow]")
-                     print("Re-quantizing an already quantized model degrades quality (double noise).")
-                     print("[green]Action: Skipping quantization step (Output will be Float16).[/green]")
-                     print("Use [bold]--force-quantization[/bold] to override and compress anyway.")
-                     args.quantization = "float16" # Disable quantization
+                     print(f"[bold yellow]Note:[/bold yellow] Input model is detected as {detected_precision}.")
+                     print(f"Applying {target} quantization to output to maintain file size.")
+                     print("(Note: This involves re-quantization which may introduce minor noise).")
                  else:
                      print(f"[yellow]Forcing re-quantization ({target} -> {target}) as requested.[/yellow]")
 
