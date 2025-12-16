@@ -32,7 +32,15 @@ load_dotenv()
 DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", "converted_models")
 
 def main():
-    parser = argparse.ArgumentParser(description="Diffusion to Core ML Converter")
+    # Setup console
+    console = Console()
+    
+    # Opportunistic cleanup of old temp files from crashes
+    cleaned = cleanup_old_temp_files(max_age_hours=1)
+    if cleaned > 0:
+        console.print(f"[dim]Cleaned up {cleaned} old temporary directory(s) from previous runs.[/dim]")
+    
+    parser = argparse.ArgumentParser(description="Alloy: CLI for Core ML Diffusion Models")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress all output except errors")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")

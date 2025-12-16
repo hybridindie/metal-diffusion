@@ -43,3 +43,37 @@ def detect_model_type(model_path):
         return None
     
     return None
+
+import shutil
+import tempfile
+import time
+
+def cleanup_old_temp_files(prefix="alloy_quant_", max_age_hours=1):
+    """
+    Cleans up old temporary directories created by Alloy that might have been left over due to crashes.
+    """
+    temp_base = tempfile.gettempdir()
+    count = 0
+    now = time.time()
+    
+    try:
+        if not os.path.exists(temp_base):
+            return 0
+            
+        for filename in os.listdir(temp_base):
+            if filename.startswith(prefix):
+                full_path = os.path.join(temp_base, filename)
+                if os.path.isdir(full_path):
+                    try:
+                        # Check age
+                        stat = os.stat(full_path)
+                        age_hours = (now - stat.st_mtime) / 3600
+                        if age_hours > max_age_hours:
+                            shutil.rmtree(full_path)
+                            count += 1
+                    except Exception:
+                        pass # Ignore permission errors etc
+    except Exception:
+        pass
+        
+    return count
