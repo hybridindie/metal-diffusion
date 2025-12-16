@@ -153,9 +153,8 @@ def main():
              
              if target == detected_precision and target in ["int8", "int4"]:
                  if not args.force_quantization:
-                     print(f"[bold yellow]Note:[/bold yellow] Input model is detected as {detected_precision}.")
-                     print(f"Applying {target} quantization to output to maintain file size.")
-                     print("(Note: This involves re-quantization which may introduce minor noise).")
+                     print(f"[bold yellow]Note:[/bold yellow] Re-quantizing to {target} to maintain source file size.")
+                     print("(This allows Core ML conversion without expanding usage to Float16).")
                  else:
                      print(f"[yellow]Forcing re-quantization ({target} -> {target}) as requested.[/yellow]")
 

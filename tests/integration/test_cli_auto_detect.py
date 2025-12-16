@@ -184,8 +184,8 @@ def test_cli_quantization_guard_redundant_skip(mock_precision, capsys):
             assert call_args[0][2] == "int8"
 
     captured = capsys.readouterr()
-    assert "Applying int8 quantization to output to maintain file size" in captured.out
-    assert "involves re-quantization" in captured.out
+    assert "Re-quantizing to int8 to maintain source file size" in captured.out
+    assert "expanding usage to Float16" in captured.out
 
 @patch("alloy.cli.detect_safetensors_precision")
 def test_cli_quantization_guard_redundant_force(mock_precision, capsys):
