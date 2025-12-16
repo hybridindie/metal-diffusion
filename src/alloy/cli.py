@@ -118,25 +118,54 @@ def main():
                  # ... implementation ...
                  pass
         
+        # 1. Try robust file inspection
+        detected_precision = detect_safetensors_precision(args.model_id)
+        
+        user_specified_quantization = args.quantization is not None
+        
         # Auto-detect quantization if not specified
         if args.quantization is None:
-            # 1. Try robust file inspection
-            precision = detect_safetensors_precision(args.model_id)
-            if precision:
-                print(f"[cyan]Auto-detected quantization: {precision}[/cyan] (from metadata)")
-                args.quantization = precision
+            if detected_precision:
+                print(f"[cyan]Auto-detected quantization: {detected_precision}[/cyan] (from metadata)")
+                args.quantization = detected_precision
             else:
                 # 2. Fallback to filename heuristic
                 model_lower = args.model_id.lower()
                 if "int8" in model_lower or "fp8" in model_lower: 
                      print("[cyan]Auto-detected quantization: int8[/cyan] (from filename)")
                      args.quantization = "int8"
+                     detected_precision = "int8" # Treat as detected
                 elif "int4" in model_lower or "q4" in model_lower:
                      print("[cyan]Auto-detected quantization: int4[/cyan] (from filename)")
                      args.quantization = "int4"
+                     detected_precision = "int4" # Treat as detected
                 else:
                      args.quantization = "float16" # Default
 
+        # Warning for same or lesser quantization (higher precision)
+        if user_specified_quantization and detected_precision:
+            # Rank: int4(0) < int8(1) < float16(2) < float32(3)
+            # We only strictly detect int4 and int8 currently.
+            # detected_precision is 'int4' or 'int8' (or None)
+            
+            ranks = {"int4": 0, "int8": 1, "float16": 2, "float32": 3}
+            # Handle aliases
+            target = args.quantization
+            if target == "4bit": target = "int4"
+            if target == "8bit": target = "int8"
+            
+            source_rank = ranks.get(detected_precision, 3)
+            target_rank = ranks.get(target, 2)
+            
+            if target_rank >= source_rank:
+                print(f"[bold yellow]Warning:[/bold yellow] Input model is detected as {detected_precision}.")
+                if target_rank == source_rank:
+                     print(f"You requested {target} quantization, which is the same as the input.")
+                     print("This may be redundant and effectively just copy the weights (or re-quantize them).")
+                else:
+                     print(f"You requested {target} quantization, which is higher precision than the input.")
+                     print("This will increase file size without restoring quality.")
+                
         if model_type == "flux":
             converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)
         elif model_type == "flux-controlnet":
