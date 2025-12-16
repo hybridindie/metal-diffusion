@@ -201,7 +201,19 @@ class FluxConverter(ModelConverter):
             try:
                 if os.path.isfile(self.model_id):
                     console.print(f"[yellow]Detected single file:[/yellow] {self.model_id}")
-                    self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+                    if not self.loras:
+                        # Optimization: Load only transformer for single-file to avoid downloading
+                        # gated/missing VAE/TextEncoders (which triggers Auth check).
+                        try:
+                            console.print("[dim]Attempting to load transformer only (avoiding full pipeline download)...[/dim]")
+                            transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32)
+                            from types import SimpleNamespace
+                            self.pipe = SimpleNamespace(transformer=transformer)
+                        except Exception as e:
+                            console.print(f"[dim]Transformer-only load failed ({e}), falling back to full pipeline...[/dim]")
+                            self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+                    else:
+                        self.pipe = FluxPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
                 else:
                     console.print(f"[cyan]Loading from HF:[/cyan] {self.model_id}")
                     self.pipe = DiffusionPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
