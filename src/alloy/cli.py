@@ -47,6 +47,7 @@ def main():
     convert_parser.add_argument("model_id", type=str, help="Hugging Face model ID or path")
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", "-q", type=str, default=None, choices=["float16", "float32", "int8", "int4"], help="Quantization (defaults to float16, or detects from filename)")
+    convert_parser.add_argument("--force-quantization", action="store_true", help="Force quantization even if it appears redundant (e.g. Int8 -> Int8)")
     convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
@@ -112,11 +113,6 @@ def main():
             else:
                  print("Could not auto-detect model type. Please specify --type.")
                  sys.exit(1)
-
-            # Try to detect model type from file header
-            if not args.type:
-                 # ... implementation ...
-                 pass
         
         # 1. Try robust file inspection
         detected_precision = detect_safetensors_precision(args.model_id)
@@ -127,6 +123,10 @@ def main():
         if args.quantization is None:
             if detected_precision:
                 print(f"[cyan]Auto-detected quantization: {detected_precision}[/cyan] (from metadata)")
+                # Don't set args.quantization yet, we might want to default to float16 to skip redundant quant
+                # But 'auto-detect' implies we want the model to BE that precision.
+                # However, since input IS that precision, to get output of that precision, we must quantize (since Core ML inflate).
+                # Wait, if I set args.quantization = int8, later logic will trigger.
                 args.quantization = detected_precision
             else:
                 # 2. Fallback to filename heuristic
@@ -142,11 +142,29 @@ def main():
                 else:
                      args.quantization = "float16" # Default
 
-        # Warning for same or lesser quantization (higher precision)
+        # Guard against redundant quantization (Same Level)
+        # If source is Int8 and target is Int8.
+        # This re-calcuation degrades quality.
+        if detected_precision:
+             target = args.quantization
+             # Aliases
+             if target == "4bit": target = "int4"
+             if target == "8bit": target = "int8"
+             
+             if target == detected_precision and target in ["int8", "int4"]:
+                 if not args.force_quantization:
+                     print(f"[bold yellow]Warning:[/bold yellow] Input model is detected as {detected_precision}.")
+                     print(f"[bold yellow]Requested quantization ({target}) matches input.[/bold yellow]")
+                     print("Re-quantizing an already quantized model degrades quality (double noise).")
+                     print("[green]Action: Skipping quantization step (Output will be Float16).[/green]")
+                     print("Use [bold]--force-quantization[/bold] to override and compress anyway.")
+                     args.quantization = "float16" # Disable quantization
+                 else:
+                     print(f"[yellow]Forcing re-quantization ({target} -> {target}) as requested.[/yellow]")
+
+        # Warning for lesser quantization (Upscale) or Double Quant (Int8->Int4)
         if user_specified_quantization and detected_precision:
             # Rank: int4(0) < int8(1) < float16(2) < float32(3)
-            # We only strictly detect int4 and int8 currently.
-            # detected_precision is 'int4' or 'int8' (or None)
             
             ranks = {"int4": 0, "int8": 1, "float16": 2, "float32": 3}
             # Handle aliases
@@ -157,18 +175,13 @@ def main():
             source_rank = ranks.get(detected_precision, 3)
             target_rank = ranks.get(target, 2)
             
-            if target_rank >= source_rank:
-                print(f"[bold yellow]Warning:[/bold yellow] Input model is detected as {detected_precision}.")
-                if target_rank == source_rank:
-                     print(f"You requested {target} quantization, which is the same as the input.")
-                     print("This may be redundant and effectively just copy the weights (or re-quantize them).")
-                else:
-                     print(f"You requested {target} quantization, which is higher precision than the input.")
-                     print("This will increase file size without restoring quality.")
+            if target_rank > source_rank:
+                 print(f"[bold yellow]Warning:[/bold yellow] Input ({detected_precision}) has lower precision than target ({target}).")
+                 print("This will increase file size without restoring quality.")
             
             # Warning for double quantization (Int8 -> Int4)
             # If source is already quantized (rank < 2) and we are going lower.
-            elif source_rank < 2:
+            elif source_rank < 2 and target_rank < source_rank:
                  print(f"[bold yellow]Warning:[/bold yellow] Input model is already quantized ({detected_precision}).")
                  print(f"Quantizing further to {target} may cause significant quality degradation due to double-quantization artifacts.")
                  print("It is recommended to use an FP16 or FP32 source model for best results.")
