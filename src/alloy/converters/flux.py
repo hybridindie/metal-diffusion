@@ -206,7 +206,16 @@ class FluxConverter(ModelConverter):
                         # gated/missing VAE/TextEncoders (which triggers Auth check).
                         try:
                             console.print("[dim]Attempting to load transformer only (avoiding full pipeline download)...[/dim]")
-                            transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32)
+                            # Try local only first to avoid config download
+                            try:
+                                transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32, local_files_only=True)
+                            except Exception:
+                                # Fallback if local config missing (might need to fetch config.json)
+                                # But user wants to avoid DL. Let's try, and warn if it fails.
+                                # Actually, from_single_file might fail if it can't find config in the file or locally.
+                                console.print("[dim]Local config not found, falling back to default (may fetch config)...[/dim]")
+                                transformer = FluxTransformer2DModel.from_single_file(self.model_id, torch_dtype=torch.float32)
+                                
                             from types import SimpleNamespace
                             self.pipe = SimpleNamespace(transformer=transformer)
                         except Exception as e:
@@ -388,13 +397,18 @@ class FluxConverter(ModelConverter):
             minimum_deployment_target=ct.target.macOS14
         )
         
-        if self.quantization in ["int4", "4bit", "mixed"]:
+        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
             if pbar:
                 pbar.set_description(f"Quantizing ({self.quantization})")
             else:
                 console.print(f"Applying {self.quantization.capitalize()} quantization...")
+            
+            nbits = 4 if self.quantization in ["int4", "4bit", "mixed"] else 8
+            
+            # Use appropriate config based on nbits
             op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
                 mode="linear_symmetric",
+                dtype="int8" if nbits == 8 else "int4", 
                 weight_threshold=512
             )
             config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
