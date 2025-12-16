@@ -132,3 +132,27 @@ def test_cli_auto_detect_quantization_default(mock_detect):
             main()
             
         MockFlux.assert_called_with("flux1-dev.safetensors", "out", "float16", loras=None, controlnet_compatible=False)
+
+@patch("alloy.cli.detect_model_type")
+def test_cli_auto_detect_quantization_robust_int8(mock_detect):
+    """Test auto-detection via robust safetensors inspection."""
+    mock_detect.return_value = "flux"
+    
+    # Mock the precision detector directly, or mock safe_open?
+    # Mocking detect_safetensors_precision is cleaner for CLI test, 
+    # assuming we test detect_safetensors_precision separately (or trust it for now).
+    # Since we imported it in CLI, we can patch it in alloy.cli
+    
+    with patch("alloy.cli.detect_safetensors_precision") as mock_precision:
+        mock_precision.return_value = "int8"
+        
+        with patch("alloy.cli.FluxConverter") as MockFlux:
+            # Filename implies nothing
+            test_args = ["alloy", "convert", "flux_model.safetensors", "--output-dir", "out"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+                
+            # Should follow robust detection
+            mock_precision.assert_called_with("flux_model.safetensors")
+            MockFlux.assert_called_with("flux_model.safetensors", "out", "int8", loras=None, controlnet_compatible=False)
+

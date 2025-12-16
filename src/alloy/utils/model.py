@@ -117,3 +117,54 @@ def list_models(directory):
         
     except Exception as e:
         console.print(f"[red]Error listing models:[/red] {str(e)}")
+
+
+def detect_safetensors_precision(file_path):
+    """
+    Inspects a safetensors file to detect the precision of its weights.
+    Returns: 'int8', 'float16', 'float32', or None
+    """
+    try:
+        from safetensors import safe_open
+    except ImportError:
+        console.print("[dim]safetensors not installed, skipping precision check.[/dim]")
+        return None
+
+    if not str(file_path).endswith(".safetensors"):
+        return None
+
+    try:
+        with safe_open(file_path, framework="pt", device="cpu") as f:
+            keys = f.keys()
+            # Check a few keys to guess precision
+            # We look for 'weight' tensors, avoiding bias or embeddings which might differ
+            sample_keys = [k for k in keys if "weight" in k and "norm" not in k][:5]
+            if not sample_keys:
+                sample_keys = keys[:5]
+            
+            dtypes = set()
+            for k in sample_keys:
+                # safe_open doesn't give dtype directly without loading? 
+                # Actually, f.get_tensor_dtype(k) doesn't exist?
+                # Need to use f.get_slice(k).get_shape() ??
+                # Wait, looking at safetensors API, we might need a workaround if get_dtype isn't available.
+                # Actually, we can just load one small tensor.
+                # OR inspect metadata? 
+                # Let's try loading one small tensor.
+                t = f.get_tensor(k)
+                dtypes.add(str(t.dtype))
+                del t
+            
+            # Heuristic
+            # torch.float8_e4m3fn -> 'torch.float8_e4m3fn'
+            # torch.int8 -> 'torch.int8'
+            
+            for d in dtypes:
+                if "float8" in d or "int8" in d:
+                    return "int8"
+                if "int4" in d:
+                    return "int4"
+    except Exception as e:
+         console.print(f"[dim]Precision check failed: {e}[/dim]")
+         
+    return None

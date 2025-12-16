@@ -16,7 +16,7 @@ from alloy.runners.hunyuan import HunyuanCoreMLRunner
 from alloy.runners.lumina import LuminaCoreMLRunner
 from alloy.runners.base import run_sd_pipeline, WanCoreMLRunner
 
-from alloy.utils.model import validate_model, show_model_info, list_models
+from alloy.utils.model import validate_model, show_model_info, list_models, detect_safetensors_precision
 from alloy.utils.hf import HFManager
 from alloy.utils.general import detect_model_type
 from dotenv import load_dotenv
@@ -120,15 +120,22 @@ def main():
         
         # Auto-detect quantization if not specified
         if args.quantization is None:
-            model_lower = args.model_id.lower()
-            if "int8" in model_lower or "fp8" in model_lower: # Treat fp8 as int8 target for CoreML usually
-                 print("[cyan]Auto-detected quantization: int8[/cyan] (from filename)")
-                 args.quantization = "int8"
-            elif "int4" in model_lower or "q4" in model_lower:
-                 print("[cyan]Auto-detected quantization: int4[/cyan] (from filename)")
-                 args.quantization = "int4"
+            # 1. Try robust file inspection
+            precision = detect_safetensors_precision(args.model_id)
+            if precision:
+                print(f"[cyan]Auto-detected quantization: {precision}[/cyan] (from metadata)")
+                args.quantization = precision
             else:
-                 args.quantization = "float16" # Default
+                # 2. Fallback to filename heuristic
+                model_lower = args.model_id.lower()
+                if "int8" in model_lower or "fp8" in model_lower: 
+                     print("[cyan]Auto-detected quantization: int8[/cyan] (from filename)")
+                     args.quantization = "int8"
+                elif "int4" in model_lower or "q4" in model_lower:
+                     print("[cyan]Auto-detected quantization: int4[/cyan] (from filename)")
+                     args.quantization = "int4"
+                else:
+                     args.quantization = "float16" # Default
 
         if model_type == "flux":
             converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)
