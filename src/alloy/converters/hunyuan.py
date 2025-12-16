@@ -41,10 +41,15 @@ class HunyuanConverter(ModelConverter):
         # We try to load into CPU + float16 to save RAM, but tracing needs float32 usually.
         # Let's start with float32 for safety in tracing, user needs big RAM.
         try:
-            pipe = HunyuanVideoPipeline.from_pretrained(self.model_id)
+            if os.path.isfile(self.model_id):
+                 print(f"Detected single file checkpoint: {self.model_id}")
+                 print("Error: Single file loading is not yet supported for HunyuanVideo in this version of Diffusers.")
+                 print("Please provide a Hugging Face model ID or a local directory.")
+                 return
+            else:
+                 pipe = HunyuanVideoPipeline.from_pretrained(self.model_id)
         except Exception as e:
-            print(f"Failed to load pipeline: {e}. Trying to load transformer only.")
-            # Fallback (though pipe is needed for tokenizer usually, but we barely use it here)
+            print(f"Failed to load pipeline: {e}.")
             raise e
 
         ml_model_dir = os.path.join(self.output_dir, "HunyuanVideo_Transformer.mlpackage")

@@ -144,15 +144,21 @@ class WanConverter(ModelConverter):
         
         # Load pipeline to get components
         # We use torch_dtype=float16 to save memory during load, but might need float32 for tracing if ops fail
-        try:
-            pipe = WanPipeline.from_pretrained(
-                self.model_id, 
-                torch_dtype=torch.float16,
-                variant="fp16" # Assuming fp16 variant exists for the Diffusers repo
-            )
-        except:
-             print("Loading standard variant...")
-             pipe = WanPipeline.from_pretrained(self.model_id, torch_dtype=torch.float16)
+        if os.path.isfile(self.model_id):
+            print(f"Detected single file checkpoint: {self.model_id}")
+            print("Error: Single file loading is not yet supported for Wan 2.1 in this version of Diffusers.")
+            print("Please provide a Hugging Face model ID or a local directory.")
+            return # Or raise
+        else:
+            try:
+                pipe = WanPipeline.from_pretrained(
+                    self.model_id, 
+                    torch_dtype=torch.float16,
+                    variant="fp16"
+                )
+            except:
+                 print("Loading standard variant...")
+                 pipe = WanPipeline.from_pretrained(self.model_id, torch_dtype=torch.float16)
 
         # Create output directories
         ml_model_dir = self.output_dir

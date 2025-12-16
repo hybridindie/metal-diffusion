@@ -5,6 +5,7 @@ from typing import Dict, Any, Tuple, Optional
 import logging
 from .base import ModelConverter
 import numpy as np
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,21 @@ class LuminaConverter(ModelConverter):
         if self.pipe is None:
             logger.info(f"Loading Lumina pipeline: {self.model_id}")
             from diffusers import Lumina2Pipeline
-            self.pipe = Lumina2Pipeline.from_pretrained(
-                self.model_id,
-                torch_dtype=torch.float16 if self.quantization != "float32" else torch.float32
-            )
+            if os.path.isfile(self.model_id):
+                 logger.info(f"Loading single file: {self.model_id}")
+                 logger.error("Single file loading is not yet supported for Lumina-Image 2.0 in this version of Diffusers.")
+                 return
+            else:
+                self.pipe = Lumina2Pipeline.from_pretrained(
+                    self.model_id,
+                    torch_dtype=torch.float16 if self.quantization != "float32" else torch.float32
+                )
         return self.pipe
 
     def convert(self):
         pipeline = self._get_pipeline()
+        if pipeline is None:
+            return
         
         # 1. Convert Text Encoder (Gemma 2B)
         self.convert_text_encoder(pipeline.text_encoder, pipeline.tokenizer)
