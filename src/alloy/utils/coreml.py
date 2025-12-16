@@ -79,6 +79,10 @@ def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
         else:
             console.print(f"Applying {quantization_type.capitalize()} quantization...")
         
+        # Stability Fix: Force loky (joblib) to use 1 CPU to prevent semaphore leaks/crashes
+        # on macOS during shutdown of parallel workers.
+        os.environ["LOKY_MAX_CPU_COUNT"] = "1"
+        
         nbits = 4 if quantization_type in ["int4", "4bit", "mixed"] else 8
         
         op_config_to_use = op_config
