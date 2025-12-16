@@ -30,7 +30,11 @@ def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
     # 3. Load from disk.
     # 4. Quantize.
     
-    with tempfile.TemporaryDirectory() as temp_dir:
+    # Use mkdtemp instead of TemporaryDirectory context manager to control cleanup timing 
+    # and prevent race conditions with backend processes.
+    temp_dir = tempfile.mkdtemp(prefix="alloy_quant_")
+    
+    try:
         intermediate_path = os.path.join(temp_dir, "Intermediate_Model.mlpackage")
         console.print(f"[dim]Saving intermediate model to {intermediate_path} to free RAM...[/dim]")
         ml_model.save(intermediate_path)
@@ -59,5 +63,15 @@ def safe_quantize_model(ml_model, quantization_type, op_config=None, pbar=None):
             
         config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
         ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
+        
+        # Force cleanup of any lingering internal states from optimization
+        gc.collect()
+
+    finally:
+        # cleanup temp dir
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            console.print(f"[dim yellow]Warning: Could not clean up temp dir {temp_dir}: {e}[/dim yellow]")
         
     return ml_model
