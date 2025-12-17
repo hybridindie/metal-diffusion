@@ -1,7 +1,7 @@
 [project]
 name = "silicon-alloy"
-version = "0.2.2"
-description = "High-performance Core ML diffusion toolchain for Apple Silicon"
+version = "0.3.0"
+description = "High-performance Core ML diffusion model converter"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
