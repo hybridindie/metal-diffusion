@@ -39,20 +39,75 @@ class LuminaConverter(ModelConverter):
         return self.pipe
 
     def convert(self):
+        # 1. Download Sources if Repo
+        if "/" in self.model_id and not os.path.isfile(self.model_id):
+            logger.info("Downloading original model weights to output folder...")
+            try:
+                from huggingface_hub import snapshot_download
+                source_dir = os.path.join(self.output_dir, "source")
+                snapshot_download(
+                    repo_id=self.model_id,
+                    local_dir=source_dir,
+                    allow_patterns=["transformer/*", "config.json", "*.json", "*.safetensors"],
+                    ignore_patterns=["*.msgpack", "*.bin"]
+                )
+                self.model_id = source_dir
+                logger.info(f"Originals saved to: {source_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to download source originals ({e}). Proceeding with remote load...")
+
         pipeline = self._get_pipeline()
         if pipeline is None:
             return
         
-        # 1. Convert Text Encoder (Gemma 2B)
-        self.convert_text_encoder(pipeline.text_encoder, pipeline.tokenizer)
+        # Persistent intermediates
+        intermediates_dir = os.path.join(self.output_dir, "intermediates")
+        os.makedirs(intermediates_dir, exist_ok=True)
 
-        # 2. Convert Transformer (DiT)
-        self.convert_transformer(pipeline.transformer)
-        
-        # 3. VAE (Standard SDXL/SD3 VAE usually, or similar)
-        # Check if it's the standard AutoencoderKL
-        if hasattr(pipeline, "vae"):
-            self.convert_vae(pipeline.vae)
+        try:
+            import gc
+            import shutil
+            
+            # 1. Convert Text Encoder (Gemma 2B)
+            # self.convert_text_encoder(pipeline.text_encoder, pipeline.tokenizer)
+
+            # 2. Convert Transformer (DiT)
+            transformer_name = "Lumina2_Transformer"
+            intermediate_model_path = os.path.join(intermediates_dir, transformer_name + ".mlpackage")
+            final_model_path = os.path.join(self.output_dir, transformer_name + ".mlpackage")
+            
+            if os.path.exists(intermediate_model_path):
+                 logger.info(f"Found existing intermediate at {intermediate_model_path}. Resuming...")
+                 try:
+                     ct.models.MLModel(intermediate_model_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                 except:
+                     logger.warning("Invalid intermediate. Re-converting...")
+                     shutil.rmtree(intermediate_model_path)
+                     self.convert_transformer(pipeline.transformer, intermediates_dir)
+            elif os.path.exists(final_model_path):
+                 logger.info(f"Final model exists at {final_model_path}. Skipping.")
+            else:
+                 self.convert_transformer(pipeline.transformer, intermediates_dir)
+            
+            # 3. VAE
+            if hasattr(pipeline, "vae"):
+                self.convert_vae(pipeline.vae)
+                
+            # Move to final
+            if os.path.exists(intermediate_model_path) and not os.path.exists(final_model_path):
+                 logger.info(f"Moving {transformer_name} to final location...")
+                 shutil.move(intermediate_model_path, final_model_path)
+                 
+            # Cleanup
+            logger.info("Cleaning up intermediates...")
+            del pipeline
+            self.pipe = None
+            gc.collect()
+            shutil.rmtree(intermediates_dir)
+
+        except Exception as e:
+            logger.error(f"Intermediates left in {intermediates_dir}")
+            raise e
 
     def convert_text_encoder(self, text_encoder, tokenizer):
         name = "Gemma2_TextEncoder"
@@ -103,7 +158,7 @@ class LuminaConverter(ModelConverter):
         self._save_model(mlmodel, name)
         logger.info(f"Saved {name}")
 
-    def convert_transformer(self, transformer):
+    def convert_transformer(self, transformer, intermediates_dir=None):
         name = "Lumina2_Transformer"
         logger.info(f"Converting {name}...")
 
@@ -160,11 +215,13 @@ class LuminaConverter(ModelConverter):
 
         # Quantize
         # Quantize
+        # Quantize
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            mlmodel = safe_quantize_model(mlmodel, self.quantization)
-
-        self._save_model(mlmodel, name)
-        logger.info(f"Saved {name}")
+            mlmodel = safe_quantize_model(mlmodel, self.quantization, intermediate_dir=intermediates_dir)
+ 
+        save_path = os.path.join(intermediates_dir, name + ".mlpackage")
+        mlmodel.save(save_path)
+        logger.info(f"Saved {name} to {save_path}")
     
     def convert_vae(self, vae):
         # reuse standard VAE conversion or generic one

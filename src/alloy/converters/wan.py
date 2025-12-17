@@ -150,34 +150,86 @@ class WanConverter(ModelConverter):
             print("Error: Single file loading is not yet supported for Wan 2.1 in this version of Diffusers.")
             print("Please provide a Hugging Face model ID or a local directory.")
             return # Or raise
-        else:
-            try:
-                pipe = WanPipeline.from_pretrained(
-                    self.model_id, 
-                    torch_dtype=torch.float16,
-                    variant="fp16"
-                )
-            except:
-                 print("Loading standard variant...")
-                 pipe = WanPipeline.from_pretrained(self.model_id, torch_dtype=torch.float16)
-
         # Create output directories
         ml_model_dir = self.output_dir
-        if not os.path.exists(ml_model_dir):
-            os.makedirs(ml_model_dir)
+        if os.path.exists(ml_model_dir):
+            if not os.path.exists(os.path.join(ml_model_dir, "intermediates")):
+                 # Only if fully finished?
+                 pass 
+        
+        os.makedirs(ml_model_dir, exist_ok=True)
+        intermediates_dir = os.path.join(ml_model_dir, "intermediates")
+        os.makedirs(intermediates_dir, exist_ok=True)
+        
+        # Download Sources if Repo
+        if "/" in self.model_id and not os.path.isfile(self.model_id):
+            print("Downloading original model weights to output folder...")
+            try:
+                from huggingface_hub import snapshot_download
+                source_dir = os.path.join(ml_model_dir, "source")
+                snapshot_download(
+                    repo_id=self.model_id,
+                    local_dir=source_dir,
+                    allow_patterns=["transformer/*", "vae/*", "text_encoder/*", "config.json", "*.json", "*.safetensors"],
+                    ignore_patterns=["*.msgpack", "*.bin"]
+                )
+                self.model_id = source_dir
+                print(f"Originals saved to: {source_dir}")
+            except Exception as e:
+                print(f"Warning: Failed to download source originals ({e}). Proceeding with remote load...")
 
-        # 1. Convert Transformer (The big one)
-        self.convert_transformer(pipe.transformer, ml_model_dir)
+        # Load pipeline
+        if os.path.isfile(self.model_id): 
+             print("Error: Single file loading is not yet supported for Wan 2.1 in this version of Diffusers.")
+             return 
         
-        # 2. Convert VAE Decor
-        self.convert_vae(pipe.vae, ml_model_dir)
-        
-        # 3. Convert Text Encoder (T5) - Optional if using existing T5 Core ML
-        self.convert_text_encoder(pipe.text_encoder, ml_model_dir)
+        try:
+            pipe = WanPipeline.from_pretrained(
+                self.model_id, 
+                torch_dtype=torch.float16,
+                variant="fp16"
+            )
+        except:
+             print("Loading standard variant...")
+             pipe = WanPipeline.from_pretrained(self.model_id, torch_dtype=torch.float16)
+            
+        try:
+            import gc
+            # 1. Convert Transformer
+            transformer_path = os.path.join(intermediates_dir, "Wan2.1_Transformer.mlpackage")
+            final_transformer_path = os.path.join(ml_model_dir, "Wan2.1_Transformer.mlpackage")
+            
+            if os.path.exists(transformer_path):
+                 print(f"resuming: Found existing transformer at {transformer_path}")
+            elif os.path.exists(final_transformer_path):
+                 print(f"skipping: Transformer already converted at {final_transformer_path}")
+            else:
+                 self.convert_transformer(pipe.transformer, intermediates_dir, intermediates_dir)
+            
+            # 2. Convert VAE
+            self.convert_vae(pipe.vae, ml_model_dir)
+            
+            # 3. Text Encoder
+            self.convert_text_encoder(pipe.text_encoder, ml_model_dir)
+            
+            # Move Transformer to final location
+            if os.path.exists(transformer_path) and not os.path.exists(final_transformer_path):
+                print("Moving Transformer to final location...")
+                shutil.move(transformer_path, final_transformer_path)
+
+            # Cleanup
+            print("Cleaning up intermediates...")
+            del pipe
+            gc.collect()
+            shutil.rmtree(intermediates_dir)
+            
+        except Exception as e:
+            print(f"Conversion failed. Intermediates left in {intermediates_dir}")
+            raise e
         
         print(f"Wan 2.1 conversion complete. Models saved to {ml_model_dir}")
 
-    def convert_transformer(self, transformer, output_dir):
+    def convert_transformer(self, transformer, output_dir, intermediates_dir=None):
         print("Converting Transformer (FP32 trace)...")
         transformer.eval().to(dtype=torch.float32)
         
@@ -232,7 +284,7 @@ class WanConverter(ModelConverter):
         
         # Quantization
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            model = safe_quantize_model(model, self.quantization)
+            model = safe_quantize_model(model, self.quantization, intermediate_dir=output_dir)
 
         model.save(os.path.join(output_dir, "Wan2.1_Transformer.mlpackage"))
         print("Transformer converted.")

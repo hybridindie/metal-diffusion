@@ -37,31 +37,74 @@ class HunyuanConverter(ModelConverter):
     
     def convert(self):
         print(f"Loading HunyuanVideo pipeline: {self.model_id}...")
-        # Load transformer only to save memory if possible, but pipeline handles config best
-        # Hunyuan is HUGE. users might crash here if not enough RAM (64GB+).
-        # We try to load into CPU + float16 to save RAM, but tracing needs float32 usually.
-        # Let's start with float32 for safety in tracing, user needs big RAM.
+        
+        # Output setup
+        ml_model_dir = os.path.join(self.output_dir, "HunyuanVideo_Transformer.mlpackage")
+        if os.path.exists(ml_model_dir):
+            print(f"Model already exists at {ml_model_dir}, skipping.")
+            return
+
+        intermediates_dir = os.path.join(self.output_dir, "intermediates")
+        os.makedirs(intermediates_dir, exist_ok=True)
+        
+        # Download Sources
+        if "/" in self.model_id and not os.path.isfile(self.model_id):
+            print("Downloading original model weights to output folder...")
+            try:
+                from huggingface_hub import snapshot_download
+                source_dir = os.path.join(self.output_dir, "source")
+                snapshot_download(
+                    repo_id=self.model_id,
+                    local_dir=source_dir,
+                    allow_patterns=["transformer/*", "config.json", "*.json", "*.safetensors"],
+                    ignore_patterns=["*.msgpack", "*.bin"]
+                )
+                self.model_id = source_dir
+                print(f"Originals saved to: {source_dir}")
+            except Exception as e:
+                print(f"Warning: Failed to download source originals ({e}). Proceeding with remote load...")
+
+        # Load Pipeline (CPU/Low RAM if possible)
         try:
-            if os.path.isfile(self.model_id):
-                 print(f"Detected single file checkpoint: {self.model_id}")
-                 print("Error: Single file loading is not yet supported for HunyuanVideo in this version of Diffusers.")
-                 print("Please provide a Hugging Face model ID or a local directory.")
-                 return
-            else:
-                 pipe = HunyuanVideoPipeline.from_pretrained(self.model_id)
+             pipe = HunyuanVideoPipeline.from_pretrained(self.model_id)
         except Exception as e:
             print(f"Failed to load pipeline: {e}.")
             raise e
 
-        ml_model_dir = os.path.join(self.output_dir, "HunyuanVideo_Transformer.mlpackage")
-        if os.path.exists(ml_model_dir):
-            print(f"Model already exists at {ml_model_dir}, skipping.")
-        else:
-            self.convert_transformer(pipe.transformer, ml_model_dir)
+        try:
+            import gc
+            intermediate_model_path = os.path.join(intermediates_dir, "HunyuanVideo_Transformer.mlpackage")
+            
+            # Resume Check
+            if os.path.exists(intermediate_model_path):
+                 try:
+                     print(f"Checking existing intermediate at {intermediate_model_path}...")
+                     ct.models.MLModel(intermediate_model_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                     print("Found valid intermediate. Resuming...")
+                 except:
+                     print("Invalid intermediate found. Re-converting...")
+                     shutil.rmtree(intermediate_model_path)
+                     self.convert_transformer(pipe.transformer, intermediate_model_path, intermediates_dir)
+            else:
+                 self.convert_transformer(pipe.transformer, intermediate_model_path, intermediates_dir)
+            
+            # Move to final
+            print(f"Moving to final location: {ml_model_dir}...")
+            shutil.move(intermediate_model_path, ml_model_dir)
+            
+            # Cleanup
+            print("Cleaning up intermediates...")
+            del pipe
+            gc.collect()
+            shutil.rmtree(intermediates_dir)
+
+        except Exception as e:
+            print(f"Conversion failed. Intermediates left in {intermediates_dir}")
+            raise e
 
         print(f"Hunyuan conversion complete. Models saved to {self.output_dir}")
 
-    def convert_transformer(self, transformer, ml_model_dir):
+    def convert_transformer(self, transformer, ml_model_dir, intermediates_dir):
         print("Converting Transformer (FP32 trace)...")
         transformer.eval()
         transformer = transformer.to(dtype=torch.float32)
@@ -125,7 +168,7 @@ class HunyuanConverter(ModelConverter):
         )
         
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            model = safe_quantize_model(model, self.quantization)
+            model = safe_quantize_model(model, self.quantization, intermediate_dir=intermediates_dir)
             
         model.save(ml_model_dir)
         print(f"Transformer converted: {ml_model_dir}")

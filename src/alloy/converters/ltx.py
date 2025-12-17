@@ -41,27 +41,77 @@ class LTXConverter(ModelConverter):
         super().__init__(model_id, output_dir, quantization)
     
     def convert(self):
-        print(f"Loading LTX-Video pipeline: {self.model_id}...")
-        try:
-            if os.path.isfile(self.model_id):
-                print(f"Detected single file checkpoint: {self.model_id}")
-                pipe = LTXPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
-            else:
-                pipe = LTXPipeline.from_pretrained(self.model_id)
-        except Exception as e:
-            print(f"Error loading pipeline: {e}")
-            raise e
+        print(f"Loading LTX Pipeline: {self.model_id}...")
 
-        transformer = pipe.transformer
-        transformer.eval()
-
+        # Output setup
         ml_model_dir = os.path.join(self.output_dir, "LTXVideo_Transformer.mlpackage")
         if os.path.exists(ml_model_dir):
             print(f"Model already exists at {ml_model_dir}, skipping.")
-        else:
-            self.convert_transformer(transformer, ml_model_dir)
+            return
 
-        print(f"LTX conversion complete. Model saved to {self.output_dir}")
+        intermediates_dir = os.path.join(self.output_dir, "intermediates")
+        os.makedirs(intermediates_dir, exist_ok=True)
+        
+        # Download Sources
+        if "/" in self.model_id and not os.path.isfile(self.model_id):
+            print("Downloading original model weights to output folder...")
+            try:
+                from huggingface_hub import snapshot_download
+                source_dir = os.path.join(self.output_dir, "source")
+                snapshot_download(
+                    repo_id=self.model_id,
+                    local_dir=source_dir,
+                    allow_patterns=["transformer/*", "config.json", "*.json", "*.safetensors"],
+                    ignore_patterns=["*.msgpack", "*.bin"]
+                )
+                self.model_id = source_dir
+                print(f"Originals saved to: {source_dir}")
+            except Exception as e:
+                print(f"Warning: Failed to download source originals ({e}). Proceeding with remote load...")
+        
+        try:
+             # Try single file format if detected or specified
+             if os.path.isfile(self.model_id):
+                  pipe = LTXPipeline.from_single_file(self.model_id, torch_dtype=torch.float32)
+             else:
+                  pipe = LTXPipeline.from_pretrained(self.model_id, torch_dtype=torch.float32)
+        except Exception as e:
+             # Fallback logic or error
+             print(f"Error loading pipeline: {e}")
+             raise e
+             
+        try:
+            import gc
+            intermediate_model_path = os.path.join(intermediates_dir, "LTXVideo_Transformer.mlpackage")
+            
+            # Resume Check
+            if os.path.exists(intermediate_model_path):
+                 try:
+                     print(f"Checking existing intermediate at {intermediate_model_path}...")
+                     ct.models.MLModel(intermediate_model_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                     print("Found valid intermediate. Resuming...")
+                 except:
+                     print("Invalid intermediate found. Re-converting...")
+                     shutil.rmtree(intermediate_model_path)
+                     self.convert_transformer(pipe.transformer, intermediate_model_path, intermediates_dir)
+            else:
+                 self.convert_transformer(pipe.transformer, intermediate_model_path, intermediates_dir)
+            
+            # Move to final
+            print(f"Moving to final location: {ml_model_dir}...")
+            shutil.move(intermediate_model_path, ml_model_dir)
+            
+            # Cleanup
+            print("Cleaning up intermediates...")
+            del pipe
+            gc.collect()
+            shutil.rmtree(intermediates_dir)
+
+        except Exception as e:
+            print(f"Conversion failed. Intermediates left in {intermediates_dir}")
+            raise e
+
+        print(f"LTX conversion complete. Models saved to {self.output_dir}")
 
     def convert_transformer(self, transformer, ml_model_dir):
         print("Converting Transformer (FP32 trace)...")
@@ -98,23 +148,31 @@ class LTXConverter(ModelConverter):
         encoder_hidden_states = torch.randn(batch_size, text_seq_len, 4096).float()
         encoder_attention_mask = torch.ones(batch_size, text_seq_len).long() 
         # Note: LTX attention mask might be int64 or boolean. 
-        # Source code: (1 - mask) * -10000. So it expects 1 for keep, 0 for mask.
+        num_frames = 1
+        height = 32 # latents
+        width = 32
+        in_channels = transformer.config.in_channels
         
-        timestep = torch.tensor([1]).long()
+        hidden_states = torch.randn(batch_size, num_frames, in_channels, height, width).float()
+        timestep = torch.tensor([1]).float() # or long? LTX usually float sigma or timestep
         
-        # Scalars
-        num_frames = torch.tensor([latent_frames]).long()
-        height = torch.tensor([latent_height]).long()
-        width = torch.tensor([latent_width]).long()
+        # Encoder Hidden States (T5)
+        text_dim = transformer.config.cross_attention_dim
+        seq_len = 128 
+        encoder_hidden_states = torch.randn(batch_size, seq_len, text_dim).float()
+        
+        # Attention mask?
+        encoder_attention_mask = torch.ones(batch_size, seq_len).long()
+        
+        # Frame rate / FPS ?
+        # LTX transformer forward: hidden_states, encoder_hidden_states, timestep, encoder_attention_mask, num_frames (scalar?)
+        # Let's check signature wrapper
         
         example_inputs = [
-            hidden_states,
+            hidden_states, 
             encoder_hidden_states,
             timestep,
-            encoder_attention_mask,
-            num_frames,
-            height,
-            width
+            encoder_attention_mask
         ]
         
         wrapper = LTXModelWrapper(transformer)
@@ -124,23 +182,13 @@ class LTXConverter(ModelConverter):
         traced_model = torch.jit.trace(wrapper, example_inputs, strict=False)
         
         print("Converting to Core ML...")
-        # Define flexible shapes where possible
-        
-        # Range of resolutions?
-        # Fixed shapes are safer for first pass, but users want flexibility.
-        # S = H*W*F. This is hard to enforce as single symbolic dim if H,W,F vary independently.
-        # But we can make S flexible.
-        
         model = ct.convert(
             traced_model,
             inputs=[
                 ct.TensorType(name="hidden_states", shape=hidden_states.shape),
                 ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
                 ct.TensorType(name="timestep", shape=timestep.shape),
-                ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape),
-                ct.TensorType(name="num_frames", shape=num_frames.shape), # Scalar
-                ct.TensorType(name="height", shape=height.shape), # Scalar
-                ct.TensorType(name="width", shape=width.shape), # Scalar
+                ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape)
             ],
             outputs=[ct.TensorType(name="sample")],
             compute_units=ct.ComputeUnit.ALL,
@@ -148,7 +196,7 @@ class LTXConverter(ModelConverter):
         )
         
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            model = safe_quantize_model(model, self.quantization)
+            model = safe_quantize_model(model, self.quantization, intermediate_dir=intermediates_dir)
             
         model.save(ml_model_dir)
         print(f"Transformer converted: {ml_model_dir}")
