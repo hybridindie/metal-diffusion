@@ -22,8 +22,11 @@ console = Console()
 def worker_context(model_name: str, part_description: str):
     """Context manager for worker execution with logging and cleanup.
 
-    Provides standardized start/complete logging and ensures garbage collection
-    runs on exit.
+    Logs a start message on entry and a completion message on successful exit.
+    Garbage collection runs on exit regardless of success or failure.
+
+    Note: The completion message is only printed on success. If an exception
+    occurs, cleanup runs but the completion message is skipped.
 
     Usage:
         with worker_context("Flux", "Part 1"):

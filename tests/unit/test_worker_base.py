@@ -1,10 +1,9 @@
 """Tests for worker base utilities."""
 
-import gc
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from alloy.workers.base import (
     worker_context,
