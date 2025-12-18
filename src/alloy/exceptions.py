@@ -64,8 +64,10 @@ class WorkerError(ConversionError):
         model_name: Optional[str] = None,
         phase: Optional[str] = None,
         exit_code: Optional[int] = None,
+        suggestions: Optional[list] = None,
     ):
         self.exit_code = exit_code
+        self.suggestions = suggestions or []
         super().__init__(message, model_name, phase)
 
     def _format_message(self) -> str:
@@ -144,9 +146,11 @@ class HuggingFaceError(DownloadError):
         message: str,
         repo_id: Optional[str] = None,
         original_error: Optional[Exception] = None,
+        suggestions: Optional[list] = None,
     ):
         self.repo_id = repo_id
         self.original_error = original_error
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:

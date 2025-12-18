@@ -11,6 +11,7 @@ import coremltools as ct
 from rich.console import Console
 
 from alloy.exceptions import WorkerError
+from alloy.utils.errors import get_worker_suggestions
 
 console = Console()
 
@@ -251,7 +252,8 @@ class TwoPhaseConverter(ModelConverter):
                 "Worker process failed",
                 model_name=self.model_name,
                 phase=description,
-                exit_code=process.exitcode
+                exit_code=process.exitcode,
+                suggestions=get_worker_suggestions(process.exitcode, description),
             )
 
     def _assemble_pipeline(

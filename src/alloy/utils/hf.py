@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 from huggingface_hub import HfApi, snapshot_download, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
+from alloy.exceptions import HuggingFaceError
+from alloy.utils.errors import get_download_suggestions
+
 load_dotenv()
 
 class HFManager:
@@ -29,8 +32,12 @@ class HFManager:
             print(f"Model downloaded to: {path}")
             return path
         except Exception as e:
-            print(f"Error downloading model: {e}")
-            raise
+            raise HuggingFaceError(
+                f"Failed to download model: {e}",
+                repo_id=repo_id,
+                original_error=e,
+                suggestions=get_download_suggestions(repo_id),
+            ) from e
 
     def upload_model(self, local_path, repo_id, private=True):
         """Uploads a converted model to Hugging Face."""

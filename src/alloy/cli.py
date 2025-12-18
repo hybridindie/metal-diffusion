@@ -15,6 +15,7 @@ from alloy.exceptions import (
     UnsupportedModelError,
     ConfigError,
     DependencyError,
+    HuggingFaceError,
 )
 
 from alloy.runners.flux import FluxCoreMLRunner
@@ -352,7 +353,18 @@ def main():
         sys.exit(130)
     except WorkerError as e:
         console.print(f"[red]Worker failed:[/red] {e}")
+        if e.suggestions:
+            console.print("\n[yellow]Suggestions:[/yellow]")
+            for suggestion in e.suggestions:
+                console.print(f"  [dim]•[/dim] {suggestion}")
         sys.exit(e.exit_code or 1)
+    except HuggingFaceError as e:
+        console.print(f"[red]Download failed:[/red] {e}")
+        if e.suggestions:
+            console.print("\n[yellow]Suggestions:[/yellow]")
+            for suggestion in e.suggestions:
+                console.print(f"  [dim]•[/dim] {suggestion}")
+        sys.exit(1)
     except UnsupportedModelError as e:
         console.print(f"[red]Unsupported model:[/red] {e}")
         sys.exit(1)
