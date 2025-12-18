@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from alloy.converters.flux import FluxConverter
+from alloy.exceptions import WorkerError
 
 class TestFluxConverter(unittest.TestCase):
     def setUp(self):
@@ -46,8 +47,10 @@ class TestFluxConverter(unittest.TestCase):
 
         converter = FluxConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Flux Part 1 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Flux")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
     @patch("alloy.converters.base.console.print")

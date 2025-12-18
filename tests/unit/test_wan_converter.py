@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from alloy.converters.wan import WanConverter
+from alloy.exceptions import WorkerError, UnsupportedModelError
 
 
 class TestWanConverter(unittest.TestCase):
@@ -50,8 +51,10 @@ class TestWanConverter(unittest.TestCase):
 
         converter = WanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Wan Part 1 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Wan")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
     @patch("alloy.converters.base.multiprocessing.Process")
@@ -67,8 +70,10 @@ class TestWanConverter(unittest.TestCase):
 
         converter = WanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Wan Part 2 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Wan")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
     @patch("alloy.converters.base.console.print")
@@ -146,20 +151,17 @@ class TestWanConverter(unittest.TestCase):
         self.assertFalse(mock_process.called)
         mock_pipeline.save.assert_called()
 
-    # This test patches wan module directly (not base) because it exercises
-    # wan-specific single-file validation logic in WanConverter.convert()
     @patch("alloy.converters.wan.os.path.isfile")
-    @patch("alloy.converters.wan.console.print")
-    def test_convert_fails_single_file(self, mock_print, mock_isfile):
-        """Test that single file input is rejected."""
+    def test_convert_fails_single_file(self, mock_isfile):
+        """Test that single file input raises UnsupportedModelError."""
         mock_isfile.return_value = True
 
         converter = WanConverter("local.safetensors", self.output_dir, "float16")
-        converter.convert()
 
-        # Should print error message about single file
-        error_logged = any("single file" in str(call).lower() for call in mock_print.call_args_list)
-        self.assertTrue(error_logged)
+        with self.assertRaises(UnsupportedModelError) as ctx:
+            converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Wan")
+        self.assertEqual(ctx.exception.model_type, "single_file")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ import coremltools as ct
 from rich.console import Console
 
 from alloy.utils.coreml import safe_quantize_model
+from alloy.exceptions import DependencyError
 
 try:
     from diffusers import Lumina2Transformer2DModel
@@ -142,7 +143,11 @@ class LuminaPart2Wrapper(torch.nn.Module):
 def load_lumina_transformer(model_id_or_path: str):
     """Helper to load just the Lumina transformer efficiently."""
     if Lumina2Transformer2DModel is None:
-        raise ImportError("Lumina2Transformer2DModel not available. Please upgrade diffusers.")
+        raise DependencyError(
+            "Lumina2Transformer2DModel not available",
+            package_name="diffusers",
+            install_command="pip install --upgrade diffusers"
+        )
 
     try:
         console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")

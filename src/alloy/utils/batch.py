@@ -5,6 +5,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
+from alloy.exceptions import ConfigError, UnsupportedModelError
+
 console = Console()
 
 def parse_batch_file(batch_file):
@@ -24,7 +26,7 @@ def parse_batch_file(batch_file):
     """
     path = Path(batch_file)
     if not path.exists():
-        raise FileNotFoundError(f"Batch file not found: {batch_file}")
+        raise ConfigError(f"Batch file not found: {batch_file}", config_file=str(path))
     
     content = path.read_text()
     
@@ -33,25 +35,25 @@ def parse_batch_file(batch_file):
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON: {e}")
+            raise ConfigError(f"Invalid JSON: {e}", config_file=str(path))
     # Try YAML
     elif path.suffix in ['.yaml', '.yml']:
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML: {e}")
+            raise ConfigError(f"Invalid YAML: {e}", config_file=str(path))
     else:
         # Try both
         try:
             data = json.loads(content)
-        except:
+        except Exception:
             try:
                 data = yaml.safe_load(content)
-            except:
-                raise ValueError("File must be JSON or YAML format")
-    
+            except Exception:
+                raise ConfigError("File must be JSON or YAML format", config_file=str(path))
+
     if not isinstance(data, list):
-        raise ValueError("Batch file must contain a list of model configs")
+        raise ConfigError("Batch file must contain a list of model configs", config_file=str(path))
     
     return data
 
@@ -59,9 +61,9 @@ def parse_batch_file(batch_file):
 def validate_batch_config(config):
     """Validate a single batch config entry"""
     required = ['model', 'type']
-    for field in required:
-        if field not in config:
-            raise ValueError(f"Missing required field: {field}")
+    missing = [field for field in required if field not in config]
+    if missing:
+        raise ConfigError("Missing required fields", missing_fields=missing)
     
     # Set defaults
     config.setdefault('output_dir', f"converted_models/{config['model'].split('/')[-1]}")
@@ -148,7 +150,11 @@ def run_batch_conversion(batch_file, dry_run=False, parallel=False):
                 
                 converter_class = converter_map.get(config['type'])
                 if not converter_class:
-                    raise ValueError(f"Unknown model type: {config['type']}")
+                    raise UnsupportedModelError(
+                        f"Unknown model type: {config['type']}",
+                        model_type=config['type'],
+                        supported_types=list(converter_map.keys())
+                    )
                 
                 converter = converter_class(
                     config['model'],
