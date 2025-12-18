@@ -1,229 +1,152 @@
 import torch
-import torch.nn as nn
 import coremltools as ct
-from typing import Dict, Any, Tuple, Optional
-import logging
-from .base import ModelConverter
-import numpy as np
+import multiprocessing
 import os
-from alloy.utils.coreml import safe_quantize_model
+import shutil
+import gc
+import logging
+
+from rich.console import Console
+
+from .base import ModelConverter
+from alloy.converters.lumina_workers import convert_lumina_part1, convert_lumina_part2
 
 logger = logging.getLogger(__name__)
+console = Console()
+
 
 class LuminaConverter(ModelConverter):
     """
     Converter for Lumina-Image 2.0 models (Next-Gen DiT).
+    Uses 2-phase subprocess isolation (split at midpoint of blocks) to prevent OOM.
     Uses Gemma-2B as text encoder and Lumina2Transformer2DModel.
     """
 
-    def __init__(self, model_id: str, output_dir: str, quantization: str = "float16", 
+    def __init__(self, model_id: str, output_dir: str, quantization: str = "float16",
                  img_height: int = 1024, img_width: int = 1024):
         super().__init__(model_id, output_dir, quantization)
         self.img_height = img_height
         self.img_width = img_width
-        self.pipe = None
-
-    def _get_pipeline(self):
-        if self.pipe is None:
-            logger.info(f"Loading Lumina pipeline: {self.model_id}")
-            from diffusers import Lumina2Pipeline
-            if os.path.isfile(self.model_id):
-                 logger.info(f"Loading single file: {self.model_id}")
-                 logger.error("Single file loading is not yet supported for Lumina-Image 2.0 in this version of Diffusers.")
-                 return
-            else:
-                self.pipe = Lumina2Pipeline.from_pretrained(
-                    self.model_id,
-                    torch_dtype=torch.float16 if self.quantization != "float32" else torch.float32
-                )
-        return self.pipe
 
     def convert(self):
-        # 1. Download Sources if Repo
-        if "/" in self.model_id and not os.path.isfile(self.model_id):
-            logger.info("Downloading original model weights to output folder...")
-            try:
-                from huggingface_hub import snapshot_download
-                source_dir = os.path.join(self.output_dir, "source")
-                snapshot_download(
-                    repo_id=self.model_id,
-                    local_dir=source_dir,
-                    allow_patterns=["transformer/*", "config.json", "*.json", "*.safetensors"],
-                    ignore_patterns=["*.msgpack", "*.bin"]
-                )
-                self.model_id = source_dir
-                logger.info(f"Originals saved to: {source_dir}")
-            except Exception as e:
-                logger.warning(f"Failed to download source originals ({e}). Proceeding with remote load...")
-
-        pipeline = self._get_pipeline()
-        if pipeline is None:
+        """Main conversion entry point using 2-phase subprocess pattern."""
+        # Single file not supported for Lumina
+        if os.path.isfile(self.model_id):
+            logger.error("Single file loading is not supported for Lumina-Image 2.0.")
             return
-        
-        # Persistent intermediates
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        ml_model_dir = os.path.join(self.output_dir, f"Lumina2_Transformer_{self.quantization}.mlpackage")
+
+        if os.path.exists(ml_model_dir):
+            console.print(f"[yellow]Model exists, skipping:[/yellow] {ml_model_dir}")
+            return
+
+        # Use persistent intermediate directory
         intermediates_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediates_dir, exist_ok=True)
 
+        # Download source weights if needed
+        self.model_id = self.download_source_weights(
+            self.model_id,
+            self.output_dir,
+            logger_fn=logger.info
+        )
+
         try:
-            import gc
-            import shutil
-            
-            # 1. Convert Text Encoder (Gemma 2B)
-            # self.convert_text_encoder(pipeline.text_encoder, pipeline.tokenizer)
+            # Paths for intermediate parts
+            part1_path = os.path.join(intermediates_dir, "LuminaPart1.mlpackage")
+            part2_path = os.path.join(intermediates_dir, "LuminaPart2.mlpackage")
 
-            # 2. Convert Transformer (DiT)
-            transformer_name = "Lumina2_Transformer"
-            intermediate_model_path = os.path.join(intermediates_dir, transformer_name + ".mlpackage")
-            final_model_path = os.path.join(self.output_dir, transformer_name + ".mlpackage")
-            
-            if os.path.exists(intermediate_model_path):
-                 logger.info(f"Found existing intermediate at {intermediate_model_path}. Resuming...")
-                 try:
-                     ct.models.MLModel(intermediate_model_path, compute_units=ct.ComputeUnit.CPU_ONLY)
-                 except:
-                     logger.warning("Invalid intermediate. Re-converting...")
-                     shutil.rmtree(intermediate_model_path)
-                     self.convert_transformer(pipeline.transformer, intermediates_dir)
-            elif os.path.exists(final_model_path):
-                 logger.info(f"Final model exists at {final_model_path}. Skipping.")
-            else:
-                 self.convert_transformer(pipeline.transformer, intermediates_dir)
-            
-            # 3. VAE
-            if hasattr(pipeline, "vae"):
-                self.convert_vae(pipeline.vae)
-                
-            # Move to final
-            if os.path.exists(intermediate_model_path) and not os.path.exists(final_model_path):
-                 logger.info(f"Moving {transformer_name} to final location...")
-                 shutil.move(intermediate_model_path, final_model_path)
-                 
-            # Cleanup
-            logger.info("Cleaning up intermediates...")
-            del pipeline
-            self.pipe = None
+            # --- Part 1: First half of blocks ---
+            skip_p1 = False
+            if os.path.exists(part1_path):
+                try:
+                    console.print(f"[dim]Checking existing Part 1 at {part1_path}...[/dim]")
+                    ct.models.MLModel(part1_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                    console.print("[green]Found valid Part 1 intermediate. Resuming...[/green]")
+                    skip_p1 = True
+                except Exception:
+                    console.print("[yellow]Found invalid/incomplete Part 1. Re-converting...[/yellow]")
+                    shutil.rmtree(part1_path)
+
+            if not skip_p1:
+                console.print("\n[bold]Spawning Part 1 Conversion Process (First Half of Blocks)...[/bold]")
+                p1 = multiprocessing.Process(
+                    target=convert_lumina_part1,
+                    args=(self.model_id, part1_path, self._get_quantization_arg()),
+                    kwargs={"intermediates_dir": intermediates_dir}
+                )
+                p1.start()
+                p1.join()
+
+                if p1.exitcode != 0:
+                    raise RuntimeError("Lumina Part 1 Worker Failed")
+
+            # --- Part 2: Second half of blocks ---
+            skip_p2 = False
+            if os.path.exists(part2_path):
+                try:
+                    console.print(f"[dim]Checking existing Part 2 at {part2_path}...[/dim]")
+                    ct.models.MLModel(part2_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+                    console.print("[green]Found valid Part 2 intermediate. Resuming...[/green]")
+                    skip_p2 = True
+                except Exception:
+                    console.print("[yellow]Found invalid/incomplete Part 2. Re-converting...[/yellow]")
+                    shutil.rmtree(part2_path)
+
+            if not skip_p2:
+                console.print("\n[bold]Spawning Part 2 Conversion Process (Second Half of Blocks)...[/bold]")
+                p2 = multiprocessing.Process(
+                    target=convert_lumina_part2,
+                    args=(self.model_id, part2_path, self._get_quantization_arg()),
+                    kwargs={"intermediates_dir": intermediates_dir}
+                )
+                p2.start()
+                p2.join()
+
+                if p2.exitcode != 0:
+                    raise RuntimeError("Lumina Part 2 Worker Failed")
+
+            # --- Assemble Pipeline ---
+            console.print("\n[bold]Assembling Pipeline...[/bold]")
+
+            # Load lazily from disk with CPU_ONLY
+            m1 = ct.models.MLModel(part1_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+            m2 = ct.models.MLModel(part2_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+
+            pipeline_model = ct.utils.make_pipeline(m1, m2)
+
+            # Add metadata
+            pipeline_model.author = "Alloy"
+            pipeline_model.license = "Apache 2.0"
+            pipeline_model.short_description = f"Lumina Image 2.0 Transformer (Split Pipeline) {self.quantization}"
+
+            # Cleanup intermediates BEFORE saving final pipeline
+            console.print("[dim]Releasing intermediate memory/disk for final save...[/dim]")
+            del m1, m2
             gc.collect()
-            shutil.rmtree(intermediates_dir)
 
-        except Exception as e:
-            logger.error(f"Intermediates left in {intermediates_dir}")
-            raise e
+            try:
+                shutil.rmtree(intermediates_dir)
+            except Exception as e:
+                console.print(f"[yellow]Warning: Could not clear intermediates: {e}[/yellow]")
 
-    def convert_text_encoder(self, text_encoder, tokenizer):
-        name = "Gemma2_TextEncoder"
-        logger.info(f"Converting {name}...")
-        
-        # Gemma inputs
-        # We usually use a fixed max length for diffusion text encoders
-        max_length = 256 
-        vocab_size = text_encoder.config.vocab_size
-        hidden_size = text_encoder.config.hidden_size # 2304
+            console.print(f"[dim]Saving final pipeline to {ml_model_dir}...[/dim]")
+            pipeline_model.save(ml_model_dir)
 
-        class GemmaWrapper(torch.nn.Module):
-            def __init__(self, model):
-                super().__init__()
-                self.model = model
+            console.print(f"[bold green]✓ Lumina Image 2.0 conversion complete![/bold green] Saved to {self.output_dir}")
 
-            def forward(self, input_ids):
-                # Returns last_hidden_state
-                # Gemma output: BaseModelOutputWithPast(last_hidden_state=..., ...)
-                outputs = self.model(input_ids=input_ids, output_hidden_states=False)
-                return outputs[0]
+        except Exception:
+            console.print(f"[yellow]Note: Intermediate files left in {intermediates_dir} for inspection/cleanup.[/yellow]")
+            raise
 
-        wrapped_model = GemmaWrapper(text_encoder).eval()
-        
-        # Trace
-        input_ids = torch.randint(0, vocab_size, (1, max_length), dtype=torch.int32)
-        example_input = (input_ids,)
-
-        traced_model = torch.jit.trace(wrapped_model, example_input)
-
-        # Core ML Conversion
-        inputs = [
-            ct.TensorType(name="input_ids", shape=(1, max_length), dtype=np.int32)
-        ]
-        outputs = [
-            ct.TensorType(name="last_hidden_state")
-        ]
-
-        mlmodel = ct.convert(
-            traced_model,
-            inputs=inputs,
-            outputs=outputs,
-            minimum_deployment_target=ct.target.macOS15,
-            compute_units=ct.ComputeUnit.CPU_AND_NE, # NPU preferred
-            skip_model_load=True
-        )
-
-        self._save_model(mlmodel, name)
-        logger.info(f"Saved {name}")
-
-    def convert_transformer(self, transformer, intermediates_dir=None):
-        name = "Lumina2_Transformer"
-        logger.info(f"Converting {name}...")
-
-        class TransformerWrapper(torch.nn.Module):
-            def __init__(self, model):
-                super().__init__()
-                self.model = model
-
-            def forward(self, hidden_states, encoder_hidden_states, temb):
-                # Lumina forward: (hidden_states, encoder_hidden_states, timestep, encoder_mask, ...)
-                # Checking signatures...
-                # Note: `temb` usually implies timestep embeddings OR raw timestep.
-                # Diffusers transformers normally take `timestep` (scalar or tensor).
-                
-                # IMPORTANT: Lumina input shape checks
-                # hidden_states: [B, C, H_latent, W_latent] -> [1, 16, 128, 128] for 1024px
-                return self.model(
-                    hidden_states=hidden_states,
-                    encoder_hidden_states=encoder_hidden_states,
-                    timestep=temb,
-                    return_dict=False
-                )[0]
-
-        wrapped_model = TransformerWrapper(transformer).eval()
-
-        # Input Shapes
-        # Latent size = img_size / 8 (usually) * patch_size?
-        # VAE downsample factor is 8.
-        h_latent = self.img_height // 8
-        w_latent = self.img_width // 8
-        in_channels = transformer.config.in_channels # 16
-        enc_dim = transformer.config.hidden_size # 2304
-
-        hidden_states = torch.randn(1, in_channels, h_latent, w_latent)
-        encoder_hidden_states = torch.randn(1, 256, enc_dim) # [B, SeqLen, Dim]
-        temb = torch.tensor([1.0])
-
-        example_input = (hidden_states, encoder_hidden_states, temb)
-
-        traced_model = torch.jit.trace(wrapped_model, example_input)
-
-        inputs = [
-            ct.TensorType(name="hidden_states", shape=hidden_states.shape),
-            ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
-            ct.TensorType(name="timestep", shape=(1,))
-        ]
-
-        mlmodel = ct.convert(
-            traced_model,
-            inputs=inputs,
-            minimum_deployment_target=ct.target.macOS15,
-            skip_model_load=True
-        )
-
-        # Quantize
-        # Quantize
-        # Quantize
+    def _get_quantization_arg(self):
+        """Return quantization arg for workers (None for float16)."""
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            mlmodel = safe_quantize_model(mlmodel, self.quantization, intermediate_dir=intermediates_dir)
- 
-        save_path = os.path.join(intermediates_dir, name + ".mlpackage")
-        mlmodel.save(save_path)
-        logger.info(f"Saved {name} to {save_path}")
-    
+            return self.quantization
+        return None
+
     def convert_vae(self, vae):
-        # reuse standard VAE conversion or generic one
-        # Assuming standard AutoencoderKL-like
+        """VAE conversion (optional, reuse standard VAE converter)."""
         pass
