@@ -4,8 +4,8 @@ from alloy.converters.flux import FluxConverter
 import os
 
 
-@patch("alloy.converters.flux.ct")
-@patch("alloy.converters.flux.multiprocessing.Process")
+@patch("alloy.converters.base.ct")
+@patch("alloy.converters.base.multiprocessing.Process")
 def test_flux_conversion_pipeline_mocked(mock_process, mock_ct, tmp_path):
     """
     Test the full Flux conversion flow orchestrator with mocked subprocess workers.

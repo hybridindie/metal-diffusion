@@ -22,7 +22,7 @@ def test_detect_model_type_flux(mock_isfile, mock_safe_open):
     mock_f.keys.return_value = ["double_blocks.0.img_mod.lin.weight", "single_blocks.0.lin.weight"]
     mock_f.__enter__.return_value = mock_f
     mock_safe_open.return_value = mock_f
-    
+
     encoded_type = detect_model_type("flux.safetensors")
     assert encoded_type == "flux"
 
@@ -34,7 +34,7 @@ def test_detect_model_type_ltx(mock_isfile, mock_safe_open):
     mock_f.keys.return_value = ["transformer.blocks.0.scale_shift_table", "caption_projection.weight"]
     mock_f.__enter__.return_value = mock_f
     mock_safe_open.return_value = mock_f
-    
+
     encoded_type = detect_model_type("ltx.safetensors")
     assert encoded_type == "ltx"
 
@@ -47,7 +47,7 @@ def test_detect_model_type_unknown(mock_isfile, mock_safe_open):
     mock_f.keys.return_value = ["random.keys.only"]
     mock_f.__enter__.return_value = mock_f
     mock_safe_open.return_value = mock_f
-    
+
     encoded_type = detect_model_type("unknown.safetensors")
     assert encoded_type is None
 
@@ -57,7 +57,7 @@ def test_detect_model_type_exception(mock_isfile, mock_safe_open):
     """Test exception handling"""
     mock_isfile.return_value = True
     mock_safe_open.side_effect = Exception("Corrupt file")
-    
+
     encoded_type = detect_model_type("corrupt.safetensors")
     assert encoded_type is None
 
@@ -94,7 +94,7 @@ def mock_ltx_pipeline():
 def test_runner_initialization(mock_diff_pipe, mock_flux_pipe, mock_ltx_mlmodel, mock_flux_mlmodel):
     # Test Flux Runner
     mock_flux_mlmodel.return_value = MagicMock()
-    
+
     flux_runner = FluxCoreMLRunner("dummy_path")
     assert flux_runner
 
@@ -111,9 +111,9 @@ def test_flux_single_file_runner(mock_isfile, mock_mlmodel, mock_flux_pipeline):
     mock_runner_cls.from_single_file.assert_called_once()
     assert "flux.safetensors" in mock_runner_cls.from_single_file.call_args[0]
 
-@patch("alloy.converters.flux.ct")
+@patch("alloy.converters.base.ct")
 @patch("os.path.isfile")
-@patch("alloy.converters.flux.multiprocessing.Process")
+@patch("alloy.converters.base.multiprocessing.Process")
 @patch.object(FluxConverter, 'download_source_weights', return_value="flux.safetensors")
 def test_flux_single_file_converter(mock_download, mock_process, mock_isfile, mock_ct, tmp_path):
     """Test FluxConverter passes single file path to workers."""
@@ -147,9 +147,9 @@ def test_flux_single_file_converter(mock_download, mock_process, mock_isfile, mo
         worker_args = kwargs['args']
         assert worker_args[0] == "flux.safetensors"
 
-@patch("alloy.converters.ltx.ct")
+@patch("alloy.converters.base.ct")
 @patch("os.path.isfile")
-@patch("alloy.converters.ltx.multiprocessing.Process")
+@patch("alloy.converters.base.multiprocessing.Process")
 @patch.object(LTXConverter, 'download_source_weights', return_value="ltx.safetensors")
 def test_ltx_single_file_converter(mock_download, mock_process, mock_isfile, mock_ct, tmp_path):
     """Test LTXConverter passes single file path to workers."""

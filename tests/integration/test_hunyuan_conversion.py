@@ -4,8 +4,8 @@ from alloy.converters.hunyuan import HunyuanConverter
 import os
 
 
-@patch("alloy.converters.hunyuan.ct")
-@patch("alloy.converters.hunyuan.multiprocessing.Process")
+@patch("alloy.converters.base.ct")
+@patch("alloy.converters.base.multiprocessing.Process")
 @patch.object(HunyuanConverter, 'download_source_weights', return_value="/mocked/path")
 def test_hunyuan_conversion_pipeline_mocked(mock_download, mock_process, mock_ct, tmp_path):
     """

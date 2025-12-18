@@ -15,10 +15,10 @@ class TestWanConverter(unittest.TestCase):
         shutil.rmtree(self.output_dir)
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.wan.multiprocessing.Process")
-    @patch("alloy.converters.wan.ct.models.MLModel")
-    @patch("alloy.converters.wan.ct.utils.make_pipeline")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.ct.utils.make_pipeline")
+    @patch("alloy.converters.base.console.print")
     def test_convert_success(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process, mock_download):
         """Test successful 2-phase conversion."""
         # Mock successful processes
@@ -40,8 +40,8 @@ class TestWanConverter(unittest.TestCase):
         mock_pipeline.save.assert_called()
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.wan.multiprocessing.Process")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.console.print")
     def test_convert_part1_failure(self, mock_print, mock_process, mock_download):
         """Test error handling when Part 1 fails."""
         mock_p1 = MagicMock()
@@ -50,13 +50,13 @@ class TestWanConverter(unittest.TestCase):
 
         converter = WanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Part 1 Worker Failed"):
+        with self.assertRaisesRegex(RuntimeError, "Wan Part 1 Worker Failed"):
             converter.convert()
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.wan.multiprocessing.Process")
-    @patch("alloy.converters.wan.ct.models.MLModel")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.console.print")
     def test_convert_part2_failure(self, mock_print, mock_mlmodel, mock_process, mock_download):
         """Test error handling when Part 2 fails."""
         mock_p1 = MagicMock()
@@ -67,11 +67,11 @@ class TestWanConverter(unittest.TestCase):
 
         converter = WanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Part 2 Worker Failed"):
+        with self.assertRaisesRegex(RuntimeError, "Wan Part 2 Worker Failed"):
             converter.convert()
 
-    @patch("alloy.converters.wan.os.path.exists")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.os.path.exists")
+    @patch("alloy.converters.base.console.print")
     def test_convert_skips_existing(self, mock_print, mock_exists):
         """Test that conversion is skipped if final model already exists."""
         def side_effect(path):
@@ -89,10 +89,10 @@ class TestWanConverter(unittest.TestCase):
         self.assertTrue(skip_logged)
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.wan.multiprocessing.Process")
-    @patch("alloy.converters.wan.ct.models.MLModel")
-    @patch("alloy.converters.wan.ct.utils.make_pipeline")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.ct.utils.make_pipeline")
+    @patch("alloy.converters.base.console.print")
     def test_resume_from_part1(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process, mock_download):
         """Test resuming from existing Part 1 intermediate."""
         # Create dummy Part 1 intermediate
@@ -119,10 +119,10 @@ class TestWanConverter(unittest.TestCase):
         self.assertEqual(mock_process.call_count, 1)
 
     @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.wan.multiprocessing.Process")
-    @patch("alloy.converters.wan.ct.models.MLModel")
-    @patch("alloy.converters.wan.ct.utils.make_pipeline")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.ct.utils.make_pipeline")
+    @patch("alloy.converters.base.console.print")
     def test_resume_both_parts(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process, mock_download):
         """Test resuming when both parts exist."""
         # Create dummy intermediates
@@ -146,8 +146,10 @@ class TestWanConverter(unittest.TestCase):
         self.assertFalse(mock_process.called)
         mock_pipeline.save.assert_called()
 
+    # This test patches wan module directly (not base) because it exercises
+    # wan-specific single-file validation logic in WanConverter.convert()
     @patch("alloy.converters.wan.os.path.isfile")
-    @patch("alloy.converters.wan.Console.print")
+    @patch("alloy.converters.wan.console.print")
     def test_convert_fails_single_file(self, mock_print, mock_isfile):
         """Test that single file input is rejected."""
         mock_isfile.return_value = True
