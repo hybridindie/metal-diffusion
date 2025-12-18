@@ -146,6 +146,8 @@ class TestWanConverter(unittest.TestCase):
         self.assertFalse(mock_process.called)
         mock_pipeline.save.assert_called()
 
+    # This test patches wan module directly (not base) because it exercises
+    # wan-specific single-file validation logic in WanConverter.convert()
     @patch("alloy.converters.wan.os.path.isfile")
     @patch("alloy.converters.wan.console.print")
     def test_convert_fails_single_file(self, mock_print, mock_isfile):

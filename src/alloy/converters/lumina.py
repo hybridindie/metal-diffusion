@@ -1,14 +1,11 @@
 import os
 import logging
-from typing import Callable, Optional
-
-from rich.console import Console
+from typing import Callable
 
 from .base import TwoPhaseConverter
 from alloy.converters.lumina_workers import convert_lumina_part1, convert_lumina_part2
 
 logger = logging.getLogger(__name__)
-console = Console()
 
 
 class LuminaConverter(TwoPhaseConverter):
@@ -42,14 +39,8 @@ class LuminaConverter(TwoPhaseConverter):
     def get_part2_worker(self) -> Callable:
         return convert_lumina_part2
 
-    def _get_quantization_arg(self) -> Optional[str]:
-        """Return quantization arg for workers (None for float16)."""
-        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
-            return self.quantization
-        return None
-
     def convert(self):
-        """Override to handle single-file check and custom quantization logic."""
+        """Override to handle single-file check and custom download."""
         # Single file not supported for Lumina
         if os.path.isfile(self.model_id):
             logger.error("Single file loading is not supported for Lumina-Image 2.0.")
@@ -62,16 +53,7 @@ class LuminaConverter(TwoPhaseConverter):
             logger_fn=logger.info
         )
 
-        # Store original quantization and override for workers
-        original_quantization = self.quantization
-        self.quantization = self._get_quantization_arg() or self.quantization
-
-        try:
-            # Use parent's convert with potentially modified quantization
-            super().convert()
-        finally:
-            # Restore original quantization
-            self.quantization = original_quantization
+        super().convert()
 
     def convert_vae(self, vae):
         """VAE conversion (optional, reuse standard VAE converter)."""

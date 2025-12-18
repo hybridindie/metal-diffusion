@@ -175,17 +175,5 @@ class TestLuminaConverter(unittest.TestCase):
         converter = LuminaConverter(self.model_id, self.output_dir, "float16")
         self.assertEqual(converter.quantization, "float16")
 
-    def test_get_quantization_arg(self):
-        """Test _get_quantization_arg returns correct values."""
-        converter = LuminaConverter(self.model_id, self.output_dir, "float16")
-        self.assertIsNone(converter._get_quantization_arg())
-
-        converter = LuminaConverter(self.model_id, self.output_dir, "int4")
-        self.assertEqual(converter._get_quantization_arg(), "int4")
-
-        converter = LuminaConverter(self.model_id, self.output_dir, "int8")
-        self.assertEqual(converter._get_quantization_arg(), "int8")
-
-
 if __name__ == "__main__":
     unittest.main()
