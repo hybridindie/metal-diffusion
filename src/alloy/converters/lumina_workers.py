@@ -6,8 +6,6 @@ Lumina has uniform transformer blocks, so we split at the midpoint.
 """
 import torch
 import os
-import uuid
-import tempfile
 import gc
 from dataclasses import dataclass
 from typing import Optional
@@ -15,7 +13,7 @@ from typing import Optional
 import coremltools as ct
 from rich.console import Console
 
-from alloy.utils.coreml import safe_quantize_model
+from alloy.workers.base import quantize_and_save
 from alloy.exceptions import DependencyError
 
 try:
@@ -39,38 +37,6 @@ class LuminaInputShapes:
     height: int = DEFAULT_HEIGHT
     width: int = DEFAULT_WIDTH
     text_len: int = DEFAULT_TEXT_LEN
-
-
-def quantize_and_save(
-    model,
-    output_path: str,
-    quantization: Optional[str],
-    intermediates_dir: Optional[str],
-    part_name: str
-) -> None:
-    """Apply quantization if needed and save the model."""
-    if not quantization:
-        model.save(output_path)
-        return
-
-    console.print(f"[dim]Worker: Quantizing {part_name} ({quantization})...[/dim]")
-
-    if intermediates_dir:
-        fp16_path = os.path.join(intermediates_dir, f"{part_name}_fp16_{uuid.uuid4()}.mlpackage")
-        model.save(fp16_path)
-        del model
-        gc.collect()
-        model = safe_quantize_model(fp16_path, quantization, intermediate_dir=intermediates_dir)
-    else:
-        with tempfile.TemporaryDirectory() as tmp:
-            fp16_path = os.path.join(tmp, f"{part_name}_fp16.mlpackage")
-            model.save(fp16_path)
-            del model
-            gc.collect()
-            model = safe_quantize_model(fp16_path, quantization)
-
-    console.print(f"[dim]Worker: Saving {part_name} to {output_path}...[/dim]")
-    model.save(output_path)
 
 
 class LuminaPart1Wrapper(torch.nn.Module):

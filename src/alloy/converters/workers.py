@@ -6,8 +6,6 @@ These functions run in separate processes to prevent OOM during large model conv
 import torch
 import torch.nn as nn
 import os
-import uuid
-import tempfile
 import gc
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -16,7 +14,7 @@ import coremltools as ct
 from diffusers import FluxTransformer2DModel
 from rich.console import Console
 
-from alloy.utils.coreml import safe_quantize_model
+from alloy.workers.base import quantize_and_save
 
 try:
     from diffusers import Flux2Transformer2DModel
@@ -92,46 +90,6 @@ def create_flux_dummy_inputs(
 
     return inputs, names
 
-
-def quantize_and_save(
-    model,
-    output_path: str,
-    quantization: Optional[str],
-    intermediates_dir: Optional[str],
-    part_name: str
-) -> None:
-    """
-    Apply quantization if needed and save the model.
-
-    Args:
-        model: CoreML model to quantize
-        output_path: Final output path
-        quantization: Quantization type (int4, int8, etc.) or None
-        intermediates_dir: Directory for intermediate files
-        part_name: Name for intermediate file (e.g., "part1", "part2")
-    """
-    if not quantization:
-        model.save(output_path)
-        return
-
-    console.print(f"[dim]Worker: Quantizing {part_name} ({quantization})...[/dim]")
-
-    if intermediates_dir:
-        fp16_path = os.path.join(intermediates_dir, f"{part_name}_fp16_{uuid.uuid4()}.mlpackage")
-        model.save(fp16_path)
-        del model
-        gc.collect()
-        model = safe_quantize_model(fp16_path, quantization, intermediate_dir=intermediates_dir)
-    else:
-        with tempfile.TemporaryDirectory() as tmp:
-            fp16_path = os.path.join(tmp, f"{part_name}_fp16.mlpackage")
-            model.save(fp16_path)
-            del model
-            gc.collect()
-            model = safe_quantize_model(fp16_path, quantization)
-
-    console.print(f"[dim]Worker: Saving {part_name} to {output_path}...[/dim]")
-    model.save(output_path)
 
 class FluxPart1Wrapper(torch.nn.Module):
     """
