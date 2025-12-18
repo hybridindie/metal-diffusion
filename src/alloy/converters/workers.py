@@ -1,18 +1,137 @@
+"""
+Flux conversion workers for subprocess isolation.
+
+These functions run in separate processes to prevent OOM during large model conversion.
+"""
 import torch
 import torch.nn as nn
 import os
+import uuid
+import tempfile
+import gc
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
 import coremltools as ct
 from diffusers import FluxTransformer2DModel
+from rich.console import Console
+
+from alloy.utils.coreml import safe_quantize_model
+
 try:
     from diffusers import Flux2Transformer2DModel
 except ImportError:
     Flux2Transformer2DModel = None
-import tempfile
-import gc
-from alloy.utils.coreml import safe_quantize_model
-from rich.console import Console
 
 console = Console()
+
+# Constants
+DEFAULT_HEIGHT = 64
+DEFAULT_WIDTH = 64
+DEFAULT_TEXT_LEN = 256
+DEFAULT_BATCH_SIZE = 1
+
+
+@dataclass
+class FluxInputShapes:
+    """Configuration for Flux model input shapes."""
+    batch_size: int = DEFAULT_BATCH_SIZE
+    height: int = DEFAULT_HEIGHT
+    width: int = DEFAULT_WIDTH
+    text_len: int = DEFAULT_TEXT_LEN
+
+    @property
+    def sequence_length(self) -> int:
+        return (self.height // 2) * (self.width // 2)
+
+
+def create_flux_dummy_inputs(
+    transformer,
+    shapes: FluxInputShapes,
+    use_hidden_size: bool = False
+) -> Tuple[List[torch.Tensor], List[str]]:
+    """
+    Create dummy inputs for Flux model tracing.
+
+    Args:
+        transformer: The Flux transformer model
+        shapes: Input shape configuration
+        use_hidden_size: If True, use hidden_size for states (Part 2), else use in_channels (Part 1)
+
+    Returns:
+        Tuple of (input tensors list, input names list)
+    """
+    s = shapes.sequence_length
+
+    if use_hidden_size:
+        # Part 2: uses projected hidden dimension
+        hidden_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+    else:
+        # Part 1: uses raw in_channels
+        hidden_dim = transformer.config.in_channels
+
+    hidden_states = torch.randn(shapes.batch_size, s, hidden_dim).float()
+
+    joint_dim = transformer.config.joint_attention_dim
+    encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, joint_dim).float()
+
+    if use_hidden_size:
+        # Part 2 encoder states also use hidden_size
+        hidden_size = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+        encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, hidden_size).float()
+
+    pool_dim = transformer.config.pooled_projection_dim
+    pooled_projections = torch.randn(shapes.batch_size, pool_dim).float()
+    timestep = torch.tensor([1.0]).float()
+    guidance = torch.tensor([1.0]).float()
+    img_ids = torch.randn(s, 3).float()
+    txt_ids = torch.randn(shapes.text_len, 3).float()
+
+    inputs = [hidden_states, encoder_hidden_states, pooled_projections, timestep, img_ids, txt_ids, guidance]
+    names = ["hidden_states", "encoder_hidden_states", "pooled_projections", "timestep", "img_ids", "txt_ids", "guidance"]
+
+    return inputs, names
+
+
+def quantize_and_save(
+    model,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str],
+    part_name: str
+) -> None:
+    """
+    Apply quantization if needed and save the model.
+
+    Args:
+        model: CoreML model to quantize
+        output_path: Final output path
+        quantization: Quantization type (int4, int8, etc.) or None
+        intermediates_dir: Directory for intermediate files
+        part_name: Name for intermediate file (e.g., "part1", "part2")
+    """
+    if not quantization:
+        model.save(output_path)
+        return
+
+    console.print(f"[dim]Worker: Quantizing {part_name} ({quantization})...[/dim]")
+
+    if intermediates_dir:
+        fp16_path = os.path.join(intermediates_dir, f"{part_name}_fp16_{uuid.uuid4()}.mlpackage")
+        model.save(fp16_path)
+        del model
+        gc.collect()
+        model = safe_quantize_model(fp16_path, quantization, intermediate_dir=intermediates_dir)
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            fp16_path = os.path.join(tmp, f"{part_name}_fp16.mlpackage")
+            model.save(fp16_path)
+            del model
+            gc.collect()
+            model = safe_quantize_model(fp16_path, quantization)
+
+    console.print(f"[dim]Worker: Saving {part_name} to {output_path}...[/dim]")
+    model.save(output_path)
 
 class FluxPart1Wrapper(torch.nn.Module):
     """
@@ -24,31 +143,27 @@ class FluxPart1Wrapper(torch.nn.Module):
         self.model = model
         self.is_flux2 = Flux2Transformer2DModel and isinstance(model, Flux2Transformer2DModel)
 
+    def _compute_time_embedding(self, timestep, guidance, pooled_projections):
+        """Compute time embedding with optional guidance."""
+        if guidance is None:
+            return self.model.time_text_embed(timestep, pooled_projections)
+        return self.model.time_text_embed(timestep, guidance, pooled_projections)
+
+    def _squeeze_ids(self, ids):
+        """Squeeze 3D ids to 2D if necessary."""
+        return ids[0] if ids.ndim == 3 else ids
+
     def forward(self, hidden_states, encoder_hidden_states, pooled_projections=None, timestep=None, img_ids=None, txt_ids=None, guidance=None):
         hidden_states = self.model.x_embedder(hidden_states)
         timestep = timestep.to(hidden_states.dtype) * 1000
         if guidance is not None:
             guidance = guidance.to(hidden_states.dtype) * 1000
 
-        if self.model.config.guidance_embeds:
-             temb = (
-                self.model.time_text_embed(timestep, pooled_projections)
-                if guidance is None
-                else self.model.time_text_embed(timestep, guidance, pooled_projections)
-            )
-        else:
-             temb = (
-                self.model.time_text_embed(timestep, pooled_projections)
-                if guidance is None
-                else self.model.time_text_embed(timestep, guidance, pooled_projections)
-            )
-
+        temb = self._compute_time_embedding(timestep, guidance, pooled_projections)
         encoder_hidden_states = self.model.context_embedder(encoder_hidden_states)
 
-        if txt_ids.ndim == 3:
-            txt_ids = txt_ids[0]
-        if img_ids.ndim == 3:
-            img_ids = img_ids[0]
+        txt_ids = self._squeeze_ids(txt_ids)
+        img_ids = self._squeeze_ids(img_ids)
 
         ids = torch.cat((txt_ids, img_ids), dim=0)
         image_rotary_emb = self.model.pos_embed(ids)
@@ -72,30 +187,33 @@ class FluxPart2Wrapper(torch.nn.Module):
         self.model = model
         self.is_flux2 = Flux2Transformer2DModel and isinstance(model, Flux2Transformer2DModel)
 
+    def _compute_time_embedding(self, timestep, guidance, pooled_projections):
+        """Compute time embedding with optional guidance."""
+        if guidance is None:
+            return self.model.time_text_embed(timestep, pooled_projections)
+        return self.model.time_text_embed(timestep, guidance, pooled_projections)
+
+    def _squeeze_ids(self, ids):
+        """Squeeze 3D ids to 2D if necessary."""
+        return ids[0] if ids.ndim == 3 else ids
+
     def forward(self, hidden_states_in, encoder_hidden_states_in, pooled_projections=None, timestep=None, img_ids=None, txt_ids=None, guidance=None):
         dtype = hidden_states_in.dtype
         timestep = timestep.to(dtype) * 1000
         if guidance is not None:
             guidance = guidance.to(dtype) * 1000
 
-        temb = (
-            self.model.time_text_embed(timestep, pooled_projections)
-            if guidance is None
-            else self.model.time_text_embed(timestep, guidance, pooled_projections)
-        )
+        temb = self._compute_time_embedding(timestep, guidance, pooled_projections)
 
-        if txt_ids.ndim == 3:
-            txt_ids = txt_ids[0]
-        if img_ids.ndim == 3:
-            img_ids = img_ids[0]
+        txt_ids = self._squeeze_ids(txt_ids)
+        img_ids = self._squeeze_ids(img_ids)
 
         ids = torch.cat((txt_ids, img_ids), dim=0)
         image_rotary_emb = self.model.pos_embed(ids)
-        
+
         hidden_states = hidden_states_in
         encoder_hidden_states = encoder_hidden_states_in
 
-        # Single Stream Blocks
         for block in self.model.single_transformer_blocks:
             encoder_hidden_states, hidden_states = block(
                 hidden_states=hidden_states,
@@ -103,10 +221,10 @@ class FluxPart2Wrapper(torch.nn.Module):
                 temb=temb,
                 image_rotary_emb=image_rotary_emb
             )
-            
-        # Final Layern_states = self.model.norm_out(hidden_states, emb=temb)
+
+        hidden_states = self.model.norm_out(hidden_states, emb=temb)
         hidden_states = self.model.proj_out(hidden_states)
-        
+
         return hidden_states
 
 def load_flux_transformer(model_id_or_path):
@@ -135,54 +253,31 @@ def load_flux_transformer(model_id_or_path):
             )
 
 def convert_flux_part1(model_id, output_path, quantization, intermediates_dir=None):
-    """Worker function for Part 1"""
+    """Worker function for Part 1 (Embeddings + DoubleStream Blocks)."""
     console.print(f"[cyan]Worker: Starting Part 1 Conversion (PID: {os.getpid()})[/cyan]")
-    
+
     transformer = load_flux_transformer(model_id)
     transformer.eval()
-    
-    # Setup dummy inputs
-    in_channels = transformer.config.in_channels
-    h, w = 64, 64
-    s = (h // 2) * (w // 2)
-    batch_size = 1
-    
-    hidden_states = torch.randn(batch_size, s, in_channels).float()
-    text_len = 256 
-    joint_dim = transformer.config.joint_attention_dim
-    encoder_hidden_states = torch.randn(batch_size, text_len, joint_dim).float()
-    pool_dim = transformer.config.pooled_projection_dim
-    pooled_projections = torch.randn(batch_size, pool_dim).float()
-    timestep = torch.tensor([1.0]).float()
-    guidance = torch.tensor([1.0]).float()
-    img_ids = torch.randn(s, 3).float()
-    txt_ids = torch.randn(text_len, 3).float()
-    
+
+    # Create dummy inputs using helper
+    shapes = FluxInputShapes()
+    inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=False)
+
     wrapper = FluxPart1Wrapper(transformer)
     wrapper.eval()
-    
+
     # Trace
     console.print("[dim]Worker: Tracing Part 1...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, pooled_projections, timestep, img_ids, txt_ids, guidance]
     traced = torch.jit.trace(wrapper, inputs, strict=False)
-    
-    # Convert
+
+    # Convert to CoreML
     console.print("[dim]Worker: Converting Part 1 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="pooled_projections", shape=pooled_projections.shape),
-        ct.TensorType(name="timestep", shape=timestep.shape),
-        ct.TensorType(name="img_ids", shape=img_ids.shape),
-        ct.TensorType(name="txt_ids", shape=txt_ids.shape),
-        ct.TensorType(name="guidance", shape=guidance.shape)
-    ]
-    
+    ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
     ml_outputs = [
         ct.TensorType(name="hidden_states_inter"),
         ct.TensorType(name="encoder_hidden_states_inter")
     ]
-    
+
     model = ct.convert(
         traced,
         inputs=ml_inputs,
@@ -190,90 +285,40 @@ def convert_flux_part1(model_id, output_path, quantization, intermediates_dir=No
         compute_units=ct.ComputeUnit.ALL,
         minimum_deployment_target=ct.target.macOS14
     )
-    
-    # Cleanup PyTorch
+
+    # Cleanup PyTorch resources
     del traced, wrapper, transformer
     gc.collect()
-    
-    # Quantize
-    if quantization:
-        console.print(f"[dim]Worker: Quantizing Part 1 ({quantization})...[/dim]")
-        
-        if intermediates_dir:
-            # Save unsqueezed FP16 model to persistent intermediates dir
-            import uuid
-            fp16_path = os.path.join(intermediates_dir, f"part1_fp16_{uuid.uuid4()}.mlpackage")
-            model.save(fp16_path)
-            del model
-            gc.collect()
-            model = safe_quantize_model(fp16_path, quantization, intermediate_dir=intermediates_dir)
-            # safe_quantize will load from fp16_path. We verified it handles path input.
-            # But wait, safe_quantize_model(path) returns loaded object.
-            # If we pass path, it doesn't create intermediate.
-            # So passing intermediate_dir is irrelevant if we pass PATH.
-            # BUT the fp16_path IS the intermediate.
-            # So we just stick with this.
-        else:
-            with tempfile.TemporaryDirectory() as tmp:
-                fp16_path = os.path.join(tmp, "p1_fp16.mlpackage")
-                model.save(fp16_path)
-                del model
-                gc.collect()
-                model = safe_quantize_model(fp16_path, quantization)
-            
-    console.print(f"[dim]Worker: Saving Part 1 to {output_path}...[/dim]")
-    model.save(output_path)
+
+    # Quantize and save using helper
+    quantize_and_save(model, output_path, quantization, intermediates_dir, "part1")
     console.print("[green]Worker: Part 1 Complete[/green]")
     
 def convert_flux_part2(model_id, output_path, quantization, intermediates_dir=None):
-    """Worker function for Part 2"""
+    """Worker function for Part 2 (SingleStream Blocks + Final Layer)."""
     console.print(f"[cyan]Worker: Starting Part 2 Conversion (PID: {os.getpid()})[/cyan]")
-    
+
     transformer = load_flux_transformer(model_id)
     transformer.eval()
-    
-    # Calculate hidden size for Part 2 inputs (outputs of Part 1)
-    # Part 1 projects inputs to hidden_size (num_attention_heads * attention_head_dim)
-    hidden_size = transformer.config.num_attention_heads * transformer.config.attention_head_dim
-    
-    # Setup dummy inputs matching Part 1 Output Shapes
-    h, w = 64, 64
-    s = (h // 2) * (w // 2)
-    batch_size = 1
-    
-    # Note: Part 1 outputs are in the projected hidden dimension!
-    hidden_states = torch.randn(batch_size, s, hidden_size).float()
-    
-    text_len = 256
-    encoder_hidden_states = torch.randn(batch_size, text_len, hidden_size).float()
-    
-    pool_dim = transformer.config.pooled_projection_dim
-    pooled_projections = torch.randn(batch_size, pool_dim).float()
-    timestep = torch.tensor([1.0]).float()
-    guidance = torch.tensor([1.0]).float()
-    img_ids = torch.randn(s, 3).float()
-    txt_ids = torch.randn(text_len, 3).float()
-    
+
+    # Create dummy inputs using helper (Part 2 uses hidden_size from Part 1 output)
+    shapes = FluxInputShapes()
+    inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=True)
+
+    # Part 2 uses "_inter" suffix for input names (matching Part 1 outputs)
+    part2_names = ["hidden_states_inter", "encoder_hidden_states_inter"] + names[2:]
+
     wrapper = FluxPart2Wrapper(transformer)
     wrapper.eval()
-    
+
     # Trace
     console.print("[dim]Worker: Tracing Part 2...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, pooled_projections, timestep, img_ids, txt_ids, guidance]
     traced = torch.jit.trace(wrapper, inputs, strict=False)
-    
-    # Convert
+
+    # Convert to CoreML
     console.print("[dim]Worker: Converting Part 2 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="pooled_projections", shape=pooled_projections.shape),
-        ct.TensorType(name="timestep", shape=timestep.shape),
-        ct.TensorType(name="img_ids", shape=img_ids.shape),
-        ct.TensorType(name="txt_ids", shape=txt_ids.shape),
-        ct.TensorType(name="guidance", shape=guidance.shape)
-    ]
-    
+    ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(part2_names, inputs)]
+
     model = ct.convert(
         traced,
         inputs=ml_inputs,
@@ -281,29 +326,11 @@ def convert_flux_part2(model_id, output_path, quantization, intermediates_dir=No
         compute_units=ct.ComputeUnit.ALL,
         minimum_deployment_target=ct.target.macOS14
     )
-    
-    # Cleanup PyTorch
+
+    # Cleanup PyTorch resources
     del traced, wrapper, transformer
     gc.collect()
-    # Quantize
-    if quantization:
-        console.print(f"[dim]Worker: Quantizing Part 2 ({quantization})...[/dim]")
-        
-        if intermediates_dir:
-            import uuid
-            fp16_path = os.path.join(intermediates_dir, f"part2_fp16_{uuid.uuid4()}.mlpackage")
-            model.save(fp16_path)
-            del model
-            gc.collect()
-            model = safe_quantize_model(fp16_path, quantization, intermediate_dir=intermediates_dir)
-        else:
-            with tempfile.TemporaryDirectory() as tmp:
-                fp16_path = os.path.join(tmp, "p2_fp16.mlpackage")
-                model.save(fp16_path)
-                del model
-                gc.collect()
-                model = safe_quantize_model(fp16_path, quantization)
-            
-    console.print(f"[dim]Worker: Saving Part 2 to {output_path}...[/dim]")
-    model.save(output_path)
+
+    # Quantize and save using helper
+    quantize_and_save(model, output_path, quantization, intermediates_dir, "part2")
     console.print("[green]Worker: Part 2 Complete[/green]")
