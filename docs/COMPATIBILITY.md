@@ -86,21 +86,21 @@
 
 ---
 
-## 🚧 Planned Support
+## ✅ Additional Features
 
 ### ControlNet
 
-| Feature | Status | ETA |
-|---------|--------|-----|
-| Flux ControlNet | 🚧 Planned | Q1 2025 |
-| SD ControlNet | ⚠️ Via Apple | Now |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Flux ControlNet | ✅ Released | Full support for X-Labs, InstantX models |
+| SD ControlNet | ⚠️ Via Apple | Uses Apple's tool |
 
 ### LoRA
 
-| Feature | Status | ETA |
-|---------|--------|-----|
-| Flux LoRA | ✅ "Baking" | Released |
-| SD LoRA | ⚠️ Via Apple | Now |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Flux LoRA | ✅ "Baking" | Bake LoRA weights at conversion time |
+| SD LoRA | ⚠️ Via Apple | Uses Apple's tool |
 
 ---
 
@@ -213,7 +213,14 @@
 | Flux | ✅ | ✅ | ✅ |
 | LTX | ✅ | ✅ | ⚠️ |
 | Wan | ✅ | ✅ | ❌ |
-| Hunyuan | ⚠️ | ⚠️ | ❌ |
+| Hunyuan | ✅ | ✅ | ❌ |
+| Lumina | ✅ | ⚠️ | ❌ |
+
+**Note**: All converters now have comprehensive unit tests covering:
+- 2-phase subprocess spawning
+- Error handling (Part 1/Part 2 failures)
+- Resume capability from intermediates
+- Skip behavior for existing models
 
 ---
 
@@ -239,7 +246,8 @@
 | Version | Date | Major Changes |
 |---------|------|---------------|
 | 0.1.0 | Dec 2024 | Initial release with Flux/LTX/Wan support |
-| 0.2.0 | Planned | ComfyUI video nodes, ControlNet support |
+| 0.2.2 | Dec 2024 | Flux ControlNet support, ComfyUI integration |
+| 0.3.0 | Dec 2024 | Standardized 2-phase subprocess conversion, resume capability, comprehensive unit tests |
 
 ---
 

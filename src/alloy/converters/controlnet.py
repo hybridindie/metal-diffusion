@@ -5,6 +5,7 @@ from diffusers import FluxControlNetModel
 import os
 from .base import ModelConverter
 from .flux import NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
+from alloy.utils.coreml import safe_quantize_model
 from rich.console import Console
 
 console = Console()
@@ -146,14 +147,8 @@ class FluxControlNetConverter(ModelConverter):
             minimum_deployment_target=ct.target.macOS14
         )
         
-        if self.quantization in ["int4", "4bit", "mixed"]:
-             console.print(f"Quantizing ({self.quantization})...")
-             op_config = ct.optimize.coreml.OpLinearQuantizerConfig(
-                mode="linear_symmetric",
-                weight_threshold=512
-             )
-             config = ct.optimize.coreml.OptimizationConfig(global_config=op_config)
-             ml_model = ct.optimize.coreml.linear_quantize_weights(ml_model, config)
+        if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:
+             ml_model = safe_quantize_model(ml_model, self.quantization)
              
         ml_model.save(ml_model_dir)
         console.print(f"[green]✓ ControlNet Saved:[/green] {ml_model_dir}")

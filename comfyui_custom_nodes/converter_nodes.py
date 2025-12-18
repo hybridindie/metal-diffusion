@@ -17,9 +17,8 @@ class CoreMLConverter:
     def INPUT_TYPES(s):
         return {"required": {
             "model_source": ("STRING", {"default": "black-forest-labs/FLUX.1-schnell", "multiline": False}),
-            "model_type": (["flux", "ltx", "wan", "hunyuan", "sd"],),
+            "model_type": (["flux", "ltx", "wan", "hunyuan", "sd", "lumina"],),
             "quantization": (["float16", "int4", "int8"],),
-            "output_name": ("STRING", {"default": "", "multiline": False}),
             "output_name": ("STRING", {"default": "", "multiline": False}),
             "force_reconvert": ("BOOLEAN", {"default": False})
         },
@@ -72,17 +71,19 @@ class CoreMLConverter:
         
         try:
             # Import converters
-            from alloy.flux_converter import FluxConverter
-            from alloy.ltx_converter import LTXConverter
-            from alloy.wan_converter import WanConverter
-            from alloy.hunyuan_converter import HunyuanConverter
-            from alloy.converter import SDConverter
+            from alloy.converters.flux import FluxConverter
+            from alloy.converters.ltx import LTXConverter
+            from alloy.converters.wan import WanConverter
+            from alloy.converters.hunyuan import HunyuanConverter
+            from alloy.converters.lumina import LuminaConverter
+            from alloy.converters.base import SDConverter
             
             converter_map = {
                 'flux': FluxConverter,
                 'ltx': LTXConverter,
                 'wan': WanConverter,
                 'hunyuan': HunyuanConverter,
+                'lumina': LuminaConverter,
                 'sd': SDConverter
             }
             
@@ -133,7 +134,7 @@ class CoreMLQuickConverter:
         },
         "optional": {
             "custom_model": ("STRING", {"default": "", "multiline": False}),
-            "custom_type": (["flux", "ltx", "wan"],),
+            "custom_type": (["flux", "ltx", "wan", "hunyuan", "sd", "lumina"],),
         }}
     
     RETURN_TYPES = ("STRING",)

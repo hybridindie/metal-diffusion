@@ -217,7 +217,10 @@ alloy list-models --dir /path/to/models
 ## Architecture
 
 -   **`src/alloy/cli.py`**: CLI entry point.
--   **`src/alloy/converters/`**: Model conversion logic (Flux, Wan, LTX, Hunyuan, Stable Diffusion).
+-   **`src/alloy/converters/`**: Model conversion logic (Flux, Wan, LTX, Hunyuan, Lumina, Stable Diffusion).
+    -   All converters use **2-phase subprocess isolation** to prevent OOM during large model conversion.
+    -   Intermediate files enable **resume capability** for interrupted conversions.
+    -   Worker modules (`*_workers.py`) handle subprocess conversion logic.
 -   **`src/alloy/runners/`**: Inference runners (PyTorch/Core ML hybrids).
 -   **`src/alloy/utils/`**: Utilities for file handling, Hugging Face auth, and benchmarking.
 -   **`pyproject.toml`**: Dependency overrides to force compatibility between `coremltools` and `diffusers`.

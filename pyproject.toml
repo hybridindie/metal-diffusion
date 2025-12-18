@@ -1,7 +1,7 @@
 [project]
 name = "silicon-alloy"
-version = "0.2.2"
-description = "High-performance Core ML diffusion toolchain for Apple Silicon"
+version = "0.3.0"
+description = "High-performance Core ML diffusion model converter"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -26,24 +26,24 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch>=2.4.0",
+    "torch>=2.4.0,<2.8.0",  # coremltools tested up to 2.7.x
     "diffusers[torch]>=0.30.0",
     "transformers>=4.44.0",
     "coremltools>=8.0",
     "huggingface-hub>=0.24.0",
     "safetensors>=0.4.0",
-    "numpy<2.0.0",  # coremltools compatibility
-    "scipy",
-    "accelerate",
-    "sentencepiece",
-    "matplotlib",
-    "scikit-learn",
-    "python-dotenv",
-    "tqdm",
-    "rich",
-    "psutil",
-    "pyyaml",
-    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git"
+    "numpy>=1.23.0,<2.0.0",  # coremltools compatibility
+    "scipy>=1.10.0,<2.0.0",
+    "accelerate>=0.20.0",
+    "sentencepiece>=0.1.99",
+    "matplotlib>=3.7.0",
+    "scikit-learn>=1.0.0,<1.5.2",  # coremltools max supported is 1.5.1
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.65.0",
+    "rich>=13.0.0",
+    "psutil>=5.9.0",
+    "pyyaml>=6.0",
+    "python-coreml-stable-diffusion @ git+https://github.com/apple/ml-stable-diffusion.git@e12202c1f6405b83918b58a5d097cd61e3e1f702"
 ]
 
 [project.urls]

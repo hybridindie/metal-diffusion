@@ -109,3 +109,136 @@ def test_cli_auto_detect_failure(mock_detect):
         
         assert excinfo.value.code == 1
 
+def test_cli_auto_detect_quantization_int8():
+    """Test auto-detection of int8 quantization from filename."""
+    with patch("alloy.cli.detect_model_type") as mock_detect, \
+         patch("alloy.cli.detect_safetensors_precision") as mock_precision:
+        mock_detect.return_value = "flux"
+        mock_precision.return_value = None # Force fallback to filename
+    
+        with patch("alloy.cli.FluxConverter") as MockFlux:
+            test_args = ["alloy", "convert", "flux_model_int8.safetensors", "--output-dir", "out"]
+            with patch.object(sys, 'argv', test_args):
+                # Expect FluxConverter called with int8 (Allowed)
+                # Guard no longer downgrades, just warns/notes.
+                main()
+                MockFlux.assert_called()
+                call_args = MockFlux.call_args
+                # Call args: (name, out, quant, ...)
+                assert call_args[0][2] == "int8"
+
+@patch("alloy.cli.detect_model_type")
+def test_cli_auto_detect_quantization_default(mock_detect):
+    """Test default float16 if no quantization specified and no filename match."""
+    mock_detect.return_value = "flux"
+    
+    with patch("alloy.cli.FluxConverter") as MockFlux:
+        test_args = ["alloy", "convert", "flux1-dev.safetensors", "--output-dir", "out"]
+        with patch.object(sys, 'argv', test_args):
+            main()
+            
+        MockFlux.assert_called_with("flux1-dev.safetensors", "out", "float16", loras=None, controlnet_compatible=False)
+
+@patch("alloy.cli.detect_model_type")
+def test_cli_auto_detect_quantization_robust_int8(mock_detect):
+    """Test auto-detection via robust safetensors inspection."""
+    mock_detect.return_value = "flux"
+    
+    # Mock the precision detector directly, or mock safe_open?
+    # Mocking detect_safetensors_precision is cleaner for CLI test, 
+    # assuming we test detect_safetensors_precision separately (or trust it for now).
+    # Since we imported it in CLI, we can patch it in alloy.cli
+    
+    with patch("alloy.cli.detect_safetensors_precision") as mock_precision:
+        mock_precision.return_value = "int8"
+        
+        with patch("alloy.cli.FluxConverter") as MockFlux:
+            # Filename implies nothing
+            test_args = ["alloy", "convert", "flux_model.safetensors", "--output-dir", "out"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+                
+            # Should follow robust detection
+            # Expect FluxConverter called with int8 (Allowed)
+            mock_precision.assert_called_with("flux_model.safetensors")
+            MockFlux.assert_called_with("flux_model.safetensors", "out", "int8", loras=None, controlnet_compatible=False)
+
+@patch("alloy.cli.detect_safetensors_precision")
+def test_cli_quantization_guard_redundant_skip(mock_precision, capsys):
+    """Test that Int8->Int8 redundant request is SKIPPED by guard."""
+    mock_precision.return_value = "int8"
+    
+    with patch("alloy.cli.FluxConverter") as MockFlux:
+        with patch("alloy.cli.detect_model_type") as m_type:
+            m_type.return_value = "flux"
+            
+            # User requests int8 on int8 file
+            test_args = ["alloy", "convert", "flux.safetensors", "--quantization", "int8"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+                
+            # Expect FluxConverter called with int8 (Allowed because user wants to maintain size)
+            # Args pass: (id, out, quantization, ...)
+            MockFlux.assert_called()
+            call_args = MockFlux.call_args
+            assert call_args[0][2] == "int8"
+
+    captured = capsys.readouterr()
+    assert "Re-quantizing to int8 to maintain source file size" in captured.out
+    assert "expanding usage to Float16" in captured.out
+
+@patch("alloy.cli.detect_safetensors_precision")
+def test_cli_quantization_guard_redundant_force(mock_precision, capsys):
+    """Test that Int8->Int8 redundant request works WITH FORCE flag."""
+    mock_precision.return_value = "int8"
+    
+    with patch("alloy.cli.FluxConverter") as MockFlux:
+        with patch("alloy.cli.detect_model_type") as m_type:
+            m_type.return_value = "flux"
+            
+            # User requests int8 on int8 file WITH FORCE
+            test_args = ["alloy", "convert", "flux.safetensors", "--quantization", "int8", "--force-quantization"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+                
+            # Expect FluxConverter called with int8
+            args, _ = MockFlux.call_args
+            assert args[2] == "int8"
+
+    captured = capsys.readouterr()
+    assert "Forcing re-quantization" in captured.out
+
+@patch("alloy.cli.detect_safetensors_precision")
+def test_cli_quantization_warning_upscale(mock_precision, capsys):
+    """Test warning when user requests higher precision than input."""
+    mock_precision.return_value = "int8"
+    
+    with patch("alloy.cli.FluxConverter"):
+        with patch("alloy.cli.detect_model_type") as m_type:
+            m_type.return_value = "flux"
+            # User requests float16 on int8 file
+            test_args = ["alloy", "convert", "flux.safetensors", "--quantization", "float16"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+    
+    captured = capsys.readouterr()
+    assert "Warning" in captured.out
+    assert "lower precision than target" in captured.out
+
+@patch("alloy.cli.detect_safetensors_precision")
+def test_cli_quantization_warning_double_quant(mock_precision, capsys):
+    """Test warning when user requests double quantization (e.g. Int8 -> Int4)."""
+    mock_precision.return_value = "int8"
+    
+    with patch("alloy.cli.FluxConverter"):
+        with patch("alloy.cli.detect_model_type") as m_type:
+            m_type.return_value = "flux"
+            # User requests int4 on int8 file
+            test_args = ["alloy", "convert", "flux.safetensors", "--quantization", "int4"]
+            with patch.object(sys, 'argv', test_args):
+                main()
+    
+    captured = capsys.readouterr()
+    assert "Warning" in captured.out
+    assert "degradation due to double-quantization" in captured.out
+

@@ -2,56 +2,59 @@ import pytest
 from unittest.mock import patch, MagicMock
 from alloy.converters.ltx import LTXConverter
 import os
-import torch
 
-@patch("torch.jit.trace")
+
 @patch("alloy.converters.ltx.ct")
-def test_ltx_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
+@patch("alloy.converters.ltx.multiprocessing.Process")
+@patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
+def test_ltx_conversion_pipeline_mocked(mock_download, mock_process, mock_ct, tmp_path):
     """
-    Test the full LTX conversion flow orchestrator with mocked heavy ops.
+    Test the full LTX conversion flow orchestrator with mocked subprocess workers.
+
+    Since LTXConverter now uses 2-phase subprocess isolation, we mock:
+    1. The multiprocessing.Process to prevent actual subprocess spawning
+    2. The ct.models.MLModel to mock loading of intermediate files
+    3. The ct.utils.make_pipeline to mock pipeline assembly
     """
     # Setup
     model_id = "Lightricks/LTX-Video"
     output_dir = tmp_path / "converted_ltx"
-    
-    # Mocks
-    mock_ct.convert.return_value = MagicMock()
-    mock_ct.optimize.coreml.linear_quantize_weights.return_value = MagicMock()
-    mock_trace.return_value = MagicMock()
-    
-    # Initialize Converter
-    with patch("alloy.converters.ltx.LTXPipeline.from_pretrained") as mock_pipeline_cls:
-        mock_pipe = MagicMock()
-        mock_pipeline_cls.return_value = mock_pipe
-        
-        # Config mocks
-        mock_pipe.transformer.config = MagicMock()
-        mock_pipe.transformer.config.in_channels = 128
-        
-        converter = LTXConverter(model_id, str(output_dir), quantization="int4")
-        converter.convert()
-        
-        # Verification
-        
-        # 1. Pipeline Loaded
-        mock_pipeline_cls.assert_called_with(model_id)
-        
-        # 2. Transformer Conversion Called
-        assert mock_trace.call_count >= 1
-        
-        # Check inputs to trace
-        # wrapper = traced_model = torch.jit.trace(wrapper, example_inputs, strict=False)
-        # We can check specific arg types
-        args, _ = mock_trace.call_args
-        example_inputs = args[1]
-        assert len(example_inputs) == 7 # hidden, encoder_hidden, timestep, mask, frames, h, w
-        assert example_inputs[4].item() == 8 # Default frames I set in converter
-        
-        # 3. CoreML Convert Called
-        assert mock_ct.convert.call_count >= 1
-        
-        # 4. Quantization Called
-        assert mock_ct.optimize.coreml.linear_quantize_weights.call_count >= 1
-        
-        # 5. Save Called
-        mock_ct.optimize.coreml.linear_quantize_weights.return_value.save.assert_called()
+
+    # Mock Process to simulate successful worker execution
+    mock_proc_instance = MagicMock()
+    mock_proc_instance.exitcode = 0
+    mock_process.return_value = mock_proc_instance
+
+    # Mock intermediate model loading
+    mock_model = MagicMock()
+    mock_ct.models.MLModel.return_value = mock_model
+    mock_ct.ComputeUnit.CPU_ONLY = "cpu_only"
+
+    # Mock pipeline assembly
+    mock_pipeline = MagicMock()
+    mock_ct.utils.make_pipeline.return_value = mock_pipeline
+
+    # Initialize and run Converter
+    converter = LTXConverter(model_id, str(output_dir), quantization="int4")
+    converter.convert()
+
+    # Verification
+
+    # 1. Source weights download was attempted
+    mock_download.assert_called_once()
+
+    # 2. Two subprocess workers should be spawned (Part 1 and Part 2)
+    assert mock_process.call_count == 2
+
+    # 3. Both processes should be started and joined
+    assert mock_proc_instance.start.call_count == 2
+    assert mock_proc_instance.join.call_count == 2
+
+    # 4. Intermediate models should be loaded (2 parts)
+    assert mock_ct.models.MLModel.call_count == 2
+
+    # 5. Pipeline should be assembled from the two parts
+    mock_ct.utils.make_pipeline.assert_called_once()
+
+    # 6. Final pipeline should be saved
+    mock_pipeline.save.assert_called_once()
