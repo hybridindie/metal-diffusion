@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import os
+import multiprocessing
+import shutil
 
 import coremltools as ct
 from diffusers import DiffusionPipeline, FluxTransformer2DModel, FluxPipeline
@@ -13,6 +15,7 @@ import tempfile
 import gc
 from tqdm import tqdm
 from rich.console import Console
+from alloy.converters.workers import convert_flux_part1, convert_flux_part2
 from alloy.utils.coreml import safe_quantize_model
 
 console = Console()
@@ -43,7 +46,7 @@ class FluxConverter(ModelConverter):
     def convert(self):
         """Main conversion entry point"""
         os.makedirs(self.output_dir, exist_ok=True)
-        ml_model_dir = os.path.join(self.output_dir, "Flux_Transformer.mlpackage")
+        ml_model_dir = os.path.join(self.output_dir, f"Flux_Transformer_{self.quantization}.mlpackage")
         
         if os.path.exists(ml_model_dir):
             console.print(f"[yellow]Model exists, skipping:[/yellow] {ml_model_dir}")
@@ -55,10 +58,6 @@ class FluxConverter(ModelConverter):
         os.makedirs(intermediates_dir, exist_ok=True)
         
         try:
-            from alloy.converters.workers import convert_flux_part1, convert_flux_part2
-            import multiprocessing
-            import shutil
-            
             # Paths for intermediate parts
             part1_path = os.path.join(intermediates_dir, "FluxPart1.mlpackage")
             part2_path = os.path.join(intermediates_dir, "FluxPart2.mlpackage")
@@ -80,7 +79,7 @@ class FluxConverter(ModelConverter):
                 console.print("\n[bold]Spawning Part 1 Conversion Process...[/bold]")
                 p1 = multiprocessing.Process(
                     target=convert_flux_part1,
-                    args=(model_path_for_workers, part1_path, self.quantization),
+                    args=(self.model_id, part1_path, self.quantization),
                     kwargs={"intermediates_dir": intermediates_dir}
                 )
                 p1.start()
@@ -105,7 +104,7 @@ class FluxConverter(ModelConverter):
                 console.print("\n[bold]Spawning Part 2 Conversion Process...[/bold]")
                 p2 = multiprocessing.Process(
                     target=convert_flux_part2,
-                    args=(model_path_for_workers, part2_path, self.quantization),
+                    args=(self.model_id, part2_path, self.quantization),
                     kwargs={"intermediates_dir": intermediates_dir}
                 )
                 p2.start()
