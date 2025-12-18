@@ -8,7 +8,9 @@ import torch
 @patch("alloy.utils.coreml.ct.models.MLModel")
 @patch("alloy.utils.coreml.ct.optimize.coreml.linear_quantize_weights")
 @patch("alloy.converters.hunyuan.ct")
-def test_hunyuan_conversion_pipeline_mocked(mock_ct, mock_quantize, mock_mlmodel_cls, mock_trace, tmp_path):
+@patch("alloy.converters.hunyuan.shutil")
+@patch("alloy.converters.hunyuan.os.path.exists")
+def test_hunyuan_conversion_pipeline_mocked(mock_exists, mock_shutil, mock_ct, mock_quantize, mock_mlmodel_cls, mock_trace, tmp_path):
     """
     Test the full Hunyuan conversion flow orchestrator with mocked heavy ops.
     """
@@ -31,6 +33,9 @@ def test_hunyuan_conversion_pipeline_mocked(mock_ct, mock_quantize, mock_mlmodel
         mock_pipe.transformer.config.in_channels = 16
         mock_pipe.transformer.config.text_embed_dim = 4096
         mock_pipe.transformer.config.pooled_projection_dim = 768
+        
+        # Force "Not Exists" so we run conversion
+        mock_exists.return_value = False
         
         converter = HunyuanConverter(model_id, str(output_dir), quantization="int4")
         converter.convert()

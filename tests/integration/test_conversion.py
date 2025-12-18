@@ -7,7 +7,10 @@ import os
 
 @patch("torch.jit.trace")
 @patch("alloy.converters.wan.ct")
-def test_wan_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
+@patch("alloy.converters.wan.shutil")
+@patch("alloy.converters.wan.os.makedirs")
+@patch("alloy.converters.wan.os.path.exists")
+def test_wan_conversion_pipeline_mocked(mock_exists, mock_makedirs, mock_shutil, mock_ct, mock_trace, tmp_path):
     """
     Test the full conversion flow orchestrator with mocked heavy ops.
     """
@@ -35,6 +38,9 @@ def test_wan_conversion_pipeline_mocked(mock_ct, mock_trace, tmp_path):
         mock_transformer.configure_mock(config=mock_config)
         
         mock_pipe.configure_mock(transformer=mock_transformer)
+        
+        # Force "Not Exists"
+        mock_exists.return_value = False
         
         converter = WanConverter(model_id, str(output_dir), quantization="int4")
         converter.convert()

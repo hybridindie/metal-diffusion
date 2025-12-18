@@ -8,7 +8,9 @@ import torch
 @patch("alloy.utils.coreml.ct.models.MLModel")
 @patch("alloy.utils.coreml.ct.optimize.coreml.linear_quantize_weights")
 @patch("alloy.converters.ltx.ct")
-def test_ltx_conversion_pipeline_mocked(mock_ct, mock_quantize, mock_mlmodel_cls, mock_trace, tmp_path):
+@patch("alloy.converters.ltx.shutil")
+@patch("alloy.converters.ltx.os.path.exists")
+def test_ltx_conversion_pipeline_mocked(mock_exists, mock_shutil, mock_ct, mock_quantize, mock_mlmodel_cls, mock_trace, tmp_path):
     """
     Test the full LTX conversion flow orchestrator with mocked heavy ops.
     """
@@ -29,6 +31,9 @@ def test_ltx_conversion_pipeline_mocked(mock_ct, mock_quantize, mock_mlmodel_cls
         # Config mocks
         mock_pipe.transformer.config = MagicMock()
         mock_pipe.transformer.config.in_channels = 128
+        
+        # Force "Not Exists" so we run conversion
+        mock_exists.return_value = False
         
         converter = LTXConverter(model_id, str(output_dir), quantization="int4")
         converter.convert()
