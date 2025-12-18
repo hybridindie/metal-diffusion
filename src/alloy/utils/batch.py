@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
 from alloy.exceptions import ConfigError, UnsupportedModelError
+from alloy.utils.errors import get_config_suggestions
 
 console = Console()
 
@@ -26,7 +27,11 @@ def parse_batch_file(batch_file):
     """
     path = Path(batch_file)
     if not path.exists():
-        raise ConfigError(f"Batch file not found: {batch_file}", config_file=str(path))
+        raise ConfigError(
+            f"Batch file not found: {batch_file}",
+            config_file=str(path),
+            suggestions=["Verify the file path is correct", "Check that the file exists"],
+        )
     
     content = path.read_text()
     
@@ -35,13 +40,21 @@ def parse_batch_file(batch_file):
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
-            raise ConfigError(f"Invalid JSON: {e}", config_file=str(path))
+            raise ConfigError(
+                f"Invalid JSON: {e}",
+                config_file=str(path),
+                suggestions=get_config_suggestions(),
+            )
     # Try YAML
     elif path.suffix in ['.yaml', '.yml']:
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:
-            raise ConfigError(f"Invalid YAML: {e}", config_file=str(path))
+            raise ConfigError(
+                f"Invalid YAML: {e}",
+                config_file=str(path),
+                suggestions=get_config_suggestions(),
+            )
     else:
         # Try both
         try:
@@ -50,10 +63,18 @@ def parse_batch_file(batch_file):
             try:
                 data = yaml.safe_load(content)
             except Exception:
-                raise ConfigError("File must be JSON or YAML format", config_file=str(path))
+                raise ConfigError(
+                    "File must be JSON or YAML format",
+                    config_file=str(path),
+                    suggestions=get_config_suggestions(),
+                )
 
     if not isinstance(data, list):
-        raise ConfigError("Batch file must contain a list of model configs", config_file=str(path))
+        raise ConfigError(
+            "Batch file must contain a list of model configs",
+            config_file=str(path),
+            suggestions=["Ensure the file contains a JSON/YAML array of model configs"],
+        )
     
     return data
 
@@ -63,7 +84,11 @@ def validate_batch_config(config):
     required = ['model', 'type']
     missing = [field for field in required if field not in config]
     if missing:
-        raise ConfigError("Missing required fields", missing_fields=missing)
+        raise ConfigError(
+            "Missing required fields",
+            missing_fields=missing,
+            suggestions=get_config_suggestions(missing_fields=missing),
+        )
     
     # Set defaults
     config.setdefault('output_dir', f"converted_models/{config['model'].split('/')[-1]}")

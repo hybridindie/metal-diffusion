@@ -15,6 +15,7 @@ from alloy.exceptions import (
     UnsupportedModelError,
     ConfigError,
     DependencyError,
+    HuggingFaceError,
 )
 
 from alloy.runners.flux import FluxCoreMLRunner
@@ -56,7 +57,14 @@ def ensure_cleanup():
 def main():
     # Setup console
     console = Console()
-    
+
+    def _print_suggestions(suggestions: list) -> None:
+        """Display actionable suggestions to the user."""
+        if suggestions:
+            console.print("\n[yellow]Suggestions:[/yellow]")
+            for suggestion in suggestions:
+                console.print(f"  [dim]•[/dim] {suggestion}")
+
     # Opportunistic cleanup of old temp files from crashes
     cleaned = cleanup_old_temp_files(max_age_hours=0.01)
     if cleaned > 0:
@@ -352,15 +360,22 @@ def main():
         sys.exit(130)
     except WorkerError as e:
         console.print(f"[red]Worker failed:[/red] {e}")
+        _print_suggestions(e.suggestions)
         sys.exit(e.exit_code or 1)
+    except HuggingFaceError as e:
+        console.print(f"[red]Download failed:[/red] {e}")
+        _print_suggestions(e.suggestions)
+        sys.exit(1)
     except UnsupportedModelError as e:
         console.print(f"[red]Unsupported model:[/red] {e}")
         sys.exit(1)
     except ConfigError as e:
         console.print(f"[red]Configuration error:[/red] {e}")
+        _print_suggestions(e.suggestions)
         sys.exit(1)
     except DependencyError as e:
         console.print(f"[red]Missing dependency:[/red] {e}")
+        _print_suggestions(e.suggestions)
         sys.exit(1)
     except AlloyError as e:
         console.print(f"[red]Error:[/red] {e}")

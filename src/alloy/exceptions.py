@@ -64,8 +64,10 @@ class WorkerError(ConversionError):
         model_name: Optional[str] = None,
         phase: Optional[str] = None,
         exit_code: Optional[int] = None,
+        suggestions: Optional[list] = None,
     ):
         self.exit_code = exit_code
+        self.suggestions = suggestions or []
         super().__init__(message, model_name, phase)
 
     def _format_message(self) -> str:
@@ -113,9 +115,11 @@ class ConfigError(ValidationError):
         message: str,
         config_file: Optional[str] = None,
         missing_fields: Optional[list] = None,
+        suggestions: Optional[list] = None,
     ):
         self.config_file = config_file
         self.missing_fields = missing_fields or []
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:
@@ -144,9 +148,11 @@ class HuggingFaceError(DownloadError):
         message: str,
         repo_id: Optional[str] = None,
         original_error: Optional[Exception] = None,
+        suggestions: Optional[list] = None,
     ):
         self.repo_id = repo_id
         self.original_error = original_error
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:
@@ -167,9 +173,11 @@ class DependencyError(AlloyError):
         message: str,
         package_name: Optional[str] = None,
         install_command: Optional[str] = None,
+        suggestions: Optional[list] = None,
     ):
         self.package_name = package_name
         self.install_command = install_command
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:
