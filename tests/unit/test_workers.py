@@ -7,7 +7,6 @@ import os
 from alloy.converters.workers import (
     FluxInputShapes,
     create_flux_dummy_inputs,
-    quantize_and_save,
     FluxPart1Wrapper,
     FluxPart2Wrapper,
     DEFAULT_HEIGHT,
@@ -15,6 +14,7 @@ from alloy.converters.workers import (
     DEFAULT_TEXT_LEN,
     DEFAULT_BATCH_SIZE,
 )
+from alloy.workers.base import quantize_and_save
 
 
 class TestFluxInputShapes(unittest.TestCase):
@@ -163,7 +163,7 @@ class TestQuantizeAndSave(unittest.TestCase):
 
         mock_model.save.assert_called_once_with(output_path)
 
-    @patch("alloy.converters.workers.safe_quantize_model")
+    @patch("alloy.workers.base.safe_quantize_model")
     def test_quantization_with_intermediates_dir(self, mock_quantize):
         """Test quantization uses intermediates directory when provided."""
         mock_model = MagicMock()
@@ -181,7 +181,7 @@ class TestQuantizeAndSave(unittest.TestCase):
         # Verify final save
         mock_quantized.save.assert_called_with(output_path)
 
-    @patch("alloy.converters.workers.safe_quantize_model")
+    @patch("alloy.workers.base.safe_quantize_model")
     def test_quantization_without_intermediates_uses_temp(self, mock_quantize):
         """Test quantization uses temp directory when no intermediates_dir."""
         mock_model = MagicMock()
