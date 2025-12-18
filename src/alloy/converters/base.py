@@ -253,7 +253,7 @@ class TwoPhaseConverter(ModelConverter):
                 model_name=self.model_name,
                 phase=description,
                 exit_code=process.exitcode,
-                suggestions=get_worker_suggestions(process.exitcode, description),
+                suggestions=get_worker_suggestions(process.exitcode),
             )
 
     def _assemble_pipeline(

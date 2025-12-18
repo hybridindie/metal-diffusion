@@ -8,7 +8,7 @@ from alloy.utils.errors import (
     get_config_suggestions,
     get_dependency_suggestions,
 )
-from alloy.exceptions import WorkerError, HuggingFaceError
+from alloy.exceptions import WorkerError, HuggingFaceError, ConfigError, DependencyError
 
 
 class TestGetWorkerSuggestions(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestGetWorkerSuggestions(unittest.TestCase):
 
     def test_sigkill_suggests_oom_solutions(self):
         """Test that SIGKILL (-9) suggests OOM-related solutions."""
-        suggestions = get_worker_suggestions(-9, "Part 1")
+        suggestions = get_worker_suggestions(-9)
 
         self.assertIn("Close other applications to free memory", suggestions)
         self.assertTrue(any("quantization" in s.lower() for s in suggestions))
@@ -24,31 +24,31 @@ class TestGetWorkerSuggestions(unittest.TestCase):
 
     def test_sigterm_notes_external_termination(self):
         """Test that SIGTERM (-15) notes external termination."""
-        suggestions = get_worker_suggestions(-15, "Part 2")
+        suggestions = get_worker_suggestions(-15)
 
         self.assertTrue(any("terminated externally" in s.lower() for s in suggestions))
 
     def test_exit_code_1_suggests_checking_output(self):
         """Test that exit code 1 suggests checking error output."""
-        suggestions = get_worker_suggestions(1, "Part 1")
+        suggestions = get_worker_suggestions(1)
 
         self.assertTrue(any("check" in s.lower() for s in suggestions))
 
     def test_other_negative_exit_codes_mention_signal(self):
         """Test that other negative exit codes mention the signal number."""
-        suggestions = get_worker_suggestions(-6, "Part 1")  # SIGABRT
+        suggestions = get_worker_suggestions(-6)  # SIGABRT
 
         self.assertTrue(any("signal 6" in s for s in suggestions))
 
     def test_exit_code_0_returns_empty(self):
         """Test that exit code 0 (success) returns no suggestions."""
-        suggestions = get_worker_suggestions(0, "Part 1")
+        suggestions = get_worker_suggestions(0)
 
         self.assertEqual(suggestions, [])
 
     def test_none_exit_code_returns_empty(self):
         """Test that None exit code returns no suggestions."""
-        suggestions = get_worker_suggestions(None, "Part 1")
+        suggestions = get_worker_suggestions(None)
 
         self.assertEqual(suggestions, [])
 
@@ -161,6 +161,40 @@ class TestExceptionSuggestions(unittest.TestCase):
     def test_huggingface_error_defaults_to_empty_suggestions(self):
         """Test that HuggingFaceError defaults to empty suggestions list."""
         error = HuggingFaceError("Download failed")
+
+        self.assertEqual(error.suggestions, [])
+
+    def test_config_error_stores_suggestions(self):
+        """Test that ConfigError stores suggestions."""
+        suggestions = ["Check format", "Add required fields"]
+        error = ConfigError(
+            "Invalid config",
+            config_file="batch.json",
+            suggestions=suggestions,
+        )
+
+        self.assertEqual(error.suggestions, suggestions)
+
+    def test_config_error_defaults_to_empty_suggestions(self):
+        """Test that ConfigError defaults to empty suggestions list."""
+        error = ConfigError("Invalid config")
+
+        self.assertEqual(error.suggestions, [])
+
+    def test_dependency_error_stores_suggestions(self):
+        """Test that DependencyError stores suggestions."""
+        suggestions = ["Install package", "Check environment"]
+        error = DependencyError(
+            "Missing package",
+            package_name="diffusers",
+            suggestions=suggestions,
+        )
+
+        self.assertEqual(error.suggestions, suggestions)
+
+    def test_dependency_error_defaults_to_empty_suggestions(self):
+        """Test that DependencyError defaults to empty suggestions list."""
+        error = DependencyError("Missing package")
 
         self.assertEqual(error.suggestions, [])
 

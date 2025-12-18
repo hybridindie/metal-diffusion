@@ -7,12 +7,11 @@ based on error conditions, helping users resolve issues.
 from typing import Optional
 
 
-def get_worker_suggestions(exit_code: Optional[int], phase: Optional[str] = None) -> list:
+def get_worker_suggestions(exit_code: Optional[int]) -> list[str]:
     """Generate suggestions based on worker failure context.
 
     Args:
         exit_code: The exit code from the failed subprocess
-        phase: The conversion phase that failed (e.g., "Part 1", "Part 2")
 
     Returns:
         List of actionable suggestion strings
@@ -39,7 +38,7 @@ def get_worker_suggestions(exit_code: Optional[int], phase: Optional[str] = None
     return suggestions
 
 
-def get_download_suggestions(repo_id: Optional[str] = None) -> list:
+def get_download_suggestions(repo_id: Optional[str] = None) -> list[str]:
     """Generate suggestions for download failures.
 
     Args:
@@ -62,7 +61,7 @@ def get_download_suggestions(repo_id: Optional[str] = None) -> list:
     return suggestions
 
 
-def get_config_suggestions(missing_fields: Optional[list] = None) -> list:
+def get_config_suggestions(missing_fields: Optional[list[str]] = None) -> list[str]:
     """Generate suggestions for configuration errors.
 
     Args:
@@ -84,7 +83,7 @@ def get_config_suggestions(missing_fields: Optional[list] = None) -> list:
     return suggestions
 
 
-def get_dependency_suggestions(package_name: Optional[str] = None) -> list:
+def get_dependency_suggestions(package_name: Optional[str] = None) -> list[str]:
     """Generate suggestions for missing dependency errors.
 
     Args:

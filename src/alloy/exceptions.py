@@ -115,9 +115,11 @@ class ConfigError(ValidationError):
         message: str,
         config_file: Optional[str] = None,
         missing_fields: Optional[list] = None,
+        suggestions: Optional[list] = None,
     ):
         self.config_file = config_file
         self.missing_fields = missing_fields or []
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:
@@ -171,9 +173,11 @@ class DependencyError(AlloyError):
         message: str,
         package_name: Optional[str] = None,
         install_command: Optional[str] = None,
+        suggestions: Optional[list] = None,
     ):
         self.package_name = package_name
         self.install_command = install_command
+        self.suggestions = suggestions or []
         super().__init__(message)
 
     def _format_message(self) -> str:
