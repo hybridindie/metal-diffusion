@@ -1,22 +1,13 @@
-import torch
-import torch.nn as nn
 import os
 import multiprocessing
 import shutil
+import gc
 
 import coremltools as ct
-from diffusers import DiffusionPipeline, FluxTransformer2DModel, FluxPipeline
-try:
-    from diffusers import Flux2Transformer2DModel
-except ImportError:
-    Flux2Transformer2DModel = None # Handle older diffusers?
-from .base import ModelConverter
-import tempfile
-import gc
-from tqdm import tqdm
 from rich.console import Console
+
+from .base import ModelConverter
 from alloy.converters.workers import convert_flux_part1, convert_flux_part2
-from alloy.utils.coreml import safe_quantize_model
 
 console = Console()
 

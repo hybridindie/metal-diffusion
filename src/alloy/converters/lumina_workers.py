@@ -5,13 +5,12 @@ These functions run in separate processes to prevent OOM during large model conv
 Lumina has uniform transformer blocks, so we split at the midpoint.
 """
 import torch
-import torch.nn as nn
 import os
 import uuid
 import tempfile
 import gc
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import coremltools as ct
 from rich.console import Console

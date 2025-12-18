@@ -5,7 +5,6 @@ These functions run in separate processes to prevent OOM during large model conv
 HunyuanVideo follows the same dual-stream/single-stream architecture as Flux.
 """
 import torch
-import torch.nn as nn
 import os
 import uuid
 import tempfile
@@ -60,13 +59,7 @@ def create_hunyuan_dummy_inputs(
         Tuple of (input tensors list, input names list)
     """
     in_channels = transformer.config.in_channels  # 16
-
-    if use_hidden_size:
-        # Part 2: uses projected hidden dimension
-        hidden_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
-    else:
-        # Part 1: uses raw in_channels
-        hidden_dim = in_channels
+    # Note: use_hidden_size parameter reserved for future Part 2 dimension handling
 
     # For video: (B, C, F, H, W)
     hidden_states = torch.randn(
@@ -167,9 +160,6 @@ class HunyuanPart1Wrapper(torch.nn.Module):
         pooled_projections,
         guidance
     ):
-        # Get config values
-        batch_size = hidden_states.shape[0]
-
         # Patchify and embed hidden states
         hidden_states = self.model.patch_embed(hidden_states)
 

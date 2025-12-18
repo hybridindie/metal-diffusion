@@ -5,13 +5,12 @@ These functions run in separate processes to prevent OOM during large model conv
 LTX has uniform transformer blocks, so we split at the midpoint.
 """
 import torch
-import torch.nn as nn
 import os
 import uuid
 import tempfile
 import gc
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import coremltools as ct
 from rich.console import Console
@@ -92,8 +91,6 @@ class LTXPart1Wrapper(torch.nn.Module):
         timestep,
         encoder_attention_mask
     ):
-        batch_size = hidden_states.shape[0]
-
         # Get dimensions info for rope
         num_frames = hidden_states.shape[1]
         height = hidden_states.shape[3]

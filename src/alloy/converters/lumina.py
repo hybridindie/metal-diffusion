@@ -1,4 +1,3 @@
-import torch
 import coremltools as ct
 import multiprocessing
 import os

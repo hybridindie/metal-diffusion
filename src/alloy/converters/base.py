@@ -4,7 +4,6 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
-import torch
 import torch.nn as nn
 import coremltools as ct
 

@@ -1,11 +1,9 @@
-import torch
 import coremltools as ct
 import multiprocessing
 import os
 import shutil
 import gc
 
-from diffusers import HunyuanVideoTransformer3DModel, HunyuanVideoPipeline
 from rich.console import Console
 
 from .base import ModelConverter

@@ -210,7 +210,7 @@ class TestFluxPart1Wrapper(unittest.TestCase):
         guidance = torch.tensor([7.5])
         pooled = torch.randn(1, 768)
 
-        result = wrapper._compute_time_embedding(timestep, guidance, pooled)
+        wrapper._compute_time_embedding(timestep, guidance, pooled)
 
         mock_model.time_text_embed.assert_called_once_with(timestep, guidance, pooled)
 
@@ -224,7 +224,7 @@ class TestFluxPart1Wrapper(unittest.TestCase):
         timestep = torch.tensor([1.0])
         pooled = torch.randn(1, 768)
 
-        result = wrapper._compute_time_embedding(timestep, None, pooled)
+        wrapper._compute_time_embedding(timestep, None, pooled)
 
         mock_model.time_text_embed.assert_called_once_with(timestep, pooled)
 
@@ -264,7 +264,7 @@ class TestFluxPart2Wrapper(unittest.TestCase):
         guidance = torch.tensor([7.5])
         pooled = torch.randn(1, 768)
 
-        result = wrapper._compute_time_embedding(timestep, guidance, pooled)
+        wrapper._compute_time_embedding(timestep, guidance, pooled)
 
         mock_model.time_text_embed.assert_called_once_with(timestep, guidance, pooled)
 
@@ -278,7 +278,7 @@ class TestFluxPart2Wrapper(unittest.TestCase):
         timestep = torch.tensor([1.0])
         pooled = torch.randn(1, 768)
 
-        result = wrapper._compute_time_embedding(timestep, None, pooled)
+        wrapper._compute_time_embedding(timestep, None, pooled)
 
         mock_model.time_text_embed.assert_called_once_with(timestep, pooled)
 

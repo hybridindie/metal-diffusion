@@ -293,7 +293,8 @@ def main():
                  sys.exit(1)
 
             repo_name = args.repo_id.split("/")[-1]
-            download_dir = os.path.join("models", repo_name)
+            # Note: download_dir can be used if manual download is needed
+            # download_dir = os.path.join("models", repo_name)
             # Check if we assume model_path is a local path or HF ID. 
             # For SD, python_coreml relies on HF ID usually, but can take local. 
             # We'll use the ID directly for SDConverter as it handles download internally mostly, 

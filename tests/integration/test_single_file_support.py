@@ -64,31 +64,28 @@ def test_detect_model_type_exception(mock_isfile, mock_safe_open):
 
 @pytest.fixture
 def mock_flux_pipeline():
+    """Mock Flux pipeline for runner tests only (converters use subprocess workers now)."""
     with patch("alloy.runners.flux.FluxPipeline") as mock_runner, \
-         patch("alloy.converters.flux.FluxPipeline") as mock_converter, \
-         patch("alloy.runners.flux.DiffusionPipeline"), \
-         patch("alloy.converters.flux.DiffusionPipeline"):
-        
+         patch("alloy.runners.flux.DiffusionPipeline"):
+
         # Setup mocks
         mock_pipe = MagicMock()
         mock_pipe.to.return_value = mock_pipe
         mock_runner.from_single_file.return_value = mock_pipe
-        mock_converter.from_single_file.return_value = mock_pipe
-        
-        yield mock_runner, mock_converter, mock_pipe
+
+        yield mock_runner, mock_pipe
 
 @pytest.fixture
 def mock_ltx_pipeline():
-    with patch("alloy.runners.ltx.LTXPipeline") as mock_runner, \
-         patch("alloy.converters.ltx.LTXPipeline") as mock_converter:
-        
+    """Mock LTX pipeline for runner tests only (converters use subprocess workers now)."""
+    with patch("alloy.runners.ltx.LTXPipeline") as mock_runner:
+
         # Setup mocks
         mock_pipe = MagicMock()
         mock_pipe.to.return_value = mock_pipe
         mock_runner.from_single_file.return_value = mock_pipe
-        mock_converter.from_single_file.return_value = mock_pipe
-        
-        yield mock_runner, mock_converter, mock_pipe
+
+        yield mock_runner, mock_pipe
 
 @patch("alloy.runners.flux.ct.models.MLModel")
 @patch("alloy.runners.ltx.ct.models.MLModel")
@@ -106,63 +103,82 @@ def test_runner_initialization(mock_diff_pipe, mock_flux_pipe, mock_ltx_mlmodel,
 def test_flux_single_file_runner(mock_isfile, mock_mlmodel, mock_flux_pipeline):
     """Test FluxCoreMLRunner uses from_single_file when detecting a file."""
     mock_isfile.return_value = True
-    mock_runner_cls, _, _ = mock_flux_pipeline
-    
+    mock_runner_cls, _ = mock_flux_pipeline
+
     runner = FluxCoreMLRunner("dummy_dir", model_id="flux.safetensors")
-    
+
     mock_isfile.assert_called_with("flux.safetensors")
     mock_runner_cls.from_single_file.assert_called_once()
     assert "flux.safetensors" in mock_runner_cls.from_single_file.call_args[0]
 
+@patch("alloy.converters.flux.ct")
 @patch("os.path.isfile")
 @patch("alloy.converters.flux.multiprocessing.Process")
-def test_flux_single_file_converter(mock_process, mock_isfile, mock_flux_pipeline, tmp_path):
+@patch.object(FluxConverter, 'download_source_weights', return_value="flux.safetensors")
+def test_flux_single_file_converter(mock_download, mock_process, mock_isfile, mock_ct, tmp_path):
     """Test FluxConverter passes single file path to workers."""
     mock_isfile.return_value = True
-    
+
+    # Mock Process to simulate successful worker execution
+    mock_proc_instance = MagicMock()
+    mock_proc_instance.exitcode = 0
+    mock_process.return_value = mock_proc_instance
+
+    # Mock intermediate model loading
+    mock_model = MagicMock()
+    mock_ct.models.MLModel.return_value = mock_model
+    mock_ct.ComputeUnit.CPU_ONLY = "cpu_only"
+
+    # Mock pipeline assembly
+    mock_pipeline = MagicMock()
+    mock_ct.utils.make_pipeline.return_value = mock_pipeline
+
     converter = FluxConverter("flux.safetensors", str(tmp_path), "int4")
-    
-    # We mock Process to avoid spawning, and just check args
     converter.convert()
-    
+
     # Process should be started for part1 and part2
-    assert mock_process.call_count >= 1
-    
-    # Check args passed to Process
-    # call_args[1] is kwargs (target=..., args=(...))
-    # args tuple: (model_id, output_dir, quantization, intermediates_dir, ...)
-    # Element 0 should be "flux.safetensors"
-    
+    assert mock_process.call_count == 2
+
+    # Check args passed to Process - model_id should be passed
     call_args = mock_process.call_args_list[0]
-    kwargs = call_args[1] # or call_args.kwargs
-    
+    kwargs = call_args[1]
+
     if 'args' in kwargs:
         worker_args = kwargs['args']
         assert worker_args[0] == "flux.safetensors"
-    else:
-        # Maybe passed as kwargs to Process?
-        pass
 
+@patch("alloy.converters.ltx.ct")
 @patch("os.path.isfile")
-@patch("alloy.converters.ltx.shutil")
-@patch("alloy.converters.ltx.os.makedirs")
-@patch("alloy.converters.ltx.os.path.exists") 
-def test_ltx_single_file_converter(mock_exists, mock_makedirs, mock_shutil, mock_isfile, mock_ltx_pipeline, tmp_path):
-    """Test LTXConverter uses from_single_file when detecting a file."""
+@patch("alloy.converters.ltx.multiprocessing.Process")
+@patch.object(LTXConverter, 'download_source_weights', return_value="ltx.safetensors")
+def test_ltx_single_file_converter(mock_download, mock_process, mock_isfile, mock_ct, tmp_path):
+    """Test LTXConverter passes single file path to workers."""
     mock_isfile.return_value = True
-    mock_exists.return_value = False # Force conversion path
-    
-    _, mock_converter_cls, mock_pipe = mock_ltx_pipeline
-    
-    # Mock transformer for converter
-    mock_pipe.transformer = MagicMock()
-    
+
+    # Mock Process to simulate successful worker execution
+    mock_proc_instance = MagicMock()
+    mock_proc_instance.exitcode = 0
+    mock_process.return_value = mock_proc_instance
+
+    # Mock intermediate model loading
+    mock_model = MagicMock()
+    mock_ct.models.MLModel.return_value = mock_model
+    mock_ct.ComputeUnit.CPU_ONLY = "cpu_only"
+
+    # Mock pipeline assembly
+    mock_pipeline = MagicMock()
+    mock_ct.utils.make_pipeline.return_value = mock_pipeline
+
     converter = LTXConverter("ltx.safetensors", str(tmp_path), "int4")
-    
-    # Mock convert_transformer
-    converter.convert_transformer = MagicMock()
-    
     converter.convert()
-    
-    mock_converter_cls.from_single_file.assert_called_once()
-    assert "ltx.safetensors" in mock_converter_cls.from_single_file.call_args[0]
+
+    # Process should be started for part1 and part2
+    assert mock_process.call_count == 2
+
+    # Check args passed to Process - model_id should be passed
+    call_args = mock_process.call_args_list[0]
+    kwargs = call_args[1]
+
+    if 'args' in kwargs:
+        worker_args = kwargs['args']
+        assert worker_args[0] == "ltx.safetensors"
