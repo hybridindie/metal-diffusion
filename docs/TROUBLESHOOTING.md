@@ -51,7 +51,25 @@ uv run alloy --help
    - 64GB RAM for comfortable conversion
    - Convert on a Mac Studio or Mac Pro if available
 
-4. **Reduce batch size** in conversion scripts (advanced users)
+4. **2-phase conversion architecture**: All converters now use subprocess isolation which automatically manages memory by:
+   - Running Part 1 conversion in isolated subprocess
+   - Releasing memory before Part 2
+   - This significantly reduces peak memory usage
+
+#### "Conversion interrupted" / Resume capability
+**Problem**: Conversion was interrupted and you want to continue.
+
+**Solution**: Alloy automatically supports resume from intermediates:
+1. **Re-run the same command** - Alloy will detect existing intermediate files
+2. **Check for intermediates**: Look in `<output_dir>/intermediates/` for `.mlpackage` files
+3. **Valid intermediates are reused** - only missing parts are reconverted
+4. **Invalid/corrupted intermediates are detected** and automatically reconverted
+
+```bash
+# Just run the same command again
+alloy convert <model> --output-dir <same-dir> --quantization int4
+# Alloy will print: "Found valid Part 1 intermediate. Resuming..."
+```
 
 #### "Model loading failed" / "Repository not found"
 **Problem**: Cannot download from Hugging Face.
@@ -281,6 +299,6 @@ Include in your bug report:
 
 ### Resources
 
-- **GitHub Issues**: [hybridindie/metal-diffusion](https://github.com/hybridindie/metal-diffusion/issues)
+- **GitHub Issues**: [hybridindie/alloy](https://github.com/hybridindie/alloy/issues)
 - **Model Info**: Use `alloy list-models` to see all converted models
 - **Discord/Community**: [Coming soon]
