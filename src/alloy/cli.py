@@ -5,7 +5,6 @@ from alloy.converters.base import SDConverter, ModelConverter
 from alloy.logging import (
     setup_logging,
     shutdown_logging,
-    get_logger,
     Verbosity,
     parse_log_level,
 )
@@ -159,7 +158,7 @@ def main():
     # Setup logging
     log_file = os.getenv("ALLOY_LOG_FILE")
     json_logging = os.getenv("ALLOY_JSON_LOGS", "").lower() in ("1", "true", "yes")
-    logger = setup_logging(
+    setup_logging(
         verbosity=verbosity,
         log_file=log_file,
         json_logging=json_logging,

@@ -7,8 +7,6 @@ subprocess worker support, and optional file/JSON logging.
 
 import json
 import logging
-import os
-import sys
 from datetime import datetime, timezone
 from enum import IntEnum
 from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
@@ -155,7 +153,11 @@ def setup_logging(
 
         root_logger.addHandler(file_handler)
 
-    # Setup multiprocessing queue for worker logging
+    # Setup multiprocessing queue for worker logging.
+    # Note: The QueueListener receives logs from worker subprocesses via the queue
+    # and forwards them to the same handlers used by the main process. This doesn't
+    # cause duplicates because: (1) main process logs directly to handlers, and
+    # (2) workers call setup_worker_logging() which clears handlers and uses QueueHandler.
     _log_queue = Queue()
     _queue_listener = QueueListener(_log_queue, *root_logger.handlers)
     _queue_listener.start()
@@ -257,7 +259,9 @@ def shutdown_logging() -> None:
 
     if _log_queue is not None:
         _log_queue.close()
-        _log_queue.join_thread()
+        # Avoid potentially blocking indefinitely waiting for the
+        # queue's feeder thread; we already stopped the listener.
+        _log_queue.cancel_join_thread()
         _log_queue = None
 
     _initialized = False

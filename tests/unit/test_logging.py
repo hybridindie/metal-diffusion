@@ -5,7 +5,6 @@ import os
 import tempfile
 import unittest
 from multiprocessing import Queue
-from unittest.mock import patch, MagicMock
 
 from alloy.logging import (
     Verbosity,
@@ -282,7 +281,7 @@ class TestSetupWorkerLogging(unittest.TestCase):
     def test_with_queue(self):
         """Test setup_worker_logging with a queue."""
         queue = Queue()
-        logger = setup_worker_logging(queue)
+        setup_worker_logging(queue)
 
         # Should have a handler
         root = logging.getLogger()
@@ -291,6 +290,7 @@ class TestSetupWorkerLogging(unittest.TestCase):
     def test_without_queue_uses_stderr(self):
         """Test setup_worker_logging without queue uses stderr."""
         logger = setup_worker_logging(None)
+        self.assertEqual(logger.name, "alloy")
 
         # Should have a handler
         root = logging.getLogger()
