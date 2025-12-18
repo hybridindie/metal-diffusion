@@ -9,17 +9,17 @@ import os
 import uuid
 import tempfile
 from contextlib import contextmanager
+from multiprocessing import Queue
 from typing import Optional, Any
 
-from rich.console import Console
-
+from alloy.logging import setup_worker_logging, get_logger
 from alloy.utils.coreml import safe_quantize_model
 
-console = Console()
+logger = get_logger(__name__)
 
 
 @contextmanager
-def worker_context(model_name: str, part_description: str):
+def worker_context(model_name: str, part_description: str, log_queue: Optional[Queue] = None):
     """Context manager for worker execution with logging and cleanup.
 
     Logs a start message on entry and a completion message on successful exit.
@@ -29,16 +29,24 @@ def worker_context(model_name: str, part_description: str):
     occurs, cleanup runs but the completion message is skipped.
 
     Usage:
-        with worker_context("Flux", "Part 1"):
+        with worker_context("Flux", "Part 1", log_queue):
             # ... do conversion work ...
 
     Args:
         model_name: Name of the model being converted (e.g., "Flux", "Wan")
         part_description: Description of the conversion phase (e.g., "Part 1", "Part 2")
+        log_queue: Optional multiprocessing queue for forwarding logs to parent
     """
-    console.print(
-        f"[cyan]Worker: Starting {model_name} {part_description} "
-        f"(PID: {os.getpid()})[/cyan]"
+    # Setup worker logging if queue provided
+    if log_queue is not None:
+        setup_worker_logging(log_queue)
+
+    logger.info(
+        "[cyan]Worker: Starting %s %s (PID: %d)[/cyan]",
+        model_name,
+        part_description,
+        os.getpid(),
+        extra={"markup": True},
     )
 
     try:
@@ -46,7 +54,12 @@ def worker_context(model_name: str, part_description: str):
     finally:
         gc.collect()
 
-    console.print(f"[green]Worker: {model_name} {part_description} Complete[/green]")
+    logger.info(
+        "[green]Worker: %s %s Complete[/green]",
+        model_name,
+        part_description,
+        extra={"markup": True},
+    )
 
 
 def quantize_and_save(
@@ -72,7 +85,12 @@ def quantize_and_save(
         model.save(output_path)
         return
 
-    console.print(f"[dim]Worker: Quantizing {part_name} ({quantization})...[/dim]")
+    logger.debug(
+        "[dim]Worker: Quantizing %s (%s)...[/dim]",
+        part_name,
+        quantization,
+        extra={"markup": True},
+    )
 
     if intermediates_dir:
         fp16_path = os.path.join(
@@ -92,7 +110,12 @@ def quantize_and_save(
             gc.collect()
             model = safe_quantize_model(fp16_path, quantization)
 
-    console.print(f"[dim]Worker: Saving {part_name} to {output_path}...[/dim]")
+    logger.debug(
+        "[dim]Worker: Saving %s to %s...[/dim]",
+        part_name,
+        output_path,
+        extra={"markup": True},
+    )
     model.save(output_path)
 
 
@@ -101,7 +124,7 @@ def load_transformer_with_fallback(
     model_id: str,
     torch_dtype,
     subfolder: str = "transformer",
-    console_logging: bool = True,
+    enable_logging: bool = True,
 ) -> Any:
     """Load transformer with subfolder fallback pattern.
 
@@ -113,15 +136,17 @@ def load_transformer_with_fallback(
         model_id: HuggingFace model ID or local path
         torch_dtype: Torch dtype for model weights
         subfolder: Subfolder to try first (default: "transformer")
-        console_logging: Whether to log progress messages
+        enable_logging: Whether to log progress messages
 
     Returns:
         The loaded transformer model
     """
     try:
-        if console_logging:
-            console.print(
-                f"[dim]Attempting to load transformer from '{subfolder}' subfolder...[/dim]"
+        if enable_logging:
+            logger.debug(
+                "[dim]Attempting to load transformer from '%s' subfolder...[/dim]",
+                subfolder,
+                extra={"markup": True},
             )
         return model_class.from_pretrained(
             model_id,
@@ -129,8 +154,11 @@ def load_transformer_with_fallback(
             torch_dtype=torch_dtype,
         )
     except (EnvironmentError, OSError):
-        if console_logging:
-            console.print("[dim]Subfolder load failed, trying root...[/dim]")
+        if enable_logging:
+            logger.debug(
+                "[dim]Subfolder load failed, trying root...[/dim]",
+                extra={"markup": True},
+            )
         return model_class.from_pretrained(
             model_id,
             torch_dtype=torch_dtype,

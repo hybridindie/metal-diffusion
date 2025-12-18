@@ -1,8 +1,13 @@
 import argparse
 import os
 import sys
-import logging
 from alloy.converters.base import SDConverter, ModelConverter
+from alloy.logging import (
+    setup_logging,
+    shutdown_logging,
+    Verbosity,
+    parse_log_level,
+)
 from alloy.converters.wan import WanConverter
 from alloy.converters.hunyuan import HunyuanConverter
 from alloy.converters.ltx import LTXConverter
@@ -30,7 +35,6 @@ from alloy.utils.general import detect_model_type, cleanup_old_temp_files
 from dotenv import load_dotenv
 import warnings
 from rich.console import Console
-from rich.logging import RichHandler
 
 # Suppress Torch "device_type='cuda'" warning on non-CUDA systems
 warnings.filterwarnings("ignore", message="User provided device_type of 'cuda'", category=UserWarning)
@@ -71,7 +75,7 @@ def main():
         console.print(f"[dim]Cleaned up {cleaned} old temporary directory(s) from previous runs.[/dim]")
     
     parser = argparse.ArgumentParser(description="Alloy: CLI for Core ML Diffusion Models")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--verbose", "-v", action="count", default=0, help="Enable verbose logging (-v for verbose, -vv for debug)")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress all output except errors")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -135,9 +139,33 @@ def main():
     run_parser.add_argument("--benchmark-output", type=str, help="Save benchmark JSON to file")
 
     args = parser.parse_args()
-    
+
+    # Determine verbosity level
+    if args.quiet:
+        verbosity = Verbosity.QUIET
+    elif args.verbose >= 2:
+        verbosity = Verbosity.DEBUG
+    elif args.verbose == 1:
+        verbosity = Verbosity.VERBOSE
+    else:
+        verbosity = Verbosity.NORMAL
+
+    # Check for environment variable override
+    env_level = os.getenv("ALLOY_LOG_LEVEL")
+    if env_level:
+        verbosity = parse_log_level(env_level)
+
+    # Setup logging
+    log_file = os.getenv("ALLOY_LOG_FILE")
+    json_logging = os.getenv("ALLOY_JSON_LOGS", "").lower() in ("1", "true", "yes")
+    setup_logging(
+        verbosity=verbosity,
+        log_file=log_file,
+        json_logging=json_logging,
+    )
+
     hf_manager = HFManager()
-    
+
     try:
         if args.command == "download":
             hf_manager.download_model(args.repo_id, local_dir=os.path.join(args.output_dir, args.repo_id.split("/")[-1]))
@@ -384,6 +412,7 @@ def main():
         console.print_exception()
         sys.exit(1)
     finally:
+        shutdown_logging()
         ensure_cleanup()
 
 

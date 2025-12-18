@@ -12,16 +12,16 @@ from typing import List, Optional, Tuple
 
 import coremltools as ct
 from diffusers import FluxTransformer2DModel
-from rich.console import Console
 
-from alloy.workers.base import quantize_and_save
+from alloy.logging import get_logger
+from alloy.workers.base import worker_context, quantize_and_save
 
 try:
     from diffusers import Flux2Transformer2DModel
 except ImportError:
     Flux2Transformer2DModel = None
 
-console = Console()
+logger = get_logger(__name__)
 
 # Constants
 DEFAULT_HEIGHT = 64
@@ -188,107 +188,113 @@ class FluxPart2Wrapper(torch.nn.Module):
 def load_flux_transformer(model_id_or_path):
     """Helper to load just the transformer efficiently."""
     if os.path.isfile(model_id_or_path):
-        console.print(f"[dim]Worker loading transformer from {model_id_or_path}[/dim]")
+        logger.debug(
+            "[dim]Worker loading transformer from %s[/dim]",
+            model_id_or_path,
+            extra={"markup": True},
+        )
         return FluxTransformer2DModel.from_single_file(
-            model_id_or_path, 
+            model_id_or_path,
             torch_dtype=torch.float32,
             local_files_only=True
         )
     else:
         # Check if it's a repo and needs subfolder
         try:
-            console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")
+            logger.debug(
+                "[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]",
+                extra={"markup": True},
+            )
             return FluxTransformer2DModel.from_pretrained(
-                model_id_or_path, 
-                subfolder="transformer", 
+                model_id_or_path,
+                subfolder="transformer",
                 torch_dtype=torch.float32
             )
         except EnvironmentError:
-            console.print(f"[dim]Subfolder load failed, trying root...[/dim]")
+            logger.debug(
+                "[dim]Subfolder load failed, trying root...[/dim]",
+                extra={"markup": True},
+            )
             return FluxTransformer2DModel.from_pretrained(
-                model_id_or_path, 
+                model_id_or_path,
                 torch_dtype=torch.float32
             )
 
-def convert_flux_part1(model_id, output_path, quantization, intermediates_dir=None):
+def convert_flux_part1(model_id, output_path, quantization, intermediates_dir=None, log_queue=None):
     """Worker function for Part 1 (Embeddings + DoubleStream Blocks)."""
-    console.print(f"[cyan]Worker: Starting Part 1 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Flux", "Part 1", log_queue):
+        transformer = load_flux_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_flux_transformer(model_id)
-    transformer.eval()
+        # Create dummy inputs using helper
+        shapes = FluxInputShapes()
+        inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=False)
 
-    # Create dummy inputs using helper
-    shapes = FluxInputShapes()
-    inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=False)
+        wrapper = FluxPart1Wrapper(transformer)
+        wrapper.eval()
 
-    wrapper = FluxPart1Wrapper(transformer)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Part 1...[/dim]", extra={"markup": True})
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Part 1...[/dim]")
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Part 1 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
+        ml_outputs = [
+            ct.TensorType(name="hidden_states_inter"),
+            ct.TensorType(name="encoder_hidden_states_inter")
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Part 1 to Core ML...[/dim]")
-    ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
-    ml_outputs = [
-        ct.TensorType(name="hidden_states_inter"),
-        ct.TensorType(name="encoder_hidden_states_inter")
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=ml_outputs,
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=ml_outputs,
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup PyTorch resources
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup PyTorch resources
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save using helper
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "part1")
-    console.print("[green]Worker: Part 1 Complete[/green]")
+        # Quantize and save using helper
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "part1")
     
-def convert_flux_part2(model_id, output_path, quantization, intermediates_dir=None):
+def convert_flux_part2(model_id, output_path, quantization, intermediates_dir=None, log_queue=None):
     """Worker function for Part 2 (SingleStream Blocks + Final Layer)."""
-    console.print(f"[cyan]Worker: Starting Part 2 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Flux", "Part 2", log_queue):
+        transformer = load_flux_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_flux_transformer(model_id)
-    transformer.eval()
+        # Create dummy inputs using helper (Part 2 uses hidden_size from Part 1 output)
+        shapes = FluxInputShapes()
+        inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=True)
 
-    # Create dummy inputs using helper (Part 2 uses hidden_size from Part 1 output)
-    shapes = FluxInputShapes()
-    inputs, names = create_flux_dummy_inputs(transformer, shapes, use_hidden_size=True)
+        # Part 2 uses "_inter" suffix for input names (matching Part 1 outputs)
+        part2_names = ["hidden_states_inter", "encoder_hidden_states_inter"] + names[2:]
 
-    # Part 2 uses "_inter" suffix for input names (matching Part 1 outputs)
-    part2_names = ["hidden_states_inter", "encoder_hidden_states_inter"] + names[2:]
+        wrapper = FluxPart2Wrapper(transformer)
+        wrapper.eval()
 
-    wrapper = FluxPart2Wrapper(transformer)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Part 2...[/dim]", extra={"markup": True})
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Part 2...[/dim]")
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Part 2 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(part2_names, inputs)]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Part 2 to Core ML...[/dim]")
-    ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(part2_names, inputs)]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=[ct.TensorType(name="sample")],
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=[ct.TensorType(name="sample")],
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup PyTorch resources
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup PyTorch resources
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save using helper
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "part2")
-    console.print("[green]Worker: Part 2 Complete[/green]")
+        # Quantize and save using helper
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "part2")

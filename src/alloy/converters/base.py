@@ -8,12 +8,12 @@ from typing import Callable, Optional
 
 import torch.nn as nn
 import coremltools as ct
-from rich.console import Console
 
 from alloy.exceptions import WorkerError
+from alloy.logging import get_logger, get_log_queue
 from alloy.utils.errors import get_worker_suggestions
 
-console = Console()
+logger = get_logger(__name__)
 
 
 class BaseModelWrapper(nn.Module):
@@ -195,7 +195,11 @@ class TwoPhaseConverter(ModelConverter):
         ml_model_path = os.path.join(self.output_dir, self.output_filename)
 
         if os.path.exists(ml_model_path):
-            console.print(f"[yellow]Model exists, skipping:[/yellow] {ml_model_path}")
+            logger.warning(
+                "[yellow]Model exists, skipping:[/yellow] %s",
+                ml_model_path,
+                extra={"markup": True},
+            )
             return
 
         intermediates_dir = os.path.join(self.output_dir, "intermediates")
@@ -213,7 +217,11 @@ class TwoPhaseConverter(ModelConverter):
             self._assemble_pipeline(part1_path, part2_path, ml_model_path, intermediates_dir)
 
         except Exception:
-            console.print(f"[yellow]Note: Intermediate files left in {intermediates_dir} for inspection/cleanup.[/yellow]")
+            logger.warning(
+                "[yellow]Note: Intermediate files left in %s for inspection/cleanup.[/yellow]",
+                intermediates_dir,
+                extra={"markup": True},
+            )
             raise
 
     def _convert_part(
@@ -229,20 +237,41 @@ class TwoPhaseConverter(ModelConverter):
         # Check for existing valid intermediate
         if os.path.exists(output_path):
             try:
-                console.print(f"[dim]Checking existing {description} at {output_path}...[/dim]")
+                logger.debug(
+                    "[dim]Checking existing %s at %s...[/dim]",
+                    description,
+                    output_path,
+                    extra={"markup": True},
+                )
                 ct.models.MLModel(output_path, compute_units=ct.ComputeUnit.CPU_ONLY)
-                console.print(f"[green]Found valid {description} intermediate. Resuming...[/green]")
+                logger.info(
+                    "[green]Found valid %s intermediate. Resuming...[/green]",
+                    description,
+                    extra={"markup": True},
+                )
                 return  # Skip conversion
             except Exception:
-                console.print(f"[yellow]Found invalid/incomplete {description}. Re-converting...[/yellow]")
+                logger.warning(
+                    "[yellow]Found invalid/incomplete %s. Re-converting...[/yellow]",
+                    description,
+                    extra={"markup": True},
+                )
                 shutil.rmtree(output_path)
 
         # Spawn subprocess for conversion
-        console.print(f"\n[bold]Spawning {description} Conversion Process...[/bold]")
+        logger.info(
+            "[bold]Spawning %s Conversion Process...[/bold]",
+            description,
+            extra={"markup": True},
+        )
+
+        # Get log queue for worker process
+        log_queue = get_log_queue()
+
         process = multiprocessing.Process(
             target=worker_fn,
             args=(self.model_id, output_path, self.quantization),
-            kwargs={"intermediates_dir": intermediates_dir}
+            kwargs={"intermediates_dir": intermediates_dir, "log_queue": log_queue}
         )
         process.start()
         process.join()
@@ -264,7 +293,7 @@ class TwoPhaseConverter(ModelConverter):
         intermediates_dir: str
     ) -> None:
         """Load parts, assemble pipeline, cleanup, and save."""
-        console.print("\n[bold]Assembling Pipeline...[/bold]")
+        logger.info("[bold]Assembling Pipeline...[/bold]", extra={"markup": True})
 
         # Load parts with CPU_ONLY to minimize memory
         m1 = ct.models.MLModel(part1_path, compute_units=ct.ComputeUnit.CPU_ONLY)
@@ -278,19 +307,35 @@ class TwoPhaseConverter(ModelConverter):
         pipeline_model.short_description = f"{self.model_name} Transformer (Split Pipeline) {self.quantization}"
 
         # Cleanup before final save
-        console.print("[dim]Releasing intermediate memory/disk for final save...[/dim]")
+        logger.debug(
+            "[dim]Releasing intermediate memory/disk for final save...[/dim]",
+            extra={"markup": True},
+        )
         del m1, m2
         gc.collect()
 
         try:
             shutil.rmtree(intermediates_dir)
         except Exception as e:
-            console.print(f"[yellow]Warning: Could not clear intermediates: {e}[/yellow]")
+            logger.warning(
+                "[yellow]Warning: Could not clear intermediates: %s[/yellow]",
+                e,
+                extra={"markup": True},
+            )
 
-        console.print(f"[dim]Saving final pipeline to {output_path}...[/dim]")
+        logger.debug(
+            "[dim]Saving final pipeline to %s...[/dim]",
+            output_path,
+            extra={"markup": True},
+        )
         pipeline_model.save(output_path)
 
-        console.print(f"[bold green]✓ {self.model_name} conversion complete![/bold green] Saved to {self.output_dir}")
+        logger.info(
+            "[bold green]✓ %s conversion complete![/bold green] Saved to %s",
+            self.model_name,
+            self.output_dir,
+            extra={"markup": True},
+        )
 
 
 class SDConverter(ModelConverter):

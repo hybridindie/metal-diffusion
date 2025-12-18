@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import coremltools as ct
-from rich.console import Console
 
-from alloy.workers.base import quantize_and_save
+from alloy.logging import get_logger
+from alloy.workers.base import worker_context, quantize_and_save
 from alloy.exceptions import DependencyError
 
 try:
@@ -21,7 +21,7 @@ try:
 except ImportError:
     HunyuanVideoTransformer3DModel = None
 
-console = Console()
+logger = get_logger(__name__)
 
 # Constants
 DEFAULT_HEIGHT = 64
@@ -196,7 +196,11 @@ def load_hunyuan_transformer(model_id_or_path: str):
         )
 
     if os.path.isfile(model_id_or_path):
-        console.print(f"[dim]Worker loading transformer from single file: {model_id_or_path}[/dim]")
+        logger.debug(
+            "[dim]Worker loading transformer from single file: %s[/dim]",
+            model_id_or_path,
+            extra={"markup": True},
+        )
         return HunyuanVideoTransformer3DModel.from_single_file(
             model_id_or_path,
             torch_dtype=torch.float32,
@@ -204,121 +208,123 @@ def load_hunyuan_transformer(model_id_or_path: str):
         )
     else:
         try:
-            console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")
+            logger.debug(
+                "[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]",
+                extra={"markup": True},
+            )
             return HunyuanVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 subfolder="transformer",
                 torch_dtype=torch.float32
             )
         except Exception:
-            console.print(f"[dim]Subfolder load failed, trying root...[/dim]")
+            logger.debug(
+                "[dim]Subfolder load failed, trying root...[/dim]",
+                extra={"markup": True},
+            )
             return HunyuanVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 torch_dtype=torch.float32
             )
 
 
-def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 1 (Input Embeddings + Dual-Stream Blocks)."""
-    console.print(f"[cyan]Worker: Starting Hunyuan Part 1 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Hunyuan", "Part 1", log_queue):
+        transformer = load_hunyuan_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_hunyuan_transformer(model_id)
-    transformer.eval()
+        # Create dummy inputs
+        shapes = HunyuanInputShapes()
+        inputs, names = create_hunyuan_dummy_inputs(transformer, shapes, use_hidden_size=False)
 
-    # Create dummy inputs
-    shapes = HunyuanInputShapes()
-    inputs, names = create_hunyuan_dummy_inputs(transformer, shapes, use_hidden_size=False)
+        wrapper = HunyuanPart1Wrapper(transformer)
+        wrapper.eval()
 
-    wrapper = HunyuanPart1Wrapper(transformer)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Hunyuan Part 1...[/dim]", extra={"markup": True})
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Hunyuan Part 1...[/dim]")
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Hunyuan Part 1 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
+        ml_outputs = [
+            ct.TensorType(name="hidden_states_inter"),
+            ct.TensorType(name="encoder_hidden_states_inter"),
+            ct.TensorType(name="temb_inter")
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Hunyuan Part 1 to Core ML...[/dim]")
-    ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
-    ml_outputs = [
-        ct.TensorType(name="hidden_states_inter"),
-        ct.TensorType(name="encoder_hidden_states_inter"),
-        ct.TensorType(name="temb_inter")
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=ml_outputs,
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=ml_outputs,
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup PyTorch resources
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup PyTorch resources
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part1")
-    console.print("[green]Worker: Hunyuan Part 1 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part1")
 
 
-def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 2 (Single-Stream Blocks + Final Layer)."""
-    console.print(f"[cyan]Worker: Starting Hunyuan Part 2 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Hunyuan", "Part 2", log_queue):
+        transformer = load_hunyuan_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_hunyuan_transformer(model_id)
-    transformer.eval()
+        # Get dimensions from config
+        hidden_size = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+        shapes = HunyuanInputShapes()
 
-    # Get dimensions from config
-    hidden_size = transformer.config.num_attention_heads * transformer.config.attention_head_dim
-    shapes = HunyuanInputShapes()
+        # Part 2 inputs are intermediate outputs from Part 1
+        # These have been through embedding, so dimensions are different
+        batch_size = shapes.batch_size
+        seq_len = (shapes.height // 2) * (shapes.width // 2) * shapes.num_frames  # Approximate after patchify
 
-    # Part 2 inputs are intermediate outputs from Part 1
-    # These have been through embedding, so dimensions are different
-    batch_size = shapes.batch_size
-    seq_len = (shapes.height // 2) * (shapes.width // 2) * shapes.num_frames  # Approximate after patchify
+        hidden_states = torch.randn(batch_size, seq_len, hidden_size).float()
+        encoder_hidden_states = torch.randn(batch_size, shapes.text_len, hidden_size).float()
+        temb = torch.randn(batch_size, hidden_size).float()
 
-    hidden_states = torch.randn(batch_size, seq_len, hidden_size).float()
-    encoder_hidden_states = torch.randn(batch_size, shapes.text_len, hidden_size).float()
-    temb = torch.randn(batch_size, hidden_size).float()
+        # Also need these for potential recomputation
+        timestep = torch.tensor([1]).long()
+        pool_dim = transformer.config.pooled_projection_dim
+        pooled_projections = torch.randn(batch_size, pool_dim).float()
+        guidance = torch.tensor([1000.0]).float()
 
-    # Also need these for potential recomputation
-    timestep = torch.tensor([1]).long()
-    pool_dim = transformer.config.pooled_projection_dim
-    pooled_projections = torch.randn(batch_size, pool_dim).float()
-    guidance = torch.tensor([1000.0]).float()
+        wrapper = HunyuanPart2Wrapper(transformer)
+        wrapper.eval()
 
-    wrapper = HunyuanPart2Wrapper(transformer)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Hunyuan Part 2...[/dim]", extra={"markup": True})
+        inputs = [hidden_states, encoder_hidden_states, temb, timestep, pooled_projections, guidance]
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Hunyuan Part 2...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, temb, timestep, pooled_projections, guidance]
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Hunyuan Part 2 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [
+            ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
+            ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
+            ct.TensorType(name="temb_inter", shape=temb.shape),
+            ct.TensorType(name="timestep", shape=timestep.shape),
+            ct.TensorType(name="pooled_projections", shape=pooled_projections.shape),
+            ct.TensorType(name="guidance", shape=guidance.shape),
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Hunyuan Part 2 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="temb_inter", shape=temb.shape),
-        ct.TensorType(name="timestep", shape=timestep.shape),
-        ct.TensorType(name="pooled_projections", shape=pooled_projections.shape),
-        ct.TensorType(name="guidance", shape=guidance.shape),
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=[ct.TensorType(name="sample")],
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=[ct.TensorType(name="sample")],
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup PyTorch resources
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup PyTorch resources
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part2")
-    console.print("[green]Worker: Hunyuan Part 2 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part2")
