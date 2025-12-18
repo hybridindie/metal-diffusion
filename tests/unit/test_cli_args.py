@@ -10,12 +10,14 @@ def test_download_args():
                return_value=argparse.Namespace(
                    command="download",
                    repo_id="stabilityai/sd-turbo",
-                   output_dir="models"
+                   output_dir="models",
+                   verbose=0,
+                   quiet=False
                )):
         with patch("alloy.cli.HFManager") as MockHF:
             main()
             MockHF.return_value.download_model.assert_called_with(
-                "stabilityai/sd-turbo", 
+                "stabilityai/sd-turbo",
                 local_dir="models/sd-turbo"
             )
 
@@ -26,7 +28,9 @@ def test_convert_sd_args():
                    model_id="models/sd-turbo",
                    type="sd",
                    output_dir="converted_models",
-                   quantization="float16"
+                   quantization="float16",
+                   verbose=0,
+                   quiet=False
                )):
         with patch("alloy.cli.SDConverter") as MockConverter:
             main()
@@ -40,7 +44,9 @@ def test_convert_wan_args():
                    model_id="models/wan-1.3b",
                    type="wan",
                    output_dir="converted_models",
-                   quantization="int4"
+                   quantization="int4",
+                   verbose=0,
+                   quiet=False
                )):
         with patch("alloy.cli.WanConverter") as MockConverter:
             main()

@@ -17,8 +17,8 @@ class TestFluxConverter(unittest.TestCase):
     @patch("alloy.converters.base.multiprocessing.Process")
     @patch("alloy.converters.base.ct.models.MLModel")
     @patch("alloy.converters.base.ct.utils.make_pipeline")
-    @patch("alloy.converters.base.console.print")
-    def test_convert_success(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process):
+    @patch("alloy.converters.base.logger")
+    def test_convert_success(self, mock_logger, mock_make_pipeline, mock_mlmodel, mock_process):
         # Mock successful processes
         mock_p1 = MagicMock()
         mock_p1.exitcode = 0
@@ -38,8 +38,8 @@ class TestFluxConverter(unittest.TestCase):
         mock_pipeline.save.assert_called_with(os.path.join(self.output_dir, "Flux_Transformer_float16.mlpackage"))
 
     @patch("alloy.converters.base.multiprocessing.Process")
-    @patch("alloy.converters.base.console.print")
-    def test_convert_part1_failure(self, mock_print, mock_process):
+    @patch("alloy.converters.base.logger")
+    def test_convert_part1_failure(self, mock_logger, mock_process):
         # Mock failed part 1
         mock_p1 = MagicMock()
         mock_p1.exitcode = 1
@@ -53,22 +53,22 @@ class TestFluxConverter(unittest.TestCase):
         self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
-    @patch("alloy.converters.base.console.print")
-    def test_convert_skips_existing(self, mock_print, mock_exists):
-        mock_exists.return_value = True # Pretend output exists
+    @patch("alloy.converters.base.logger")
+    def test_convert_skips_existing(self, mock_logger, mock_exists):
+        mock_exists.return_value = True  # Pretend output exists
 
         converter = FluxConverter(self.model_id, self.output_dir, "float16")
         converter.convert()
 
-        # Verify it printed "Model exists" and returned
-        args, _ = mock_print.call_args
-        self.assertIn("Model exists", str(args))
+        # Verify it logged "Model exists" warning
+        calls = [str(c) for c in mock_logger.warning.call_args_list]
+        self.assertTrue(any("Model exists" in c for c in calls))
 
     @patch("alloy.converters.base.multiprocessing.Process")
     @patch("alloy.converters.base.ct.models.MLModel")
     @patch("alloy.converters.base.ct.utils.make_pipeline")
-    @patch("alloy.converters.base.console.print")
-    def test_resume_intermediates(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process):
+    @patch("alloy.converters.base.logger")
+    def test_resume_intermediates(self, mock_logger, mock_make_pipeline, mock_mlmodel, mock_process):
         # Create dummy intermediates
         intermediaries_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediaries_dir)
@@ -78,7 +78,7 @@ class TestFluxConverter(unittest.TestCase):
         os.makedirs(part2)
 
         # Setup mocks to succeed validation
-        mock_mlmodel.return_value = MagicMock() # Valid model
+        mock_mlmodel.return_value = MagicMock()  # Valid model
 
         mock_pipeline = MagicMock()
         mock_make_pipeline.return_value = mock_pipeline

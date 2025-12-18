@@ -787,7 +787,7 @@ wheels = [
 [[package]]
 name = "python-coreml-stable-diffusion"
 version = "1.1.0"
-source = { git = "https://github.com/apple/ml-stable-diffusion.git#e12202c1f6405b83918b58a5d097cd61e3e1f702" }
+source = { git = "https://github.com/apple/ml-stable-diffusion.git?rev=e12202c1f6405b83918b58a5d097cd61e3e1f702#e12202c1f6405b83918b58a5d097cd61e3e1f702" }
 dependencies = [
     { name = "coremltools", marker = "sys_platform == 'darwin'" },
     { name = "diffusers", marker = "sys_platform == 'darwin'" },
@@ -932,7 +932,7 @@ wheels = [
 
 [[package]]
 name = "scikit-learn"
-version = "1.5.2"
+version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "joblib", marker = "sys_platform == 'darwin'" },
@@ -940,14 +940,12 @@ dependencies = [
     { name = "scipy", marker = "sys_platform == 'darwin'" },
     { name = "threadpoolctl", marker = "sys_platform == 'darwin'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/59/44985a2bdc95c74e34fef3d10cb5d93ce13b0e2a7baefffe1b53853b502d/scikit_learn-1.5.2.tar.gz", hash = "sha256:b4237ed7b3fdd0a4882792e68ef2545d5baa50aca3bb45aa7df468138ad8f94d", size = 7001680, upload-time = "2024-09-11T15:50:10.957Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/72/2961b9874a9ddf2b0f95f329d4e67f67c3301c1d88ba5e239ff25661bb85/scikit_learn-1.5.1.tar.gz", hash = "sha256:0ea5d40c0e3951df445721927448755d3fe1d80833b0b7308ebff5d2a45e6414", size = 6958368, upload-time = "2024-07-03T09:12:21.925Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ff/91/609961972f694cb9520c4c3d201e377a26583e1eb83bc5a334c893729214/scikit_learn-1.5.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:03b6158efa3faaf1feea3faa884c840ebd61b6484167c711548fce208ea09445", size = 12088580, upload-time = "2024-09-11T15:49:33.55Z" },
-    { url = "https://files.pythonhosted.org/packages/cd/7a/19fe32c810c5ceddafcfda16276d98df299c8649e24e84d4f00df4a91e01/scikit_learn-1.5.2-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:1ff45e26928d3b4eb767a8f14a9a6efbf1cbff7c05d1fb0f95f211a89fd4f5de", size = 10975994, upload-time = "2024-09-11T15:49:35.728Z" },
-    { url = "https://files.pythonhosted.org/packages/a4/db/b485c1ac54ff3bd9e7e6b39d3cc6609c4c76a65f52ab0a7b22b6c3ab0e9d/scikit_learn-1.5.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:f932a02c3f4956dfb981391ab24bda1dbd90fe3d628e4b42caef3e041c67707a", size = 12110344, upload-time = "2024-09-11T15:49:46.253Z" },
-    { url = "https://files.pythonhosted.org/packages/54/1a/7deb52fa23aebb855431ad659b3c6a2e1709ece582cb3a63d66905e735fe/scikit_learn-1.5.2-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:3b923d119d65b7bd555c73be5423bf06c0105678ce7e1f558cb4b40b0a5502b1", size = 11033502, upload-time = "2024-09-11T15:49:48.656Z" },
-    { url = "https://files.pythonhosted.org/packages/a4/50/8891028437858cc510e13578fe7046574a60c2aaaa92b02d64aac5b1b412/scikit_learn-1.5.2-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:e9a702e2de732bbb20d3bad29ebd77fc05a6b427dc49964300340e4c9328b3f5", size = 12025584, upload-time = "2024-10-02T18:35:29.369Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/79/17feef8a1c14149436083bec0e61d7befb4812e272d5b20f9d79ea3e9ab1/scikit_learn-1.5.2-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:b0768ad641981f5d3a198430a1d31c3e044ed2e8a6f22166b4d546a5116d7908", size = 10959795, upload-time = "2024-10-02T18:35:34.22Z" },
+    { url = "https://files.pythonhosted.org/packages/03/86/ab9f95e338c5ef5b4e79463ee91e55aae553213835e59bf038bc0cc21bf8/scikit_learn-1.5.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:154297ee43c0b83af12464adeab378dee2d0a700ccd03979e2b821e7dd7cc1c2", size = 12087598, upload-time = "2024-07-03T09:11:28.057Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/d7/fb80c63062b60b1fa5dcb2d4dd3a4e83bd8c68cdc83cf6ff8c016228f184/scikit_learn-1.5.1-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:b5e865e9bd59396220de49cb4a57b17016256637c61b4c5cc81aaf16bc123bbe", size = 10979067, upload-time = "2024-07-03T09:11:30.853Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/8d/cf392a56e24627093a467642c8b9263052372131359b570df29aaf4811ab/scikit_learn-1.5.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:5944ce1faada31c55fb2ba20a5346b88e36811aab504ccafb9f0339e9f780395", size = 12102404, upload-time = "2024-07-03T09:11:46.261Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/2c/734fc9269bdb6768905ac41b82d75264b26925b1e462f4ebf45fe4f17646/scikit_learn-1.5.1-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:0828673c5b520e879f2af6a9e99eee0eefea69a2188be1ca68a6121b809055c1", size = 11037398, upload-time = "2024-07-03T09:11:49.783Z" },
 ]
 
 [[package]]
@@ -1060,23 +1058,23 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate" },
+    { name = "accelerate", specifier = ">=0.20.0" },
     { name = "coremltools", specifier = ">=8.0" },
     { name = "diffusers", extras = ["torch"], specifier = ">=0.30.0" },
     { name = "huggingface-hub", specifier = ">=0.24.0" },
-    { name = "matplotlib" },
-    { name = "numpy", specifier = "<2.0.0" },
-    { name = "psutil" },
-    { name = "python-coreml-stable-diffusion", git = "https://github.com/apple/ml-stable-diffusion.git" },
-    { name = "python-dotenv" },
-    { name = "pyyaml" },
-    { name = "rich" },
+    { name = "matplotlib", specifier = ">=3.7.0" },
+    { name = "numpy", specifier = ">=1.23.0,<2.0.0" },
+    { name = "psutil", specifier = ">=5.9.0" },
+    { name = "python-coreml-stable-diffusion", git = "https://github.com/apple/ml-stable-diffusion.git?rev=e12202c1f6405b83918b58a5d097cd61e3e1f702" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rich", specifier = ">=13.0.0" },
     { name = "safetensors", specifier = ">=0.4.0" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "sentencepiece" },
-    { name = "torch", specifier = ">=2.4.0" },
-    { name = "tqdm" },
+    { name = "scikit-learn", specifier = ">=1.0.0,<1.5.2" },
+    { name = "scipy", specifier = ">=1.10.0,<2.0.0" },
+    { name = "sentencepiece", specifier = ">=0.1.99" },
+    { name = "torch", specifier = ">=2.4.0,<2.8.0" },
+    { name = "tqdm", specifier = ">=4.65.0" },
     { name = "transformers", specifier = ">=4.44.0" },
 ]
 

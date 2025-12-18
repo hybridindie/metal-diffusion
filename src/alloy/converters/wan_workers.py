@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import coremltools as ct
-from rich.console import Console
 
-from alloy.workers.base import quantize_and_save
+from alloy.logging import get_logger
+from alloy.workers.base import worker_context, quantize_and_save
 from alloy.exceptions import DependencyError
 
 # Monkey patch for RoPE compatibility must be applied before loading
@@ -25,7 +25,7 @@ from diffusers.models.transformers.transformer_wan import (
 )
 from diffusers.models.attention_dispatch import dispatch_attention_fn
 
-console = Console()
+logger = get_logger(__name__)
 
 # Constants
 DEFAULT_HEIGHT = 64
@@ -124,7 +124,10 @@ def _apply_wan_monkey_patch():
         return hidden_states
 
     WanAttnProcessor.__call__ = patched_wan_attn_processor_call
-    console.print("[dim]Applied monkey patch to WanAttnProcessor for Core ML compatibility.[/dim]")
+    logger.debug(
+        "[dim]Applied monkey patch to WanAttnProcessor for Core ML compatibility.[/dim]",
+        extra={"markup": True},
+    )
 
 
 # Apply patch on import
@@ -226,132 +229,145 @@ def load_wan_transformer(model_id_or_path: str):
         )
 
     try:
-        console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")
+        logger.debug(
+            "[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]",
+            extra={"markup": True},
+        )
         return WanTransformer3DModel.from_pretrained(
             model_id_or_path,
             subfolder="transformer",
             torch_dtype=torch.float32
         )
     except Exception:
-        console.print(f"[dim]Subfolder load failed, trying root...[/dim]")
+        logger.debug(
+            "[dim]Subfolder load failed, trying root...[/dim]",
+            extra={"markup": True},
+        )
         return WanTransformer3DModel.from_pretrained(
             model_id_or_path,
             torch_dtype=torch.float32
         )
 
 
-def convert_wan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_wan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 1 (Input projection + first half of blocks)."""
-    console.print(f"[cyan]Worker: Starting Wan Part 1 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Wan", "Part 1", log_queue):
+        transformer = load_wan_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_wan_transformer(model_id)
-    transformer.eval()
+        # Split at midpoint
+        num_blocks = len(transformer.transformer_blocks)
+        num_blocks_part1 = num_blocks // 2
+        logger.debug(
+            "[dim]Splitting %d blocks: Part 1 has blocks 0-%d[/dim]",
+            num_blocks,
+            num_blocks_part1 - 1,
+            extra={"markup": True},
+        )
 
-    # Split at midpoint
-    num_blocks = len(transformer.transformer_blocks)
-    num_blocks_part1 = num_blocks // 2
-    console.print(f"[dim]Splitting {num_blocks} blocks: Part 1 has blocks 0-{num_blocks_part1-1}[/dim]")
+        # Create dummy inputs
+        shapes = WanInputShapes()
+        in_channels = int(getattr(transformer.config, "in_channels", 16))
 
-    # Create dummy inputs
-    shapes = WanInputShapes()
-    in_channels = int(getattr(transformer.config, "in_channels", 16))
+        hidden_states = torch.randn(
+            shapes.batch_size, in_channels, shapes.num_frames, shapes.height, shapes.width
+        ).float()
+        timestep = torch.tensor([1]).long()
+        encoder_dim = getattr(transformer.config, "cross_attention_dim", 4096)
+        encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, encoder_dim).float()
 
-    hidden_states = torch.randn(
-        shapes.batch_size, in_channels, shapes.num_frames, shapes.height, shapes.width
-    ).float()
-    timestep = torch.tensor([1]).long()
-    encoder_dim = getattr(transformer.config, "cross_attention_dim", 4096)
-    encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, encoder_dim).float()
+        wrapper = WanPart1Wrapper(transformer, num_blocks_part1)
+        wrapper.eval()
 
-    wrapper = WanPart1Wrapper(transformer, num_blocks_part1)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Wan Part 1...[/dim]", extra={"markup": True})
+        inputs = [hidden_states, timestep, encoder_hidden_states]
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Wan Part 1...[/dim]")
-    inputs = [hidden_states, timestep, encoder_hidden_states]
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Wan Part 1 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [
+            ct.TensorType(name="hidden_states", shape=hidden_states.shape),
+            ct.TensorType(name="timestep", shape=timestep.shape),
+            ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
+        ]
+        ml_outputs = [
+            ct.TensorType(name="hidden_states_inter"),
+            ct.TensorType(name="encoder_hidden_states_inter"),
+            ct.TensorType(name="temb_inter"),
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Wan Part 1 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states", shape=hidden_states.shape),
-        ct.TensorType(name="timestep", shape=timestep.shape),
-        ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
-    ]
-    ml_outputs = [
-        ct.TensorType(name="hidden_states_inter"),
-        ct.TensorType(name="encoder_hidden_states_inter"),
-        ct.TensorType(name="temb_inter"),
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=ml_outputs,
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=ml_outputs,
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part1")
-    console.print("[green]Worker: Wan Part 1 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part1")
 
 
-def convert_wan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_wan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 2 (Second half of blocks + output projection)."""
-    console.print(f"[cyan]Worker: Starting Wan Part 2 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("Wan", "Part 2", log_queue):
+        transformer = load_wan_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_wan_transformer(model_id)
-    transformer.eval()
+        # Split at midpoint
+        num_blocks = len(transformer.transformer_blocks)
+        num_blocks_part1 = num_blocks // 2
+        logger.debug(
+            "[dim]Splitting %d blocks: Part 2 has blocks %d-%d[/dim]",
+            num_blocks,
+            num_blocks_part1,
+            num_blocks - 1,
+            extra={"markup": True},
+        )
 
-    # Split at midpoint
-    num_blocks = len(transformer.transformer_blocks)
-    num_blocks_part1 = num_blocks // 2
-    console.print(f"[dim]Splitting {num_blocks} blocks: Part 2 has blocks {num_blocks_part1}-{num_blocks-1}[/dim]")
+        # Create dummy inputs (intermediate outputs from Part 1)
+        shapes = WanInputShapes()
+        inner_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
 
-    # Create dummy inputs (intermediate outputs from Part 1)
-    shapes = WanInputShapes()
-    inner_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+        # After patchify, dimensions change - approximate
+        seq_len = shapes.num_frames * (shapes.height // 2) * (shapes.width // 2)
 
-    # After patchify, dimensions change - approximate
-    seq_len = shapes.num_frames * (shapes.height // 2) * (shapes.width // 2)
+        hidden_states = torch.randn(shapes.batch_size, seq_len, inner_dim).float()
+        encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, inner_dim).float()
+        temb = torch.randn(shapes.batch_size, inner_dim).float()
 
-    hidden_states = torch.randn(shapes.batch_size, seq_len, inner_dim).float()
-    encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, inner_dim).float()
-    temb = torch.randn(shapes.batch_size, inner_dim).float()
+        wrapper = WanPart2Wrapper(transformer, num_blocks_part1)
+        wrapper.eval()
 
-    wrapper = WanPart2Wrapper(transformer, num_blocks_part1)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing Wan Part 2...[/dim]", extra={"markup": True})
+        inputs = [hidden_states, encoder_hidden_states, temb]
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing Wan Part 2...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, temb]
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting Wan Part 2 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [
+            ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
+            ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
+            ct.TensorType(name="temb_inter", shape=temb.shape),
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting Wan Part 2 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="temb_inter", shape=temb.shape),
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=[ct.TensorType(name="sample")],
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=[ct.TensorType(name="sample")],
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part2")
-    console.print("[green]Worker: Wan Part 2 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part2")

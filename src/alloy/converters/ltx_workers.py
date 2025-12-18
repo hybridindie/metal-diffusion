@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 import coremltools as ct
-from rich.console import Console
 
-from alloy.workers.base import quantize_and_save
+from alloy.logging import get_logger
+from alloy.workers.base import worker_context, quantize_and_save
 from alloy.exceptions import DependencyError
 
 try:
@@ -21,7 +21,7 @@ try:
 except ImportError:
     LTXVideoTransformer3DModel = None
 
-console = Console()
+logger = get_logger(__name__)
 
 # Constants
 DEFAULT_HEIGHT = 32
@@ -150,7 +150,11 @@ def load_ltx_transformer(model_id_or_path: str):
         )
 
     if os.path.isfile(model_id_or_path):
-        console.print(f"[dim]Worker loading transformer from single file: {model_id_or_path}[/dim]")
+        logger.debug(
+            "[dim]Worker loading transformer from single file: %s[/dim]",
+            model_id_or_path,
+            extra={"markup": True},
+        )
         return LTXVideoTransformer3DModel.from_single_file(
             model_id_or_path,
             torch_dtype=torch.float32,
@@ -158,144 +162,157 @@ def load_ltx_transformer(model_id_or_path: str):
         )
     else:
         try:
-            console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")
+            logger.debug(
+                "[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]",
+                extra={"markup": True},
+            )
             return LTXVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 subfolder="transformer",
                 torch_dtype=torch.float32
             )
         except Exception:
-            console.print(f"[dim]Subfolder load failed, trying root...[/dim]")
+            logger.debug(
+                "[dim]Subfolder load failed, trying root...[/dim]",
+                extra={"markup": True},
+            )
             return LTXVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 torch_dtype=torch.float32
             )
 
 
-def convert_ltx_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_ltx_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 1 (Input projection + first half of blocks)."""
-    console.print(f"[cyan]Worker: Starting LTX Part 1 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("LTX", "Part 1", log_queue):
+        transformer = load_ltx_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_ltx_transformer(model_id)
-    transformer.eval()
+        # Split at midpoint
+        num_blocks = len(transformer.transformer_blocks)
+        num_blocks_part1 = num_blocks // 2
+        logger.debug(
+            "[dim]Splitting %d blocks: Part 1 has blocks 0-%d[/dim]",
+            num_blocks,
+            num_blocks_part1 - 1,
+            extra={"markup": True},
+        )
 
-    # Split at midpoint
-    num_blocks = len(transformer.transformer_blocks)
-    num_blocks_part1 = num_blocks // 2
-    console.print(f"[dim]Splitting {num_blocks} blocks: Part 1 has blocks 0-{num_blocks_part1-1}[/dim]")
+        # Create dummy inputs
+        shapes = LTXInputShapes()
+        in_channels = transformer.config.in_channels
 
-    # Create dummy inputs
-    shapes = LTXInputShapes()
-    in_channels = transformer.config.in_channels
+        hidden_states = torch.randn(
+            shapes.batch_size, shapes.num_frames, in_channels, shapes.height, shapes.width
+        ).float()
+        timestep = torch.tensor([1.0]).float()
+        text_dim = transformer.config.caption_channels
+        encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, text_dim).float()
+        encoder_attention_mask = torch.ones(shapes.batch_size, shapes.text_len).long()
 
-    hidden_states = torch.randn(
-        shapes.batch_size, shapes.num_frames, in_channels, shapes.height, shapes.width
-    ).float()
-    timestep = torch.tensor([1.0]).float()
-    text_dim = transformer.config.caption_channels
-    encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, text_dim).float()
-    encoder_attention_mask = torch.ones(shapes.batch_size, shapes.text_len).long()
+        wrapper = LTXPart1Wrapper(transformer, num_blocks_part1)
+        wrapper.eval()
 
-    wrapper = LTXPart1Wrapper(transformer, num_blocks_part1)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing LTX Part 1...[/dim]", extra={"markup": True})
+        inputs = [hidden_states, encoder_hidden_states, timestep, encoder_attention_mask]
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing LTX Part 1...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, timestep, encoder_attention_mask]
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting LTX Part 1 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [
+            ct.TensorType(name="hidden_states", shape=hidden_states.shape),
+            ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
+            ct.TensorType(name="timestep", shape=timestep.shape),
+            ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape),
+        ]
+        ml_outputs = [
+            ct.TensorType(name="hidden_states_inter"),
+            ct.TensorType(name="encoder_hidden_states_inter"),
+            ct.TensorType(name="temb_inter"),
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting LTX Part 1 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="timestep", shape=timestep.shape),
-        ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape),
-    ]
-    ml_outputs = [
-        ct.TensorType(name="hidden_states_inter"),
-        ct.TensorType(name="encoder_hidden_states_inter"),
-        ct.TensorType(name="temb_inter"),
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=ml_outputs,
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=ml_outputs,
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "ltx_part1")
-    console.print("[green]Worker: LTX Part 1 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "ltx_part1")
 
 
-def convert_ltx_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None):
+def convert_ltx_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
     """Worker function for Part 2 (Second half of blocks + output projection)."""
-    console.print(f"[cyan]Worker: Starting LTX Part 2 Conversion (PID: {os.getpid()})[/cyan]")
+    with worker_context("LTX", "Part 2", log_queue):
+        transformer = load_ltx_transformer(model_id)
+        transformer.eval()
 
-    transformer = load_ltx_transformer(model_id)
-    transformer.eval()
+        # Split at midpoint
+        num_blocks = len(transformer.transformer_blocks)
+        num_blocks_part1 = num_blocks // 2
+        logger.debug(
+            "[dim]Splitting %d blocks: Part 2 has blocks %d-%d[/dim]",
+            num_blocks,
+            num_blocks_part1,
+            num_blocks - 1,
+            extra={"markup": True},
+        )
 
-    # Split at midpoint
-    num_blocks = len(transformer.transformer_blocks)
-    num_blocks_part1 = num_blocks // 2
-    console.print(f"[dim]Splitting {num_blocks} blocks: Part 2 has blocks {num_blocks_part1}-{num_blocks-1}[/dim]")
+        # Create dummy inputs (intermediate outputs from Part 1)
+        shapes = LTXInputShapes()
+        inner_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
 
-    # Create dummy inputs (intermediate outputs from Part 1)
-    shapes = LTXInputShapes()
-    inner_dim = transformer.config.num_attention_heads * transformer.config.attention_head_dim
+        # After patchify and proj_in, sequence length changes
+        seq_len = shapes.num_frames * shapes.height * shapes.width  # Simplified
 
-    # After patchify and proj_in, sequence length changes
-    seq_len = shapes.num_frames * shapes.height * shapes.width  # Simplified
+        hidden_states = torch.randn(shapes.batch_size, seq_len, inner_dim).float()
+        encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, inner_dim).float()
+        temb = torch.randn(shapes.batch_size, inner_dim).float()
+        encoder_attention_mask = torch.ones(shapes.batch_size, shapes.text_len).long()
 
-    hidden_states = torch.randn(shapes.batch_size, seq_len, inner_dim).float()
-    encoder_hidden_states = torch.randn(shapes.batch_size, shapes.text_len, inner_dim).float()
-    temb = torch.randn(shapes.batch_size, inner_dim).float()
-    encoder_attention_mask = torch.ones(shapes.batch_size, shapes.text_len).long()
+        # Shape info for unpatchify
+        num_frames = torch.tensor([shapes.num_frames]).long()
+        height = torch.tensor([shapes.height]).long()
+        width = torch.tensor([shapes.width]).long()
 
-    # Shape info for unpatchify
-    num_frames = torch.tensor([shapes.num_frames]).long()
-    height = torch.tensor([shapes.height]).long()
-    width = torch.tensor([shapes.width]).long()
+        wrapper = LTXPart2Wrapper(transformer, num_blocks_part1)
+        wrapper.eval()
 
-    wrapper = LTXPart2Wrapper(transformer, num_blocks_part1)
-    wrapper.eval()
+        # Trace
+        logger.debug("[dim]Worker: Tracing LTX Part 2...[/dim]", extra={"markup": True})
+        inputs = [hidden_states, encoder_hidden_states, temb, encoder_attention_mask, num_frames, height, width]
+        traced = torch.jit.trace(wrapper, inputs, strict=False)
 
-    # Trace
-    console.print("[dim]Worker: Tracing LTX Part 2...[/dim]")
-    inputs = [hidden_states, encoder_hidden_states, temb, encoder_attention_mask, num_frames, height, width]
-    traced = torch.jit.trace(wrapper, inputs, strict=False)
+        # Convert to CoreML
+        logger.debug("[dim]Worker: Converting LTX Part 2 to Core ML...[/dim]", extra={"markup": True})
+        ml_inputs = [
+            ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
+            ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
+            ct.TensorType(name="temb_inter", shape=temb.shape),
+            ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape),
+            ct.TensorType(name="num_frames", shape=num_frames.shape),
+            ct.TensorType(name="height", shape=height.shape),
+            ct.TensorType(name="width", shape=width.shape),
+        ]
 
-    # Convert to CoreML
-    console.print("[dim]Worker: Converting LTX Part 2 to Core ML...[/dim]")
-    ml_inputs = [
-        ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
-        ct.TensorType(name="encoder_hidden_states_inter", shape=encoder_hidden_states.shape),
-        ct.TensorType(name="temb_inter", shape=temb.shape),
-        ct.TensorType(name="encoder_attention_mask", shape=encoder_attention_mask.shape),
-        ct.TensorType(name="num_frames", shape=num_frames.shape),
-        ct.TensorType(name="height", shape=height.shape),
-        ct.TensorType(name="width", shape=width.shape),
-    ]
+        model = ct.convert(
+            traced,
+            inputs=ml_inputs,
+            outputs=[ct.TensorType(name="sample")],
+            compute_units=ct.ComputeUnit.ALL,
+            minimum_deployment_target=ct.target.macOS14
+        )
 
-    model = ct.convert(
-        traced,
-        inputs=ml_inputs,
-        outputs=[ct.TensorType(name="sample")],
-        compute_units=ct.ComputeUnit.ALL,
-        minimum_deployment_target=ct.target.macOS14
-    )
+        # Cleanup
+        del traced, wrapper, transformer
+        gc.collect()
 
-    # Cleanup
-    del traced, wrapper, transformer
-    gc.collect()
-
-    # Quantize and save
-    quantize_and_save(model, output_path, quantization, intermediates_dir, "ltx_part2")
-    console.print("[green]Worker: LTX Part 2 Complete[/green]")
+        # Quantize and save
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "ltx_part2")
