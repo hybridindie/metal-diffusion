@@ -17,6 +17,7 @@ import coremltools as ct
 from rich.console import Console
 
 from alloy.utils.coreml import safe_quantize_model
+from alloy.exceptions import DependencyError
 
 # Monkey patch for RoPE compatibility must be applied before loading
 from diffusers.models.transformers.transformer_wan import (
@@ -252,7 +253,11 @@ class WanPart2Wrapper(torch.nn.Module):
 def load_wan_transformer(model_id_or_path: str):
     """Helper to load just the Wan transformer efficiently."""
     if WanTransformer3DModel is None:
-        raise ImportError("WanTransformer3DModel not available. Please upgrade diffusers.")
+        raise DependencyError(
+            "WanTransformer3DModel not available",
+            package_name="diffusers",
+            install_command="pip install --upgrade diffusers"
+        )
 
     try:
         console.print(f"[dim]Attempting to load transformer from 'transformer' subfolder...[/dim]")

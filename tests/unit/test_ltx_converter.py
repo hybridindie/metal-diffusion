@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from alloy.converters.ltx import LTXConverter
+from alloy.exceptions import WorkerError
 
 
 class TestLTXConverter(unittest.TestCase):
@@ -47,8 +48,10 @@ class TestLTXConverter(unittest.TestCase):
 
         converter = LTXConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "LTX Part 1 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "LTX")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
     @patch("alloy.converters.base.multiprocessing.Process")
@@ -64,8 +67,10 @@ class TestLTXConverter(unittest.TestCase):
 
         converter = LTXConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "LTX Part 2 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "LTX")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
     @patch("alloy.converters.base.console.print")

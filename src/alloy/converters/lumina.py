@@ -1,11 +1,9 @@
 import os
-import logging
 from typing import Callable
 
 from .base import TwoPhaseConverter
 from alloy.converters.lumina_workers import convert_lumina_part1, convert_lumina_part2
-
-logger = logging.getLogger(__name__)
+from alloy.exceptions import UnsupportedModelError
 
 
 class LuminaConverter(TwoPhaseConverter):
@@ -43,15 +41,14 @@ class LuminaConverter(TwoPhaseConverter):
         """Override to handle single-file check and custom download."""
         # Single file not supported for Lumina
         if os.path.isfile(self.model_id):
-            logger.error("Single file loading is not supported for Lumina-Image 2.0.")
-            return
+            raise UnsupportedModelError(
+                "Single file loading not supported. Provide a HuggingFace model ID or local directory.",
+                model_name="Lumina",
+                model_type="single_file"
+            )
 
-        # Download source weights with custom logger
-        self.model_id = self.download_source_weights(
-            self.model_id,
-            self.output_dir,
-            logger_fn=logger.info
-        )
+        # Download source weights
+        self.model_id = self.download_source_weights(self.model_id, self.output_dir)
 
         super().convert()
 

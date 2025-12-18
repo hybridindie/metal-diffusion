@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from alloy.converters.lumina import LuminaConverter
+from alloy.exceptions import WorkerError, UnsupportedModelError
 
 
 class TestLuminaConverter(unittest.TestCase):
@@ -50,8 +51,10 @@ class TestLuminaConverter(unittest.TestCase):
 
         converter = LuminaConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Lumina Part 1 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Lumina")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch.object(LuminaConverter, 'download_source_weights', return_value="/mocked/path")
     @patch("alloy.converters.base.multiprocessing.Process")
@@ -67,8 +70,10 @@ class TestLuminaConverter(unittest.TestCase):
 
         converter = LuminaConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Lumina Part 2 Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Lumina")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
     @patch("alloy.converters.base.console.print")
@@ -147,15 +152,16 @@ class TestLuminaConverter(unittest.TestCase):
         mock_pipeline.save.assert_called()
 
     @patch("alloy.converters.lumina.os.path.isfile")
-    @patch("alloy.converters.lumina.logger")
-    def test_convert_fails_single_file(self, mock_logger, mock_isfile):
-        """Test that single file loading fails gracefully."""
+    def test_convert_fails_single_file(self, mock_isfile):
+        """Test that single file input raises UnsupportedModelError."""
         mock_isfile.return_value = True
 
         converter = LuminaConverter("/path/to/model.safetensors", self.output_dir, "float16")
-        converter.convert()
 
-        mock_logger.error.assert_called()
+        with self.assertRaises(UnsupportedModelError) as ctx:
+            converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Lumina")
+        self.assertEqual(ctx.exception.model_type, "single_file")
 
     def test_init_custom_dimensions(self):
         """Test that custom image dimensions are stored correctly."""

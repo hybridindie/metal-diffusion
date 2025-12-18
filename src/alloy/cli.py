@@ -9,6 +9,13 @@ from alloy.converters.ltx import LTXConverter
 from alloy.converters.flux import FluxConverter
 from alloy.converters.controlnet import FluxControlNetConverter
 from alloy.converters.lumina import LuminaConverter
+from alloy.exceptions import (
+    AlloyError,
+    WorkerError,
+    UnsupportedModelError,
+    ConfigError,
+    DependencyError,
+)
 
 from alloy.runners.flux import FluxCoreMLRunner
 from alloy.runners.ltx import LTXCoreMLRunner
@@ -342,6 +349,21 @@ def main():
             
     except KeyboardInterrupt:
         console.print("[yellow]Interrupted by user[/yellow]")
+        sys.exit(130)
+    except WorkerError as e:
+        console.print(f"[red]Worker failed:[/red] {e}")
+        sys.exit(e.exit_code or 1)
+    except UnsupportedModelError as e:
+        console.print(f"[red]Unsupported model:[/red] {e}")
+        sys.exit(1)
+    except ConfigError as e:
+        console.print(f"[red]Configuration error:[/red] {e}")
+        sys.exit(1)
+    except DependencyError as e:
+        console.print(f"[red]Missing dependency:[/red] {e}")
+        sys.exit(1)
+    except AlloyError as e:
+        console.print(f"[red]Error:[/red] {e}")
         sys.exit(1)
     except Exception as e:
         console.print_exception()

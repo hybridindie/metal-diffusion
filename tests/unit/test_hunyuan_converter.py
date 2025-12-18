@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from alloy.converters.hunyuan import HunyuanConverter
+from alloy.exceptions import WorkerError
 
 
 class TestHunyuanConverter(unittest.TestCase):
@@ -50,8 +51,10 @@ class TestHunyuanConverter(unittest.TestCase):
 
         converter = HunyuanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Hunyuan Part 1.*Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Hunyuan")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch.object(HunyuanConverter, 'download_source_weights', return_value="/mocked/path")
     @patch("alloy.converters.base.multiprocessing.Process")
@@ -67,8 +70,10 @@ class TestHunyuanConverter(unittest.TestCase):
 
         converter = HunyuanConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Hunyuan Part 2.*Worker Failed"):
+        with self.assertRaises(WorkerError) as ctx:
             converter.convert()
+        self.assertEqual(ctx.exception.model_name, "Hunyuan")
+        self.assertEqual(ctx.exception.exit_code, 1)
 
     @patch("alloy.converters.base.os.path.exists")
     @patch("alloy.converters.base.console.print")

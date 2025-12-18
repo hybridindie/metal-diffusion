@@ -16,6 +16,7 @@ import coremltools as ct
 from rich.console import Console
 
 from alloy.utils.coreml import safe_quantize_model
+from alloy.exceptions import DependencyError
 
 try:
     from diffusers import LTXVideoTransformer3DModel
@@ -176,7 +177,11 @@ class LTXPart2Wrapper(torch.nn.Module):
 def load_ltx_transformer(model_id_or_path: str):
     """Helper to load just the LTX transformer efficiently."""
     if LTXVideoTransformer3DModel is None:
-        raise ImportError("LTXVideoTransformer3DModel not available. Please upgrade diffusers.")
+        raise DependencyError(
+            "LTXVideoTransformer3DModel not available",
+            package_name="diffusers",
+            install_command="pip install --upgrade diffusers"
+        )
 
     if os.path.isfile(model_id_or_path):
         console.print(f"[dim]Worker loading transformer from single file: {model_id_or_path}[/dim]")

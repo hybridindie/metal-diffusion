@@ -7,6 +7,7 @@ from rich.console import Console
 
 from .base import TwoPhaseConverter
 from alloy.converters.wan_workers import convert_wan_part1, convert_wan_part2
+from alloy.exceptions import UnsupportedModelError
 
 console = Console()
 
@@ -39,9 +40,11 @@ class WanConverter(TwoPhaseConverter):
         """Override to handle single-file check and custom download patterns."""
         # Single file not supported for Wan
         if os.path.isfile(self.model_id):
-            console.print("[red]Error: Single file loading is not supported for Wan 2.1.[/red]")
-            console.print("Please provide a Hugging Face model ID or a local directory.")
-            return
+            raise UnsupportedModelError(
+                "Single file loading not supported. Provide a HuggingFace model ID or local directory.",
+                model_name="Wan",
+                model_type="single_file"
+            )
 
         # Download with custom patterns before standard conversion
         self.model_id = self.download_source_weights(

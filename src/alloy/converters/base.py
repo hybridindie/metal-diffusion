@@ -10,6 +10,8 @@ import torch.nn as nn
 import coremltools as ct
 from rich.console import Console
 
+from alloy.exceptions import WorkerError
+
 console = Console()
 
 
@@ -245,7 +247,12 @@ class TwoPhaseConverter(ModelConverter):
         process.join()
 
         if process.exitcode != 0:
-            raise RuntimeError(f"{self.model_name} {description} Worker Failed")
+            raise WorkerError(
+                "Worker process failed",
+                model_name=self.model_name,
+                phase=description,
+                exit_code=process.exitcode
+            )
 
     def _assemble_pipeline(
         self,
