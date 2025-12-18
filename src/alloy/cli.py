@@ -21,7 +21,9 @@ from alloy.exceptions import (
     ConfigError,
     DependencyError,
     HuggingFaceError,
+    ValidationError,
 )
+from alloy.validation import run_preflight_validation
 
 from alloy.runners.flux import FluxCoreMLRunner
 from alloy.runners.ltx import LTXCoreMLRunner
@@ -93,6 +95,7 @@ def main():
     convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina"], help="Type of model (optional if auto-detectable)")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
+    convert_parser.add_argument("--skip-validation", action="store_true", help="Skip pre-flight validation checks")
     
     # Upload Command
     upload_parser = subparsers.add_parser("upload", help="Upload converted model to Hugging Face")
@@ -266,7 +269,11 @@ def main():
             else:
                 # Fallback to SD
                 converter = SDConverter(args.model_id, args.output_dir, args.quantization)
-                
+
+            # Run pre-flight validation before conversion
+            if not args.skip_validation:
+                run_preflight_validation(converter)
+
             converter.convert()
             
         elif args.command == "run":
@@ -399,6 +406,10 @@ def main():
         sys.exit(1)
     except ConfigError as e:
         console.print(f"[red]Configuration error:[/red] {e}")
+        _print_suggestions(e.suggestions)
+        sys.exit(1)
+    except ValidationError as e:
+        console.print(f"[red]Validation failed:[/red] {e}")
         _print_suggestions(e.suggestions)
         sys.exit(1)
     except DependencyError as e:
