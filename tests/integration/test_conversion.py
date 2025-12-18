@@ -6,8 +6,8 @@ from alloy.converters.wan import WanConverter
 import os
 
 
-@patch("alloy.converters.wan.ct")
-@patch("alloy.converters.wan.multiprocessing.Process")
+@patch("alloy.converters.base.ct")
+@patch("alloy.converters.base.multiprocessing.Process")
 @patch.object(WanConverter, 'download_source_weights', return_value="/mocked/path")
 def test_wan_conversion_pipeline_mocked(mock_download, mock_process, mock_ct, tmp_path):
     """

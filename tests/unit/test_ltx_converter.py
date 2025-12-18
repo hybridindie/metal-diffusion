@@ -15,10 +15,10 @@ class TestLTXConverter(unittest.TestCase):
         shutil.rmtree(self.output_dir)
 
     @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.ltx.multiprocessing.Process")
-    @patch("alloy.converters.ltx.ct.models.MLModel")
-    @patch("alloy.converters.ltx.ct.utils.make_pipeline")
-    @patch("alloy.converters.ltx.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.ct.utils.make_pipeline")
+    @patch("alloy.converters.base.console.print")
     def test_convert_success(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process, mock_download):
         """Test successful 2-phase conversion."""
         mock_p1 = MagicMock()
@@ -37,8 +37,8 @@ class TestLTXConverter(unittest.TestCase):
         mock_pipeline.save.assert_called()
 
     @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.ltx.multiprocessing.Process")
-    @patch("alloy.converters.ltx.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.console.print")
     def test_convert_part1_failure(self, mock_print, mock_process, mock_download):
         """Test error handling when Part 1 fails."""
         mock_p1 = MagicMock()
@@ -47,13 +47,13 @@ class TestLTXConverter(unittest.TestCase):
 
         converter = LTXConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Part 1 Worker Failed"):
+        with self.assertRaisesRegex(RuntimeError, "LTX Part 1 Worker Failed"):
             converter.convert()
 
     @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.ltx.multiprocessing.Process")
-    @patch("alloy.converters.ltx.ct.models.MLModel")
-    @patch("alloy.converters.ltx.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.console.print")
     def test_convert_part2_failure(self, mock_print, mock_mlmodel, mock_process, mock_download):
         """Test error handling when Part 2 fails."""
         mock_p1 = MagicMock()
@@ -64,11 +64,11 @@ class TestLTXConverter(unittest.TestCase):
 
         converter = LTXConverter(self.model_id, self.output_dir, "float16")
 
-        with self.assertRaisesRegex(RuntimeError, "Part 2 Worker Failed"):
+        with self.assertRaisesRegex(RuntimeError, "LTX Part 2 Worker Failed"):
             converter.convert()
 
-    @patch("alloy.converters.ltx.os.path.exists")
-    @patch("alloy.converters.ltx.Console.print")
+    @patch("alloy.converters.base.os.path.exists")
+    @patch("alloy.converters.base.console.print")
     def test_convert_skips_existing(self, mock_print, mock_exists):
         """Test that conversion is skipped if final model already exists."""
         def side_effect(path):
@@ -85,10 +85,10 @@ class TestLTXConverter(unittest.TestCase):
         self.assertTrue(skip_logged)
 
     @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
-    @patch("alloy.converters.ltx.multiprocessing.Process")
-    @patch("alloy.converters.ltx.ct.models.MLModel")
-    @patch("alloy.converters.ltx.ct.utils.make_pipeline")
-    @patch("alloy.converters.ltx.Console.print")
+    @patch("alloy.converters.base.multiprocessing.Process")
+    @patch("alloy.converters.base.ct.models.MLModel")
+    @patch("alloy.converters.base.ct.utils.make_pipeline")
+    @patch("alloy.converters.base.console.print")
     def test_resume_both_parts(self, mock_print, mock_make_pipeline, mock_mlmodel, mock_process, mock_download):
         """Test resuming when both parts exist."""
         intermediates_dir = os.path.join(self.output_dir, "intermediates")

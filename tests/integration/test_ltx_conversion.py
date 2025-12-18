@@ -4,8 +4,8 @@ from alloy.converters.ltx import LTXConverter
 import os
 
 
-@patch("alloy.converters.ltx.ct")
-@patch("alloy.converters.ltx.multiprocessing.Process")
+@patch("alloy.converters.base.ct")
+@patch("alloy.converters.base.multiprocessing.Process")
 @patch.object(LTXConverter, 'download_source_weights', return_value="/mocked/path")
 def test_ltx_conversion_pipeline_mocked(mock_download, mock_process, mock_ct, tmp_path):
     """
