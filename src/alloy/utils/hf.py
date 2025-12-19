@@ -4,9 +4,13 @@ from huggingface_hub import HfApi, snapshot_download, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
 from alloy.exceptions import HuggingFaceError
+from alloy.logging import get_logger
 from alloy.utils.errors import get_download_suggestions
 
 load_dotenv()
+
+logger = get_logger(__name__)
+
 
 class HFManager:
     def __init__(self, token=None):
@@ -17,19 +21,19 @@ class HFManager:
         """Verifies if the user is logged in."""
         try:
             user = self.api.whoami()
-            print(f"Logged in as: {user['name']}")
+            logger.info("Logged in as: %s", user['name'])
             return True
         except Exception as e:
-            print(f"Not logged in or invalid token: {e}")
-            print("Please run 'huggingface-cli login' or provide a token.")
+            logger.warning("Not logged in or invalid token: %s", e)
+            logger.info("Please run 'huggingface-cli login' or provide a token.")
             return False
 
     def download_model(self, repo_id, local_dir=None):
         """Downloads a model from Hugging Face."""
-        print(f"Downloading {repo_id}...")
+        logger.info("Downloading %s...", repo_id)
         try:
             path = snapshot_download(repo_id=repo_id, local_dir=local_dir, token=self.token)
-            print(f"Model downloaded to: {path}")
+            logger.info("Model downloaded to: %s", path)
             return path
         except Exception as e:
             raise HuggingFaceError(
@@ -41,21 +45,21 @@ class HFManager:
 
     def upload_model(self, local_path, repo_id, private=True):
         """Uploads a converted model to Hugging Face."""
-        print(f"Uploading {local_path} to {repo_id}...")
+        logger.info("Uploading %s to %s...", local_path, repo_id)
         try:
             try:
                 self.api.repo_info(repo_id)
             except RepositoryNotFoundError:
-                print(f"Creating repository {repo_id}...")
+                logger.info("Creating repository %s...", repo_id)
                 create_repo(repo_id, private=private, token=self.token)
-            
+
             self.api.upload_folder(
                 folder_path=local_path,
                 repo_id=repo_id,
                 repo_type="model",
                 token=self.token
             )
-            print("Upload complete!")
+            logger.info("Upload complete!")
         except Exception as e:
-            print(f"Error uploading model: {e}")
+            logger.error("Error uploading model: %s", e)
             raise

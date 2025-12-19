@@ -158,11 +158,12 @@ def run_batch_conversion(batch_file, dry_run=False, parallel=False):
             
             try:
                 # Import here to avoid circular imports
-                from .converter import SDConverter
-                from .flux_converter import FluxConverter
-                from .ltx_converter import LTXConverter
-                from .wan_converter import WanConverter
-                from .hunyuan_converter import HunyuanConverter
+                from alloy.converters.base import SDConverter
+                from alloy.converters.flux import FluxConverter
+                from alloy.converters.ltx import LTXConverter
+                from alloy.converters.wan import WanConverter
+                from alloy.converters.hunyuan import HunyuanConverter
+                from alloy.converters.lumina import LuminaConverter
                 
                 # Create appropriate converter
                 converter_map = {
@@ -170,7 +171,8 @@ def run_batch_conversion(batch_file, dry_run=False, parallel=False):
                     'flux': FluxConverter,
                     'ltx': LTXConverter,
                     'wan': WanConverter,
-                    'hunyuan': HunyuanConverter
+                    'hunyuan': HunyuanConverter,
+                    'lumina': LuminaConverter,
                 }
                 
                 converter_class = converter_map.get(config['type'])

@@ -45,7 +45,6 @@ load_dotenv()
 
 DEFAULT_OUTPUT_DIR = os.getenv("OUTPUT_DIR", "converted_models")
 
-# ... (previous imports)
 
 def ensure_cleanup():
     """Force cleanup of multiprocessing backends to avoid semaphore leaks."""
@@ -295,30 +294,26 @@ def main():
             if model_type == "sd":
                 run_sd_pipeline(args.model_dir, args.prompt, args.output, base_model=args.base_model)
             elif model_type == "flux":
+                runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
                 if args.benchmark:
-                    # Benchmark mode
+                    # Benchmark mode - reuse runner instance across runs
                     from alloy.utils.benchmark import Benchmark
                     bench = Benchmark(f"Flux {args.height}x{args.width}, {args.steps} steps")
-                    
+
                     for i in range(args.benchmark_runs):
-                        print(f"\\n[Benchmark Run {i+1}/{args.benchmark_runs}]")
+                        print(f"\n[Benchmark Run {i+1}/{args.benchmark_runs}]")
                         bench.start_run()
-                        
-                        # Run generation (timing happens inside)
-                        runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
                         runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
-                        
                         bench.end_run()
-                    
+
                     # Print results
                     bench.print_results()
-                    
+
                     # Save if requested
                     if args.benchmark_output:
                         bench.save_json(args.benchmark_output)
                 else:
                     # Normal mode
-                    runner = FluxCoreMLRunner(args.model_dir, model_id=args.base_model or "black-forest-labs/FLUX.1-schnell")
                     runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
             elif model_type == "wan":
                 runner = WanCoreMLRunner(args.model_dir, model_id=args.base_model)
