@@ -178,10 +178,12 @@ def main():
                 print("Auto-detecting model type...")
                 model_type = detect_model_type(args.model_id)
                 if model_type:
-                    print(f"Detected type: {model_type}")
+                    print(f"Detected model type: {model_type}")
                 else:
-                     print("Could not auto-detect model type. Please specify --type.")
-                     sys.exit(1)
+                    print("Could not auto-detect model type.")
+                    print("Supported types: flux, ltx, hunyuan, wan, lumina")
+                    print("Please specify with --type <type>")
+                    sys.exit(1)
             
             # 1. Try robust file inspection
             detected_precision = detect_safetensors_precision(args.model_id)
