@@ -74,3 +74,9 @@ override-dependencies = [
     "numpy<2.0"
 ]
 environments = ["sys_platform == 'darwin'"]
+
+# ComfyUI Registry - https://comfyregistry.org
+[tool.comfy]
+PublisherId = "hybridindie"
+DisplayName = "Alloy - Core ML Accelerated Nodes"
+Icon = ""
