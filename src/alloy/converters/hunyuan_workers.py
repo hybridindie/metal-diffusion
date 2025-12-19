@@ -229,11 +229,24 @@ def load_hunyuan_transformer(model_id_or_path: str):
             )
 
 
-def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
+def convert_hunyuan_part1(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue: Optional[Queue] = None,
+    progress_queue: Optional[Queue] = None,
+) -> None:
     """Worker function for Part 1 (Input Embeddings + Dual-Stream Blocks)."""
-    with worker_context("Hunyuan", "Part 1", log_queue):
+    with worker_context("Hunyuan", "Part 1", log_queue, progress_queue, "part1") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Hunyuan transformer")
+
         transformer = load_hunyuan_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Create dummy inputs
         shapes = HunyuanInputShapes()
@@ -243,10 +256,16 @@ def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optiona
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 1")
         logger.debug("[dim]Worker: Tracing Hunyuan Part 1...[/dim]", extra={"markup": True})
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 1 to CoreML")
         logger.debug("[dim]Worker: Converting Hunyuan Part 1 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
         ml_outputs = [
@@ -262,20 +281,35 @@ def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optiona
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup PyTorch resources
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part1")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part1", reporter)
 
 
-def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
+def convert_hunyuan_part2(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue: Optional[Queue] = None,
+    progress_queue: Optional[Queue] = None,
+) -> None:
     """Worker function for Part 2 (Single-Stream Blocks + Final Layer)."""
-    with worker_context("Hunyuan", "Part 2", log_queue):
+    with worker_context("Hunyuan", "Part 2", log_queue, progress_queue, "part2") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Hunyuan transformer")
+
         transformer = load_hunyuan_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Get dimensions from config
         hidden_size = transformer.config.num_attention_heads * transformer.config.attention_head_dim
@@ -300,11 +334,17 @@ def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optiona
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 2")
         logger.debug("[dim]Worker: Tracing Hunyuan Part 2...[/dim]", extra={"markup": True})
         inputs = [hidden_states, encoder_hidden_states, temb, timestep, pooled_projections, guidance]
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 2 to CoreML")
         logger.debug("[dim]Worker: Converting Hunyuan Part 2 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [
             ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
@@ -322,10 +362,12 @@ def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optiona
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup PyTorch resources
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part2")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part2", reporter)
