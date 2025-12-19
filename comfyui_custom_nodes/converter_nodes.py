@@ -6,6 +6,8 @@ from pathlib import Path
 import folder_paths
 import hashlib
 
+from alloy.monitor import estimate_memory_requirement, check_memory_warning
+
 
 class CoreMLConverter:
     """
@@ -68,7 +70,13 @@ class CoreMLConverter:
         print(f"  Type: {model_type}")
         print(f"  Quantization: {quantization}")
         print(f"  Output: {output_base}")
-        
+
+        # Check memory before starting
+        required_gb = estimate_memory_requirement(model_type, quantization)
+        warning = check_memory_warning(required_gb)
+        if warning:
+            print(f"⚠ {warning}")
+
         try:
             # Import converters
             from alloy.converters.flux import FluxConverter
@@ -106,9 +114,9 @@ class CoreMLConverter:
                 **kwargs
             )
             
-            # Run conversion
+            # Run conversion (disable Rich progress display in ComfyUI context)
             print("Starting conversion (this may take 5-15 minutes)...")
-            converter.convert()
+            converter.convert(show_progress=False)
             
             print(f"✓ Conversion complete!")
             print(f"  Saved to: {final_path}")
