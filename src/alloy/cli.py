@@ -301,7 +301,7 @@ def main():
                     bench = Benchmark(f"Flux {args.height}x{args.width}, {args.steps} steps")
 
                     for i in range(args.benchmark_runs):
-                        print(f"\\n[Benchmark Run {i+1}/{args.benchmark_runs}]")
+                        print(f"\n[Benchmark Run {i+1}/{args.benchmark_runs}]")
                         bench.start_run()
                         runner.generate(args.prompt, args.output, steps=args.steps, height=args.height, width=args.width)
                         bench.end_run()
