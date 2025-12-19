@@ -79,7 +79,7 @@ def _detect_from_safetensor_keys(keys: list) -> tuple[Optional[str], float]:
         # Calculate confidence based on how many patterns matched
         confidence = matching_any / len(required_any)
         if required_all:
-            confidence = (confidence + 1.0) / 2  # Boost for matching required_all
+            confidence = min(1.0, confidence + 0.2)  # Boost for matching required_all
 
         matches.append((model_type, confidence))
 
@@ -159,7 +159,7 @@ def detect_model_type(model_path: str) -> Optional[str]:
 
             # Try to fetch config.json or transformer/config.json
             config_path = None
-            for filename in ["transformer/config.json", "config.json", "model_index.json"]:
+            for filename in ["transformer/config.json", "config.json"]:
                 try:
                     config_path = hf_hub_download(repo_id=model_path, filename=filename)
                     break

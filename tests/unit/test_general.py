@@ -69,9 +69,27 @@ class TestDetectFromSafetensorKeys(unittest.TestCase):
         self.assertEqual(model_type, "hunyuan")
         self.assertGreaterEqual(confidence, 0.5)
 
+    def test_detect_hunyuan_with_guidance_in(self):
+        """Hunyuan detected via transformer_blocks + single_transformer_blocks + guidance_in."""
+        keys = [
+            "transformer_blocks.0.weight",
+            "single_transformer_blocks.0.weight",
+            "guidance_in.weight",
+        ]
+        model_type, confidence = _detect_from_safetensor_keys(keys)
+        self.assertEqual(model_type, "hunyuan")
+        self.assertGreaterEqual(confidence, 0.5)
+
     def test_detect_wan_with_patch_embedding(self):
         """Wan detected via patch_embedding key."""
         keys = ["patch_embedding.weight", "transformer_blocks.0"]
+        model_type, confidence = _detect_from_safetensor_keys(keys)
+        self.assertEqual(model_type, "wan")
+        self.assertGreaterEqual(confidence, 0.5)
+
+    def test_detect_wan_with_blocks_attn(self):
+        """Wan detected via blocks.0.attn key."""
+        keys = ["blocks.0.attn.weight", "other_key"]
         model_type, confidence = _detect_from_safetensor_keys(keys)
         self.assertEqual(model_type, "wan")
         self.assertGreaterEqual(confidence, 0.5)
@@ -83,12 +101,19 @@ class TestDetectFromSafetensorKeys(unittest.TestCase):
         self.assertEqual(model_type, "lumina")
         self.assertGreaterEqual(confidence, 0.5)
 
+    def test_detect_lumina_with_layers_gate(self):
+        """Lumina detected via layers.0.gate key."""
+        keys = ["layers.0.gate.weight", "other_key"]
+        model_type, confidence = _detect_from_safetensor_keys(keys)
+        self.assertEqual(model_type, "lumina")
+        self.assertGreaterEqual(confidence, 0.5)
+
     def test_flux_not_detected_with_txt_in(self):
         """Flux should NOT be detected if txt_in is present (Hunyuan marker)."""
         keys = ["double_blocks.0.weight", "txt_in.weight"]
         model_type, confidence = _detect_from_safetensor_keys(keys)
-        # Should not be flux due to forbidden txt_in
-        self.assertNotEqual(model_type, "flux")
+        # Should not be flux due to forbidden txt_in, and hunyuan needs required_all keys
+        self.assertIsNone(model_type)
 
     def test_unknown_keys_return_none(self):
         """Unknown key patterns should return None."""
@@ -102,6 +127,7 @@ class TestDetectFromSafetensorKeys(unittest.TestCase):
         keys = []
         model_type, confidence = _detect_from_safetensor_keys(keys)
         self.assertIsNone(model_type)
+        self.assertEqual(confidence, 0.0)
 
 
 class TestGeneralUtils(unittest.TestCase):
