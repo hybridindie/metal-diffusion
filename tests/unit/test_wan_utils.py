@@ -3,9 +3,9 @@ import torch
 from unittest.mock import MagicMock, patch
 from alloy.converters.wan_workers import WanPart1Wrapper
 
-# Import these from the worker module where the patch is defined
+# Import from the correct location (transformer_wan, not attention_processor)
 try:
-    from diffusers.models.attention_processor import WanAttnProcessor
+    from diffusers.models.transformers.transformer_wan import WanAttnProcessor
 except ImportError:
     WanAttnProcessor = None
 
