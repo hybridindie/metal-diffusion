@@ -29,7 +29,8 @@ from alloy.runners.flux import FluxCoreMLRunner
 from alloy.runners.ltx import LTXCoreMLRunner
 from alloy.runners.hunyuan import HunyuanCoreMLRunner
 from alloy.runners.lumina import LuminaCoreMLRunner
-from alloy.runners.base import run_sd_pipeline, WanCoreMLRunner
+from alloy.runners.wan import WanCoreMLRunner
+from alloy.runners.base import run_sd_pipeline
 
 from alloy.utils.model import validate_model, show_model_info, list_models, detect_safetensors_precision
 from alloy.utils.hf import HFManager
