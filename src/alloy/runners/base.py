@@ -4,7 +4,6 @@ import os
 import re
 
 from diffusers import DiffusionPipeline
-from python_coreml_stable_diffusion.pipeline import get_coreml_pipe
 
 from alloy.logging import get_logger
 
@@ -45,6 +44,9 @@ def run_sd_pipeline(model_dir, prompt, output_path, compute_unit="ALL", base_mod
                 logger.debug("Detected model version string: %s", model_version_str)
     except Exception as e:
         logger.warning("Could not auto-detect model version from files: %s", e)
+
+    # Lazy import - optional dependency for SD support
+    from python_coreml_stable_diffusion.pipeline import get_coreml_pipe
 
     pipeline = get_coreml_pipe(
         pytorch_pipe=pytorch_pipe,

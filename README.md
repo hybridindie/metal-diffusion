@@ -21,7 +21,7 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 -   **Flux ControlNet Support**:
     -   Full support for Flux ControlNet residuals (Base Model + ControlNet Model).
     -   **ComfyUI Nodes**: Dedicated nodes for loading and applying Core ML ControlNets.
--   **Stable Diffusion Support**: Wraps Apple's `python_coreml_stable_diffusion` for SDXL and SD3.
+-   **Stable Diffusion Support**: Wraps Apple's `python_coreml_stable_diffusion` for SDXL and SD3. (Requires optional `[sd]` extra)
 -   **Lumina-Image 2.0 Support**: Implements Next-Gen DiT conversion using Gemma 2B text encoder.
 -   **Full Pipeline**: Automates Download -> Convert -> Upload to Hugging Face.
 -   **Progress Tracking**: Real-time conversion progress with phases, steps, elapsed time, and ETA estimation.
@@ -60,6 +60,9 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 You can run the tool using `uv run alloy`.
 
 ### Convert Stable Diffusion (SDXL/SD3)
+> **Note:** SD support requires Apple's `python-coreml-stable-diffusion` package.
+> Install with: `pip install "silicon-alloy[sd]"` or `uv pip install python-coreml-stable-diffusion`
+
 ```bash
 uv run alloy convert stabilityai/stable-diffusion-xl-base-1.0 \
   --type sd \
