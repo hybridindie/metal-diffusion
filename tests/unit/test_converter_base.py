@@ -3,7 +3,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from alloy.converters.base import ModelConverter
 
@@ -62,7 +62,7 @@ class TestDownloadSourceWeights(unittest.TestCase):
     @patch("huggingface_hub.snapshot_download")
     def test_successful_download_returns_source_dir(self, mock_download):
         """Test that successful download returns source directory path."""
-        mock_download.return_value = None  # snapshot_download returns None on success
+        mock_download.return_value = None  # Return value is not used by the implementation
         logger_messages = []
 
         result = self.converter.download_source_weights(
