@@ -24,6 +24,8 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 -   **Stable Diffusion Support**: Wraps Apple's `python_coreml_stable_diffusion` for SDXL and SD3.
 -   **Lumina-Image 2.0 Support**: Implements Next-Gen DiT conversion using Gemma 2B text encoder.
 -   **Full Pipeline**: Automates Download -> Convert -> Upload to Hugging Face.
+-   **Progress Tracking**: Real-time conversion progress with phases, steps, elapsed time, and ETA estimation.
+-   **Memory Monitoring**: Pre-flight memory checks warn if system resources are low before starting conversion.
 -   **Dependency Management**: Uses `uv` to resolve complex conflicts between legacy Core ML scripts and modern Hugging Face libraries.
 
 ## Installation
@@ -96,6 +98,21 @@ uv run alloy convert x-labs/flux-controlnet-canny \
 Supports both T2V (Text-to-Video) and I2V (Image-to-Video). The converter automatically detects the input channels from the model config.
 
 ```bash
+# Text-to-Video
+uv run alloy convert Wan-AI/Wan2.1-T2V-14B-720P-Diffusers \
+  --type wan \
+  --output-dir converted_models/wan_t2v \
+  --quantization int4
+
+# Image-to-Video (36 channels)
+uv run alloy convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
+  --type wan \
+  --output-dir converted_models/wan_i2v \
+  --quantization int4
+```
+
+### Convert Flux
+```bash
 # Basic Conversion
 uv run alloy convert black-forest-labs/FLUX.1-schnell \
   --output-dir converted_models/flux \
@@ -107,13 +124,6 @@ uv run alloy convert black-forest-labs/FLUX.1-schnell \
   --quantization int4 \
   --lora "path/to/style.safetensors:0.8:1.0" \
   --lora "path/to/fix.safetensors:1.0"
-```
-
-# Image-to-Video (36 channels)
-uv run alloy convert Wan-AI/Wan2.1-I2V-14B-720P-Diffusers \
-  --type wan \
-  --output-dir converted_models/wan_i2v \
-  --quantization int4
 ```
 
 ### Civitai / Single-File Models
@@ -171,7 +181,7 @@ Alloy includes **custom nodes** for seamless ComfyUI integration with Core ML ac
 pip install -e .
 
 # 2. Link to ComfyUI
-ln -s /path/to/metal-diffusion/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/alloy
+ln -s /path/to/alloy/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/alloy
 
 # 3. Restart ComfyUI
 ```
@@ -192,7 +202,7 @@ Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
 - **All-in-One**: Integrated CLIP/T5/VAE loading
 - **Smart Conversion**: Convert models directly in ComfyUI
 
-See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 8 nodes.
+See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 10 nodes.
 
 ## Utility Commands
 

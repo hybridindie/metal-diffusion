@@ -4,8 +4,10 @@
 
 ### Core Loaders
 - [CoreMLFluxLoader](#coremlfluxloader) - Flux image generation
-- [CoreMLLTXVideoLoader](#coremlltxvideoloader) - LTX video generation  
+- [CoreMLLTXVideoLoader](#coremlltxvideoloader) - LTX video generation
 - [CoreMLWanVideoLoader](#coremlwanvideoloader) - Wan video generation
+- [CoreMLHunyuanVideoLoader](#coremlhunyuanvideoloader) - Hunyuan video generation
+- [CoreMLLuminaLoader](#coremlluminaloader) - Lumina Image 2.0 generation
 - [CoreMLControlNetLoader](#coremlcontrolnetloader) - Load ControlNet models
 - [CoreMLApplyControlNet](#coremlapplycontrolnet) - Apply ControlNet
 
@@ -188,6 +190,47 @@ CoreMLLTXVideoLoader → VideoKSampler
 **Usage**:
 ```
 CoreMLWanVideoLoader → VideoKSampler
+```
+
+**Status**: 🚧 Node structure ready, implementation in progress
+
+---
+
+### CoreMLHunyuanVideoLoader
+
+**Category**: Alloy/Video
+**Purpose**: Load HunyuanVideo model for video generation
+
+**Inputs**:
+- `model_path` (unet dropdown): Path to `.mlpackage`
+- `num_frames` (int, 1-128, default 16): Number of frames
+
+**Outputs**:
+- `MODEL`: Hunyuan video model
+
+**Usage**:
+```
+CoreMLHunyuanVideoLoader → VideoKSampler
+```
+
+**Status**: 🚧 Node structure ready, implementation in progress
+
+---
+
+### CoreMLLuminaLoader
+
+**Category**: Alloy
+**Purpose**: Load Lumina Image 2.0 model for image generation
+
+**Inputs**:
+- `model_path` (unet dropdown): Path to `.mlpackage`
+
+**Outputs**:
+- `MODEL`: Lumina image model
+
+**Usage**:
+```
+CoreMLLuminaLoader → KSampler
 ```
 
 **Status**: 🚧 Node structure ready, implementation in progress
@@ -396,20 +439,28 @@ SaveImage
 
 ## Node Compatibility Matrix
 
-| Node | Flux | LTX | Wan | Status |
-|------|------|-----|-----|--------|
-| CoreMLFluxLoader | ✅ | ❌ | ❌ | Stable |
-| CoreMLFluxWithCLIP | ✅ | ❌ | ❌ | Stable |
-| CoreMLLTXVideoLoader | ❌ | 🚧 | ❌ | Beta |
-| CoreMLWanVideoLoader | ❌ | ❌ | 🚧 | Beta |
-| CoreMLModelAnalyzer | ✅ | ✅ | ✅ | Stable |
-| CoreMLBatchSampler | ✅ | ✅ | ✅ | Experimental |
+| Node | Flux | LTX | Wan | Hunyuan | Lumina | Status |
+|------|------|-----|-----|---------|--------|--------|
+| CoreMLFluxLoader | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
+| CoreMLFluxWithCLIP | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
+| CoreMLLTXVideoLoader | ❌ | 🚧 | ❌ | ❌ | ❌ | Beta |
+| CoreMLWanVideoLoader | ❌ | ❌ | 🚧 | ❌ | ❌ | Beta |
+| CoreMLHunyuanVideoLoader | ❌ | ❌ | ❌ | 🚧 | ❌ | Beta |
+| CoreMLLuminaLoader | ❌ | ❌ | ❌ | ❌ | 🚧 | Beta |
+| CoreMLModelAnalyzer | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
+| CoreMLBatchSampler | ✅ | ✅ | ✅ | ✅ | ✅ | Experimental |
 
 ---
 
 ## Version History
 
-### v0.1.0 (Current)
+### v0.3.1 (Current)
+- Added HunyuanVideo loader node
+- Added Lumina Image 2.0 loader node
+- Memory monitoring in converter nodes
+- Progress tracking disabled for ComfyUI context
+
+### v0.1.0
 - Initial release
 - Flux image generation support
 - Integrated CLIP/T5 loading
@@ -421,7 +472,7 @@ SaveImage
 
 ## Support & Resources
 
-- **Documentation**: [GitHub README](https://github.com/hybridindie/metal-diffusion)
-- **Issues**: [GitHub Issues](https://github.com/hybridindie/metal-diffusion/issues)
+- **Documentation**: [GitHub README](https://github.com/hybridindie/alloy)
+- **Issues**: [GitHub Issues](https://github.com/hybridindie/alloy/issues)
 - **Workflows**: `example_workflows/` directory
 - **Troubleshooting**: `docs/TROUBLESHOOTING.md`

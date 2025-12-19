@@ -1,6 +1,6 @@
 [project]
 name = "silicon-alloy"
-version = "0.3.0"
+version = "0.3.1"
 description = "High-performance Core ML diffusion model converter"
 readme = "README.md"
 requires-python = ">=3.11"
