@@ -383,7 +383,7 @@ class SDConverter(ModelConverter):
         print(f"Running command: {' '.join(cmd)}")
         try:
             # We run this as a subprocess to isolate the conversion environment
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, shell=False)
             print(f"Conversion of {self.model_id} successful.")
         except subprocess.CalledProcessError as e:
             print(f"Conversion failed: {e}")
