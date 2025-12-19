@@ -60,8 +60,8 @@ A unified toolchain for converting open-source diffusion models (Stable Diffusio
 You can run the tool using `uv run alloy`.
 
 ### Convert Stable Diffusion (SDXL/SD3)
-> **Note:** SD support requires Apple's `python-coreml-stable-diffusion` package.
-> Install with: `pip install "silicon-alloy[sd]"` or `uv pip install python-coreml-stable-diffusion`
+> **Note:** SD support requires Apple's `python-coreml-stable-diffusion` package (not on PyPI).
+> Install manually: `pip install git+https://github.com/apple/ml-stable-diffusion.git`
 
 ```bash
 uv run alloy convert stabilityai/stable-diffusion-xl-base-1.0 \
