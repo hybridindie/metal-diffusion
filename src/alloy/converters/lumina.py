@@ -37,8 +37,12 @@ class LuminaConverter(TwoPhaseConverter):
     def get_part2_worker(self) -> Callable:
         return convert_lumina_part2
 
-    def convert(self):
-        """Override to handle single-file check and custom download."""
+    def convert(self, show_progress: bool = True):
+        """Override to handle single-file check and custom download.
+
+        Args:
+            show_progress: Whether to show the Rich progress display (default: True)
+        """
         # Single file not supported for Lumina
         if os.path.isfile(self.model_id):
             raise UnsupportedModelError(
@@ -50,7 +54,7 @@ class LuminaConverter(TwoPhaseConverter):
         # Download source weights
         self.model_id = self.download_source_weights(self.model_id, self.output_dir)
 
-        super().convert()
+        super().convert(show_progress=show_progress)
 
     def convert_vae(self, vae):
         """VAE conversion (optional, reuse standard VAE converter)."""

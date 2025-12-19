@@ -26,7 +26,7 @@ class CoreMLFluxWithCLIP:
         import comfy.model_management
         import comfy.sd
         import comfy.utils
-        from alloy.flux_runner import FluxCoreMLRunner
+        from alloy.runners.flux import FluxCoreMLRunner
         from .video_wrappers import CoreMLLTXVideoWrapper, CoreMLWanVideoWrapper
         
         # Get full path to transformer

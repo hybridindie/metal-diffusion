@@ -10,7 +10,12 @@ import comfy.utils
 from diffusers import FluxTransformer2DModel, LTXVideoTransformer3DModel, WanTransformer3DModel
 
 from alloy.runners.flux import FluxCoreMLRunner
-from .video_wrappers import CoreMLLTXVideoWrapper, CoreMLWanVideoWrapper
+from .video_wrappers import (
+    CoreMLLTXVideoWrapper,
+    CoreMLWanVideoWrapper,
+    CoreMLHunyuanVideoWrapper,
+    CoreMLLuminaWrapper,
+)
 
 class CoreMLFluxLoader:
     """Flux Image Generation - Core ML Accelerated"""
@@ -228,11 +233,52 @@ class CoreMLFluxWrapper(torch.nn.Module):
         
         return unpacked
 
+class CoreMLHunyuanVideoLoader:
+    """HunyuanVideo Generation - Core ML Accelerated"""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model_path": (folder_paths.get_filename_list("unet"),),
+            "num_frames": ("INT", {"default": 16, "min": 1, "max": 128, "step": 1})
+        }}
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
+    CATEGORY = "Alloy/Video"
+
+    def load_coreml_model(self, model_path, num_frames):
+        base_path = folder_paths.get_full_path("unet", model_path)
+        print(f"Loading HunyuanVideo Core ML Model from: {base_path}")
+
+        wrapper = CoreMLHunyuanVideoWrapper(base_path, num_frames)
+        return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
+
+
+class CoreMLLuminaLoader:
+    """Lumina Image 2.0 - Core ML Accelerated"""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "model_path": (folder_paths.get_filename_list("unet"),),
+        }}
+
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
+    CATEGORY = "Alloy"
+
+    def load_coreml_model(self, model_path):
+        base_path = folder_paths.get_full_path("unet", model_path)
+        print(f"Loading Lumina Image 2.0 Core ML Model from: {base_path}")
+
+        wrapper = CoreMLLuminaWrapper(base_path)
+        return (comfy.model_patcher.ModelPatcher(wrapper, load_device="cpu", offload_device="cpu"),)
+
+
 class CoreMLControlNetLoader:
     """Loads a Converted ControlNet Model (.mlpackage)"""
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": { 
+        return {"required": {
             "controlnet_path": (folder_paths.get_filename_list("controlnet"),)
         }}
 
@@ -305,6 +351,8 @@ NODE_CLASS_MAPPINGS = {
     "CoreMLFluxLoader": CoreMLFluxLoader,
     "CoreMLLTXVideoLoader": CoreMLLTXVideoLoader,
     "CoreMLWanVideoLoader": CoreMLWanVideoLoader,
+    "CoreMLHunyuanVideoLoader": CoreMLHunyuanVideoLoader,
+    "CoreMLLuminaLoader": CoreMLLuminaLoader,
     "CoreMLControlNetLoader": CoreMLControlNetLoader,
     "CoreMLApplyControlNet": CoreMLApplyControlNet
 }
@@ -313,6 +361,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "CoreMLFluxLoader": "Core ML Flux Loader (Image)",
     "CoreMLLTXVideoLoader": "Core ML LTX-Video Loader",
     "CoreMLWanVideoLoader": "Core ML Wan Video Loader",
+    "CoreMLHunyuanVideoLoader": "Core ML Hunyuan Video Loader",
+    "CoreMLLuminaLoader": "Core ML Lumina Image 2.0 Loader",
     "CoreMLControlNetLoader": "Core ML ControlNet Loader",
     "CoreMLApplyControlNet": "Apply Core ML ControlNet"
 }
