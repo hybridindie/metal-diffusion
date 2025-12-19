@@ -104,7 +104,13 @@ class UnsupportedModelError(ConversionError):
 class ValidationError(AlloyError):
     """Base class for validation errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        suggestions: Optional[list] = None,
+    ):
+        self.suggestions = suggestions or []
+        super().__init__(message)
 
 
 class ConfigError(ValidationError):
@@ -119,8 +125,7 @@ class ConfigError(ValidationError):
     ):
         self.config_file = config_file
         self.missing_fields = missing_fields or []
-        self.suggestions = suggestions or []
-        super().__init__(message)
+        super().__init__(message, suggestions)
 
     def _format_message(self) -> str:
         base = self.message

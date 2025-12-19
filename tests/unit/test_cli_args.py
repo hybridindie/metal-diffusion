@@ -30,7 +30,8 @@ def test_convert_sd_args():
                    output_dir="converted_models",
                    quantization="float16",
                    verbose=0,
-                   quiet=False
+                   quiet=False,
+                   skip_validation=True
                )):
         with patch("alloy.cli.SDConverter") as MockConverter:
             main()
@@ -46,7 +47,8 @@ def test_convert_wan_args():
                    output_dir="converted_models",
                    quantization="int4",
                    verbose=0,
-                   quiet=False
+                   quiet=False,
+                   skip_validation=True
                )):
         with patch("alloy.cli.WanConverter") as MockConverter:
             main()

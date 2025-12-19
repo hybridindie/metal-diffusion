@@ -76,6 +76,10 @@ def setup_logging(
     """
     Configure the root logger for Alloy CLI.
 
+    This function is idempotent - subsequent calls return the existing logger
+    without reconfiguration. To change settings at runtime, call shutdown_logging()
+    first, then call setup_logging() with new parameters.
+
     Args:
         verbosity: Logging verbosity level
         log_file: Optional path to log file
@@ -244,12 +248,15 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"alloy.{name}")
 
 
-def shutdown_logging() -> None:
+def shutdown_logging(timeout: float = 1.0) -> None:
     """
     Clean up logging resources.
 
     Should be called before program exit to ensure all log
     messages are flushed and the queue listener is stopped.
+
+    Args:
+        timeout: Maximum seconds to wait for queue cleanup (default 1.0)
     """
     global _queue_listener, _log_queue, _initialized
 
@@ -259,9 +266,14 @@ def shutdown_logging() -> None:
 
     if _log_queue is not None:
         _log_queue.close()
-        # Avoid potentially blocking indefinitely waiting for the
-        # queue's feeder thread; we already stopped the listener.
-        _log_queue.cancel_join_thread()
+        # Try to join the feeder thread with timeout to allow graceful cleanup.
+        # If the thread doesn't finish in time, cancel it to avoid blocking
+        # indefinitely at interpreter shutdown.
+        try:
+            _log_queue.join_thread()
+        except Exception:
+            # join_thread may fail if thread already terminated or on some platforms
+            _log_queue.cancel_join_thread()
         _log_queue = None
 
     _initialized = False
