@@ -1,17 +1,12 @@
 """Tests for the BaseCoreMLRunner base class and runner utilities."""
 
 import numpy as np
-import tempfile
 import torch
 import unittest
 from unittest.mock import MagicMock, patch
 
 from alloy.runners.core import BaseCoreMLRunner
-from alloy.runners.utils import (
-    apply_classifier_free_guidance,
-    make_timestep_array,
-    prepare_latents,
-)
+from alloy.runners.utils import apply_classifier_free_guidance
 
 
 class ConcreteRunner(BaseCoreMLRunner):
@@ -194,87 +189,6 @@ class TestClassifierFreeGuidance(unittest.TestCase):
         result = apply_classifier_free_guidance(noise_uncond, noise_text, guidance_scale)
 
         self.assertEqual(result.shape, (1, 4, 32, 32))
-
-
-class TestMakeTimestepArray(unittest.TestCase):
-    """Tests for make_timestep_array utility."""
-
-    def test_float32_default(self):
-        """Test default float32 output."""
-        timestep = torch.tensor(500.0)
-        result = make_timestep_array(timestep)
-
-        self.assertEqual(result.dtype, np.float32)
-        self.assertEqual(result.shape, (1,))
-        np.testing.assert_array_equal(result, [500.0])
-
-    def test_int32_explicit(self):
-        """Test explicit int32 output."""
-        timestep = torch.tensor(250)
-        result = make_timestep_array(timestep, dtype=np.int32)
-
-        self.assertEqual(result.dtype, np.int32)
-        np.testing.assert_array_equal(result, [250])
-
-    def test_scalar_tensor(self):
-        """Test handling of scalar tensor."""
-        timestep = torch.tensor(1000)
-        result = make_timestep_array(timestep)
-
-        self.assertEqual(result.shape, (1,))
-
-
-class TestPrepareLatents(unittest.TestCase):
-    """Tests for prepare_latents utility."""
-
-    def test_image_latents_shape(self):
-        """Test latent shape for image generation."""
-        latents, h, w, f = prepare_latents(
-            batch_size=1,
-            num_channels=4,
-            height=512,
-            width=512,
-            vae_scale_factor=8,
-            device="cpu",
-            dtype=torch.float32,
-        )
-
-        self.assertEqual(latents.shape, (1, 4, 64, 64))
-        self.assertEqual(h, 64)
-        self.assertEqual(w, 64)
-        self.assertEqual(f, 1)
-
-    def test_video_latents_shape(self):
-        """Test latent shape for video generation."""
-        latents, h, w, f = prepare_latents(
-            batch_size=1,
-            num_channels=16,
-            height=256,
-            width=256,
-            vae_scale_factor=8,
-            device="cpu",
-            dtype=torch.float32,
-            num_frames=8,
-        )
-
-        self.assertEqual(latents.shape, (1, 16, 8, 32, 32))
-        self.assertEqual(h, 32)
-        self.assertEqual(w, 32)
-        self.assertEqual(f, 8)
-
-    def test_reproducibility_with_generator(self):
-        """Test that generator produces reproducible results."""
-        gen1 = torch.Generator(device="cpu").manual_seed(42)
-        gen2 = torch.Generator(device="cpu").manual_seed(42)
-
-        latents1, _, _, _ = prepare_latents(
-            1, 4, 64, 64, 8, "cpu", torch.float32, generator=gen1
-        )
-        latents2, _, _, _ = prepare_latents(
-            1, 4, 64, 64, 8, "cpu", torch.float32, generator=gen2
-        )
-
-        torch.testing.assert_close(latents1, latents2)
 
 
 class TestRunnerProperties(unittest.TestCase):

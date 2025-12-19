@@ -1,7 +1,7 @@
 """Base class for CoreML hybrid runners."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 import coremltools as ct
 import numpy as np
@@ -48,7 +48,16 @@ class BaseCoreMLRunner(ABC):
             compute_unit: CoreML compute unit ("ALL", "CPU_AND_GPU", "CPU_ONLY")
         """
         self.model_dir = model_dir
-        self.model_id = model_id or self.default_model_id
+        if model_id is not None:
+            self.model_id = model_id
+        else:
+            try:
+                self.model_id = self.default_model_id
+            except (AttributeError, NotImplementedError) as exc:
+                raise TypeError(
+                    "Subclasses of BaseCoreMLRunner must implement the "
+                    "'default_model_id' property."
+                ) from exc
         self.compute_unit = compute_unit
         self.device = self._detect_device()
 
@@ -138,39 +147,6 @@ class BaseCoreMLRunner(ABC):
     def _detect_device() -> str:
         """Detect available compute device."""
         return "mps" if torch.backends.mps.is_available() else "cpu"
-
-    def _load_pipeline_with_fallback(
-        self,
-        exclude_transformer: bool = True,
-        **kwargs,
-    ) -> Any:
-        """
-        Load pipeline with single-file fallback support.
-
-        Args:
-            exclude_transformer: Whether to exclude transformer (using CoreML)
-            **kwargs: Additional kwargs for pipeline loading
-
-        Returns:
-            Loaded pipeline
-        """
-        load_kwargs = {
-            "torch_dtype": self.default_dtype,
-            **kwargs,
-        }
-
-        if exclude_transformer:
-            load_kwargs["transformer"] = None
-
-        if self.supports_single_file and os.path.isfile(self.model_id):
-            logger.info("Detected single file checkpoint: %s", self.model_id)
-            return self.pipeline_class.from_single_file(
-                self.model_id, **load_kwargs
-            ).to(self.device)
-        else:
-            return self.pipeline_class.from_pretrained(
-                self.model_id, **load_kwargs
-            ).to(self.device)
 
     def _load_coreml_transformer(self, filename: Optional[str] = None) -> ct.models.MLModel:
         """

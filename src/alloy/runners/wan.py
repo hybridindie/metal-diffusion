@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 # Latent space constants
 LATENT_CHANNELS = 16
 VAE_SCALE_FACTOR = 8
+VAE_OUTPUT_KEY = "sample"  # CoreML VAE decoder output key
 
 
 class WanCoreMLRunner(BaseCoreMLRunner):
@@ -113,8 +114,7 @@ class WanCoreMLRunner(BaseCoreMLRunner):
         logger.info("Decoding Latents (Core ML)...")
         latents_np = self.to_numpy(latents, dtype=np.float16)
         image_dict = self.coreml_vae.predict({"latents": latents_np})
-        out_key = list(image_dict.keys())[0]
-        image_np = image_dict[out_key]
+        image_np = image_dict[VAE_OUTPUT_KEY]
 
         # Post-process: normalize from [-1, 1] to [0, 255]
         image_np = (image_np / 2 + 0.5).clip(0, 1)
