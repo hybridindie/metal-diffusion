@@ -1,6 +1,5 @@
 """Tests for alloy.monitor module."""
 
-import pytest
 from unittest.mock import patch, MagicMock
 
 from alloy.monitor import (

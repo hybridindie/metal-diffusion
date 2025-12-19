@@ -14,10 +14,11 @@ from typing import Optional
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 
-from alloy.monitor import get_memory_status
+from alloy.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ProgressPhase(str, Enum):
@@ -73,15 +74,13 @@ class ProgressEvent:
 class ProgressReporter:
     """Send progress events from worker to parent via queue."""
 
-    def __init__(self, queue: Queue, model_name: str):
+    def __init__(self, queue: Queue):
         """Initialize reporter.
 
         Args:
             queue: Multiprocessing queue for sending events.
-            model_name: Name of the model being converted.
         """
         self.queue = queue
-        self.model_name = model_name
 
     def phase_start(self, phase: str, message: str) -> None:
         """Signal start of a phase."""
@@ -99,23 +98,14 @@ class ProgressReporter:
         """Signal end of a step."""
         self._send_event("step_end", step=step)
 
-    def memory_snapshot(self) -> None:
-        """Send current memory status."""
-        status = get_memory_status()
-        if status:
-            self._send_event(
-                "memory",
-                memory_used_gb=status.used_gb,
-                memory_total_gb=status.total_gb,
-            )
-
     def _send_event(self, event_type: str, **kwargs) -> None:
         """Send an event to the queue."""
         event = ProgressEvent(event_type=event_type, **kwargs)
         try:
             self.queue.put_nowait(event)
-        except Exception:
-            pass  # Don't fail conversion if queue is full
+        except Exception as e:
+            # Log at debug level but don't fail conversion if queue is full
+            logger.debug("Failed to send progress event: %s", e)
 
 
 class ProgressDisplay:
@@ -274,10 +264,12 @@ class ProgressDisplay:
                     step_idx = steps.index(ProgressStep(self.current_step))
                     step_progress = (step_idx + 0.5) / len(steps)
                 except ValueError:
+                    # Unknown or invalid step; fall back to default midpoint progress
                     pass
             completed_weight += phase_weight * step_progress
 
-        if completed_weight <= 0:
+        # Use minimum threshold to avoid unrealistic ETAs with minimal progress
+        if completed_weight < 0.01:
             return "calculating..."
 
         # Estimate total time
@@ -302,11 +294,18 @@ def consume_progress_queue(
         display: Display to update.
         stop_event: Event to signal stop.
     """
+    from queue import Empty
+
     while not stop_event.is_set():
         try:
             event = queue.get(timeout=0.1)
             if event is None:  # Sentinel to stop
                 break
             display.process_event(event)
-        except Exception:
-            continue  # Timeout or error, keep trying
+        except Empty:
+            # Queue timeout, continue polling
+            continue
+        except Exception as e:
+            # Log unexpected errors at debug level
+            logger.debug("Error processing progress event: %s", e)
+            continue

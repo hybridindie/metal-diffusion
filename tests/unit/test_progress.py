@@ -2,9 +2,8 @@
 
 import time
 import threading
-import pytest
 from multiprocessing import Queue
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from alloy.progress import (
     ProgressPhase,
@@ -77,7 +76,7 @@ class TestProgressReporter:
     def test_phase_start_sends_event(self):
         """Test phase_start sends correct event to queue."""
         queue = Queue()
-        reporter = ProgressReporter(queue, "TestModel")
+        reporter = ProgressReporter(queue)
 
         reporter.phase_start("part1", "Starting Part 1")
 
@@ -89,27 +88,18 @@ class TestProgressReporter:
     def test_phase_end_sends_event(self):
         """Test phase_end sends correct event to queue."""
         queue = Queue()
-        reporter = ProgressReporter(queue, "TestModel")
+        reporter = ProgressReporter(queue)
 
         reporter.phase_end("part1")
 
-        # Allow time for queue
-        time.sleep(0.1)
-        events = []
-        for _ in range(2):
-            try:
-                events.append(queue.get(timeout=1))
-            except Exception:
-                break
-
-        phase_end_events = [e for e in events if e.event_type == "phase_end"]
-        assert len(phase_end_events) >= 1
-        assert phase_end_events[0].phase == "part1"
+        event = queue.get(timeout=1)
+        assert event.event_type == "phase_end"
+        assert event.phase == "part1"
 
     def test_step_start_sends_event(self):
         """Test step_start sends correct event to queue."""
         queue = Queue()
-        reporter = ProgressReporter(queue, "TestModel")
+        reporter = ProgressReporter(queue)
 
         reporter.step_start("load", "Loading transformer")
 
@@ -121,7 +111,7 @@ class TestProgressReporter:
     def test_step_end_sends_event(self):
         """Test step_end sends correct event to queue."""
         queue = Queue()
-        reporter = ProgressReporter(queue, "TestModel")
+        reporter = ProgressReporter(queue)
 
         reporter.step_end("load")
 

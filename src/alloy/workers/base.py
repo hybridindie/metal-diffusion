@@ -59,7 +59,7 @@ def worker_context(
     # Create progress reporter if queue provided
     reporter = None
     if progress_queue is not None:
-        reporter = ProgressReporter(progress_queue, model_name)
+        reporter = ProgressReporter(progress_queue)
         if phase:
             reporter.phase_start(phase, f"{model_name} {part_description}")
 

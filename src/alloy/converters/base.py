@@ -271,8 +271,8 @@ class TwoPhaseConverter(ModelConverter):
         finally:
             # Stop progress display
             if progress_queue:
-                stop_event.set()
                 progress_queue.put(None)  # Sentinel to stop consumer
+                stop_event.set()
             if consumer_thread:
                 consumer_thread.join(timeout=1)
             if display:
