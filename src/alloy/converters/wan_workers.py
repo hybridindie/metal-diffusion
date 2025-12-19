@@ -249,11 +249,24 @@ def load_wan_transformer(model_id_or_path: str):
         )
 
 
-def convert_wan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
+def convert_wan_part1(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue=None,
+    progress_queue=None,
+):
     """Worker function for Part 1 (Input projection + first half of blocks)."""
-    with worker_context("Wan", "Part 1", log_queue):
+    with worker_context("Wan", "Part 1", log_queue, progress_queue, "part1") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Wan transformer")
+
         transformer = load_wan_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Split at midpoint
         num_blocks = len(transformer.transformer_blocks)
@@ -280,11 +293,17 @@ def convert_wan_part1(model_id: str, output_path: str, quantization: Optional[st
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 1")
         logger.debug("[dim]Worker: Tracing Wan Part 1...[/dim]", extra={"markup": True})
         inputs = [hidden_states, timestep, encoder_hidden_states]
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 1 to CoreML")
         logger.debug("[dim]Worker: Converting Wan Part 1 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [
             ct.TensorType(name="hidden_states", shape=hidden_states.shape),
@@ -304,20 +323,35 @@ def convert_wan_part1(model_id: str, output_path: str, quantization: Optional[st
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part1")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part1", reporter)
 
 
-def convert_wan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
+def convert_wan_part2(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue=None,
+    progress_queue=None,
+):
     """Worker function for Part 2 (Second half of blocks + output projection)."""
-    with worker_context("Wan", "Part 2", log_queue):
+    with worker_context("Wan", "Part 2", log_queue, progress_queue, "part2") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Wan transformer")
+
         transformer = load_wan_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Split at midpoint
         num_blocks = len(transformer.transformer_blocks)
@@ -345,11 +379,17 @@ def convert_wan_part2(model_id: str, output_path: str, quantization: Optional[st
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 2")
         logger.debug("[dim]Worker: Tracing Wan Part 2...[/dim]", extra={"markup": True})
         inputs = [hidden_states, encoder_hidden_states, temb]
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 2 to CoreML")
         logger.debug("[dim]Worker: Converting Wan Part 2 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [
             ct.TensorType(name="hidden_states_inter", shape=hidden_states.shape),
@@ -364,10 +404,12 @@ def convert_wan_part2(model_id: str, output_path: str, quantization: Optional[st
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part2")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "wan_part2", reporter)

@@ -3,6 +3,7 @@ import os
 import shutil
 import multiprocessing
 import gc
+import threading
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
@@ -11,6 +12,12 @@ import coremltools as ct
 
 from alloy.exceptions import WorkerError
 from alloy.logging import get_logger, get_log_queue
+from alloy.monitor import estimate_memory_requirement, check_memory_warning
+from alloy.progress import (
+    ProgressDisplay,
+    ProgressEvent,
+    consume_progress_queue,
+)
 from alloy.utils.errors import get_worker_suggestions
 
 logger = get_logger(__name__)
@@ -189,8 +196,12 @@ class TwoPhaseConverter(ModelConverter):
         """Filename for Part 2 intermediate."""
         return f"{self.model_name}Part2.mlpackage"
 
-    def convert(self):
-        """Main conversion entry point using 2-phase subprocess pattern."""
+    def convert(self, show_progress: bool = True):
+        """Main conversion entry point using 2-phase subprocess pattern.
+
+        Args:
+            show_progress: Whether to show the Rich progress display (default: True)
+        """
         os.makedirs(self.output_dir, exist_ok=True)
         ml_model_path = os.path.join(self.output_dir, self.output_filename)
 
@@ -202,19 +213,53 @@ class TwoPhaseConverter(ModelConverter):
             )
             return
 
+        # Check memory before starting
+        required_gb = estimate_memory_requirement(self.model_name.lower(), self.quantization)
+        warning = check_memory_warning(required_gb)
+        if warning:
+            logger.warning("[yellow]%s[/yellow]", warning, extra={"markup": True})
+
         intermediates_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediates_dir, exist_ok=True)
 
-        if self.should_download_source:
-            self.model_id = self.download_source_weights(self.model_id, self.output_dir)
+        # Setup progress tracking
+        progress_queue = multiprocessing.Queue() if show_progress else None
+        display = None
+        consumer_thread = None
+        stop_event = threading.Event()
+
+        if show_progress:
+            display = ProgressDisplay(self.model_name, self.quantization)
+            display.start()
+            consumer_thread = threading.Thread(
+                target=consume_progress_queue,
+                args=(progress_queue, display, stop_event),
+                daemon=True,
+            )
+            consumer_thread.start()
 
         try:
+            # Download phase
+            if self.should_download_source:
+                if progress_queue:
+                    progress_queue.put(ProgressEvent(
+                        event_type="phase_start",
+                        phase="download",
+                        message="Downloading model weights",
+                    ))
+                self.model_id = self.download_source_weights(self.model_id, self.output_dir)
+                if progress_queue:
+                    progress_queue.put(ProgressEvent(
+                        event_type="phase_end",
+                        phase="download",
+                    ))
+
             part1_path = os.path.join(intermediates_dir, self.part1_filename)
             part2_path = os.path.join(intermediates_dir, self.part2_filename)
 
-            self._convert_part(1, part1_path, self.get_part1_worker(), intermediates_dir)
-            self._convert_part(2, part2_path, self.get_part2_worker(), intermediates_dir)
-            self._assemble_pipeline(part1_path, part2_path, ml_model_path, intermediates_dir)
+            self._convert_part(1, part1_path, self.get_part1_worker(), intermediates_dir, progress_queue)
+            self._convert_part(2, part2_path, self.get_part2_worker(), intermediates_dir, progress_queue)
+            self._assemble_pipeline(part1_path, part2_path, ml_model_path, intermediates_dir, progress_queue)
 
         except Exception:
             logger.warning(
@@ -223,16 +268,35 @@ class TwoPhaseConverter(ModelConverter):
                 extra={"markup": True},
             )
             raise
+        finally:
+            # Stop progress display
+            if progress_queue:
+                stop_event.set()
+                progress_queue.put(None)  # Sentinel to stop consumer
+            if consumer_thread:
+                consumer_thread.join(timeout=1)
+            if display:
+                display.stop()
 
     def _convert_part(
         self,
         part_num: int,
         output_path: str,
         worker_fn: Callable,
-        intermediates_dir: str
+        intermediates_dir: str,
+        progress_queue: Optional[multiprocessing.Queue] = None,
     ) -> None:
-        """Convert a single part with validation and subprocess isolation."""
+        """Convert a single part with validation and subprocess isolation.
+
+        Args:
+            part_num: Part number (1 or 2)
+            output_path: Path to save the converted model
+            worker_fn: Worker function to run in subprocess
+            intermediates_dir: Directory for intermediate files
+            progress_queue: Optional queue for progress events
+        """
         description = self.part1_description if part_num == 1 else self.part2_description
+        phase = "part1" if part_num == 1 else "part2"
 
         # Check for existing valid intermediate
         if os.path.exists(output_path):
@@ -249,6 +313,17 @@ class TwoPhaseConverter(ModelConverter):
                     description,
                     extra={"markup": True},
                 )
+                # Mark phase as complete for progress tracking
+                if progress_queue:
+                    progress_queue.put(ProgressEvent(
+                        event_type="phase_start",
+                        phase=phase,
+                        message=f"{description} (cached)",
+                    ))
+                    progress_queue.put(ProgressEvent(
+                        event_type="phase_end",
+                        phase=phase,
+                    ))
                 return  # Skip conversion
             except Exception:
                 logger.warning(
@@ -271,7 +346,11 @@ class TwoPhaseConverter(ModelConverter):
         process = multiprocessing.Process(
             target=worker_fn,
             args=(self.model_id, output_path, self.quantization),
-            kwargs={"intermediates_dir": intermediates_dir, "log_queue": log_queue}
+            kwargs={
+                "intermediates_dir": intermediates_dir,
+                "log_queue": log_queue,
+                "progress_queue": progress_queue,
+            }
         )
         process.start()
         process.join()
@@ -290,14 +369,44 @@ class TwoPhaseConverter(ModelConverter):
         part1_path: str,
         part2_path: str,
         output_path: str,
-        intermediates_dir: str
+        intermediates_dir: str,
+        progress_queue: Optional[multiprocessing.Queue] = None,
     ) -> None:
-        """Load parts, assemble pipeline, cleanup, and save."""
+        """Load parts, assemble pipeline, cleanup, and save.
+
+        Args:
+            part1_path: Path to Part 1 model
+            part2_path: Path to Part 2 model
+            output_path: Final output path
+            intermediates_dir: Directory containing intermediate files
+            progress_queue: Optional queue for progress events
+        """
         logger.info("[bold]Assembling Pipeline...[/bold]", extra={"markup": True})
+
+        # Signal assembly phase start
+        if progress_queue:
+            progress_queue.put(ProgressEvent(
+                event_type="phase_start",
+                phase="assembly",
+                message="Assembling final model",
+            ))
+            progress_queue.put(ProgressEvent(
+                event_type="step_start",
+                step="load",
+                message="Loading model parts",
+            ))
 
         # Load parts with CPU_ONLY to minimize memory
         m1 = ct.models.MLModel(part1_path, compute_units=ct.ComputeUnit.CPU_ONLY)
         m2 = ct.models.MLModel(part2_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+
+        if progress_queue:
+            progress_queue.put(ProgressEvent(event_type="step_end", step="load"))
+            progress_queue.put(ProgressEvent(
+                event_type="step_start",
+                step="convert",
+                message="Building pipeline",
+            ))
 
         pipeline_model = ct.utils.make_pipeline(m1, m2)
 
@@ -305,6 +414,9 @@ class TwoPhaseConverter(ModelConverter):
         pipeline_model.author = "Alloy"
         pipeline_model.license = "Apache 2.0"
         pipeline_model.short_description = f"{self.model_name} Transformer (Split Pipeline) {self.quantization}"
+
+        if progress_queue:
+            progress_queue.put(ProgressEvent(event_type="step_end", step="convert"))
 
         # Cleanup before final save
         logger.debug(
@@ -323,12 +435,23 @@ class TwoPhaseConverter(ModelConverter):
                 extra={"markup": True},
             )
 
+        if progress_queue:
+            progress_queue.put(ProgressEvent(
+                event_type="step_start",
+                step="save",
+                message="Saving final model",
+            ))
+
         logger.debug(
             "[dim]Saving final pipeline to %s...[/dim]",
             output_path,
             extra={"markup": True},
         )
         pipeline_model.save(output_path)
+
+        if progress_queue:
+            progress_queue.put(ProgressEvent(event_type="step_end", step="save"))
+            progress_queue.put(ProgressEvent(event_type="phase_end", phase="assembly"))
 
         logger.info(
             "[bold green]✓ %s conversion complete![/bold green] Saved to %s",

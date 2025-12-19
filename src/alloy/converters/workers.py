@@ -221,11 +221,24 @@ def load_flux_transformer(model_id_or_path):
                 torch_dtype=torch.float32
             )
 
-def convert_flux_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
+def convert_flux_part1(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue: Optional[Queue] = None,
+    progress_queue: Optional[Queue] = None,
+) -> None:
     """Worker function for Part 1 (Embeddings + DoubleStream Blocks)."""
-    with worker_context("Flux", "Part 1", log_queue):
+    with worker_context("Flux", "Part 1", log_queue, progress_queue, "part1") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Flux transformer")
+
         transformer = load_flux_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Create dummy inputs using helper
         shapes = FluxInputShapes()
@@ -235,10 +248,16 @@ def convert_flux_part1(model_id: str, output_path: str, quantization: Optional[s
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 1")
         logger.debug("[dim]Worker: Tracing Part 1...[/dim]", extra={"markup": True})
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 1 to CoreML")
         logger.debug("[dim]Worker: Converting Part 1 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(names, inputs)]
         ml_outputs = [
@@ -253,19 +272,34 @@ def convert_flux_part1(model_id: str, output_path: str, quantization: Optional[s
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup PyTorch resources
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save using helper
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "part1")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "part1", reporter)
     
-def convert_flux_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
+def convert_flux_part2(
+    model_id: str,
+    output_path: str,
+    quantization: Optional[str],
+    intermediates_dir: Optional[str] = None,
+    log_queue: Optional[Queue] = None,
+    progress_queue: Optional[Queue] = None,
+) -> None:
     """Worker function for Part 2 (SingleStream Blocks + Final Layer)."""
-    with worker_context("Flux", "Part 2", log_queue):
+    with worker_context("Flux", "Part 2", log_queue, progress_queue, "part2") as reporter:
+        if reporter:
+            reporter.step_start("load", "Loading Flux transformer")
+
         transformer = load_flux_transformer(model_id)
         transformer.eval()
+
+        if reporter:
+            reporter.step_end("load")
 
         # Create dummy inputs using helper (Part 2 uses hidden_size from Part 1 output)
         shapes = FluxInputShapes()
@@ -278,10 +312,16 @@ def convert_flux_part2(model_id: str, output_path: str, quantization: Optional[s
         wrapper.eval()
 
         # Trace
+        if reporter:
+            reporter.step_start("trace", "Tracing Part 2")
         logger.debug("[dim]Worker: Tracing Part 2...[/dim]", extra={"markup": True})
         traced = torch.jit.trace(wrapper, inputs, strict=False)
+        if reporter:
+            reporter.step_end("trace")
 
         # Convert to CoreML
+        if reporter:
+            reporter.step_start("convert", "Converting Part 2 to CoreML")
         logger.debug("[dim]Worker: Converting Part 2 to Core ML...[/dim]", extra={"markup": True})
         ml_inputs = [ct.TensorType(name=name, shape=inp.shape) for name, inp in zip(part2_names, inputs)]
 
@@ -292,10 +332,12 @@ def convert_flux_part2(model_id: str, output_path: str, quantization: Optional[s
             compute_units=ct.ComputeUnit.ALL,
             minimum_deployment_target=ct.target.macOS14
         )
+        if reporter:
+            reporter.step_end("convert")
 
         # Cleanup PyTorch resources
         del traced, wrapper, transformer
         gc.collect()
 
         # Quantize and save using helper
-        quantize_and_save(model, output_path, quantization, intermediates_dir, "part2")
+        quantize_and_save(model, output_path, quantization, intermediates_dir, "part2", reporter)
