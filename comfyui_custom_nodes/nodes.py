@@ -25,8 +25,8 @@ class CoreMLFluxLoader:
             "model_path": (folder_paths.get_filename_list("unet"),)
         }}
 
-    RETURN_NAMES = ("MODEL",)
-    FUNCTION = "load_model"
+    RETURN_TYPES = ("MODEL",)
+    FUNCTION = "load_coreml_model"
     CATEGORY = "Alloy"
 
     def load_coreml_model(self, model_path):

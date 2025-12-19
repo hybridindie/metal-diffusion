@@ -1,10 +1,21 @@
 {
-    "last_node_id": 12,
+    "last_node_id": 13,
     "last_link_id": 14,
     "nodes": [
         {
+            "id": 11,
+            "type": "Note",
+            "pos": [50, -100],
+            "size": {"0": 700, "1": 120},
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "properties": {},
+            "widgets_values": ["FLUX Image-to-Image (Core ML)\n\nTransform an existing image with a text prompt. Adjust denoise strength (0.7 = 70% change).\n\nSetup:\n1. Load your source image in the LoadImage node\n2. Set denoise in KSampler (0.3-0.5 for subtle, 0.7-1.0 for major changes)\n3. Describe the desired transformation in the positive prompt\n\nNote: Higher steps (15-30) often work better for img2img than txt2img."]
+        },
+        {
             "id": 1,
-            "type": "CoreMLTransformerLoader",
+            "type": "CoreMLFluxLoader",
             "pos": [
                 50,
                 100
@@ -26,11 +37,10 @@
                 }
             ],
             "properties": {
-                "Node name for S&R": "CoreMLTransformerLoader"
+                "Node name for S&R": "CoreMLFluxLoader"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage",
-                "flux"
+                "Flux_Transformer.mlpackage"
             ]
         },
         {

@@ -1,10 +1,21 @@
 {
-    "last_node_id": 9,
+    "last_node_id": 10,
     "last_link_id": 10,
     "nodes": [
         {
+            "id": 10,
+            "type": "Note",
+            "pos": [50, -100],
+            "size": {"0": 700, "1": 120},
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "properties": {},
+            "widgets_values": ["FLUX Basic Text-to-Image (Core ML)\n\nRequirements:\n1. Convert a Flux model: alloy convert flux (or use CoreMLQuickConverter node)\n2. Place .mlpackage in ComfyUI/models/unet/\n3. Download CLIP models (t5xxl, clip_l) to ComfyUI/models/clip/\n4. Download VAE (ae.safetensors) to ComfyUI/models/vae/\n\nTip: Use 4 steps for Schnell, 20-50 for Dev. Resolution must be multiples of 64."]
+        },
+        {
             "id": 1,
-            "type": "CoreMLTransformerLoader",
+            "type": "CoreMLFluxLoader",
             "pos": [
                 50,
                 100
@@ -26,11 +37,10 @@
                 }
             ],
             "properties": {
-                "Node name for S&R": "CoreMLTransformerLoader"
+                "Node name for S&R": "CoreMLFluxLoader"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage",
-                "flux"
+                "Flux_Transformer.mlpackage"
             ]
         },
         {

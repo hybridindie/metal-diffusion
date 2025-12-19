@@ -14,15 +14,16 @@ class CoreMLConverter:
     Convert models to Core ML directly in ComfyUI.
     Intelligently caches conversions - only converts if needed.
     """
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
             "model_source": ("STRING", {"default": "black-forest-labs/FLUX.1-schnell", "multiline": False}),
-            "model_type": (["flux", "ltx", "wan", "hunyuan", "sd", "lumina"],),
-            "quantization": (["float16", "int4", "int8"],),
+            "model_type": (["flux", "flux-controlnet", "ltx", "wan", "hunyuan", "lumina", "sd"],),
+            "quantization": (["int4", "int8", "float16", "float32"],),
             "output_name": ("STRING", {"default": "", "multiline": False}),
-            "force_reconvert": ("BOOLEAN", {"default": False})
+            "force_reconvert": ("BOOLEAN", {"default": False}),
+            "skip_validation": ("BOOLEAN", {"default": False})
         },
         "optional": {
             "lora_stack": ("LORA_CONFIG",)
@@ -34,98 +35,103 @@ class CoreMLConverter:
     CATEGORY = "Alloy/Conversion"
     OUTPUT_NODE = True
     
-    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, lora_stack=None):
+    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, skip_validation=False, lora_stack=None):
         """
         Convert model to Core ML, using cache if available.
-        
+
         Returns: Path to the converted .mlpackage
         """
         # Determine output path
         if not output_name:
             # Auto-generate name from source
             source_name = model_source.replace("/", "_").replace(".", "_")
-            
+
             # Append LoRA hash to ensure unique caching for different LoRA combos
             if lora_stack:
-                import hashlib
                 lora_str = "".join([f"{l['path']}{l['strength_model']}{l['strength_clip']}" for l in lora_stack])
                 lora_hash = hashlib.md5(lora_str.encode()).hexdigest()[:8]
                 output_name = f"{source_name}_lora{lora_hash}_{quantization}"
             else:
                 output_name = f"{source_name}_{quantization}"
-        
-        # Build output path
+
+        # Build output path - handle controlnet naming
         output_base = os.path.join("converted_models", output_name)
-        transformer_name = f"{model_type.capitalize()}_Transformer.mlpackage"
+        if model_type == "flux-controlnet":
+            transformer_name = "Flux_ControlNet.mlpackage"
+        else:
+            transformer_name = f"{model_type.capitalize()}_Transformer.mlpackage"
         final_path = os.path.join(output_base, transformer_name)
-        
+
         # Check if already converted
         if os.path.exists(final_path) and not force_reconvert:
-            print(f"✓ Model already converted: {final_path}")
+            print(f"[Alloy] Model already converted: {final_path}")
             print(f"  Set 'force_reconvert' to True to reconvert")
             return (final_path,)
-        
+
         # Need to convert
-        print(f"Converting {model_source} to Core ML...")
+        print(f"[Alloy] Converting {model_source} to Core ML...")
         print(f"  Type: {model_type}")
         print(f"  Quantization: {quantization}")
         print(f"  Output: {output_base}")
 
         # Check memory before starting
-        required_gb = estimate_memory_requirement(model_type, quantization)
+        base_type = model_type.replace("-controlnet", "")
+        required_gb = estimate_memory_requirement(base_type, quantization)
         warning = check_memory_warning(required_gb)
         if warning:
-            print(f"⚠ {warning}")
+            print(f"[Alloy] Warning: {warning}")
 
         try:
             # Import converters
             from alloy.converters.flux import FluxConverter
+            from alloy.converters.controlnet import FluxControlNetConverter
             from alloy.converters.ltx import LTXConverter
             from alloy.converters.wan import WanConverter
             from alloy.converters.hunyuan import HunyuanConverter
             from alloy.converters.lumina import LuminaConverter
             from alloy.converters.base import SDConverter
-            
+
             converter_map = {
                 'flux': FluxConverter,
+                'flux-controlnet': FluxControlNetConverter,
                 'ltx': LTXConverter,
                 'wan': WanConverter,
                 'hunyuan': HunyuanConverter,
                 'lumina': LuminaConverter,
                 'sd': SDConverter
             }
-            
+
             converter_class = converter_map[model_type]
             # Prepare LoRA args for converter
             kwargs = {}
             if model_type == 'flux':
-                 # Convert ComfyUI LoRA stack to CLI format strings "path:str_model:str_clip"
-                 if lora_stack:
-                     lora_args = []
-                     for l in lora_stack:
-                         arg = f"{l['path']}:{l['strength_model']}:{l['strength_clip']}"
-                         lora_args.append(arg)
-                     kwargs['loras'] = lora_args
-            
+                # Convert ComfyUI LoRA stack to CLI format strings "path:str_model:str_clip"
+                if lora_stack:
+                    lora_args = []
+                    for l in lora_stack:
+                        arg = f"{l['path']}:{l['strength_model']}:{l['strength_clip']}"
+                        lora_args.append(arg)
+                    kwargs['loras'] = lora_args
+
             converter = converter_class(
                 model_source,
                 output_base,
                 quantization,
                 **kwargs
             )
-            
+
             # Run conversion (disable Rich progress display in ComfyUI context)
-            print("Starting conversion (this may take 5-15 minutes)...")
-            converter.convert(show_progress=False)
-            
-            print(f"✓ Conversion complete!")
+            print("[Alloy] Starting conversion (this may take 5-15 minutes)...")
+            converter.convert(show_progress=False, skip_validation=skip_validation)
+
+            print(f"[Alloy] Conversion complete!")
             print(f"  Saved to: {final_path}")
-            
+
             return (final_path,)
-            
+
         except Exception as e:
             error_msg = f"Conversion failed: {str(e)}"
-            print(f"✗ {error_msg}")
+            print(f"[Alloy] Error: {error_msg}")
             raise RuntimeError(error_msg)
 
 
@@ -134,26 +140,39 @@ class CoreMLQuickConverter:
     One-click converter with smart defaults.
     Perfect for common use cases.
     """
-    
+
+    PRESETS = [
+        "Flux Schnell (Fast)",
+        "Flux Dev (Quality)",
+        "Flux ControlNet (Canny)",
+        "Flux ControlNet (Depth)",
+        "LTX Video",
+        "Hunyuan Video",
+        "Wan 2.1 Video",
+        "Lumina Image 2.0",
+        "Custom"
+    ]
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
-            "preset": (["Flux Schnell (Fast)", "Flux Dev (Quality)", "LTX Video", "Custom"],),
+            "preset": (CoreMLQuickConverter.PRESETS,),
         },
         "optional": {
             "custom_model": ("STRING", {"default": "", "multiline": False}),
-            "custom_type": (["flux", "ltx", "wan", "hunyuan", "sd", "lumina"],),
+            "custom_type": (["flux", "flux-controlnet", "ltx", "wan", "hunyuan", "lumina", "sd"],),
+            "custom_quantization": (["int4", "int8", "float16", "float32"],),
         }}
-    
+
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("model_path",)
     FUNCTION = "quick_convert"
     CATEGORY = "Alloy/Conversion"
     OUTPUT_NODE = True
-    
-    def quick_convert(self, preset, custom_model="", custom_type="flux"):
+
+    def quick_convert(self, preset, custom_model="", custom_type="flux", custom_quantization="int4"):
         """Convert with presets for common models"""
-        
+
         presets = {
             "Flux Schnell (Fast)": {
                 "model": "black-forest-labs/FLUX.1-schnell",
@@ -165,20 +184,48 @@ class CoreMLQuickConverter:
                 "type": "flux",
                 "quant": "int4"
             },
+            "Flux ControlNet (Canny)": {
+                "model": "InstantX/FLUX.1-dev-Controlnet-Canny",
+                "type": "flux-controlnet",
+                "quant": "int4"
+            },
+            "Flux ControlNet (Depth)": {
+                "model": "Shakker-Labs/FLUX.1-dev-ControlNet-Depth",
+                "type": "flux-controlnet",
+                "quant": "int4"
+            },
             "LTX Video": {
                 "model": "Lightricks/LTX-Video",
                 "type": "ltx",
                 "quant": "int4"
             },
+            "Hunyuan Video": {
+                "model": "hunyuanvideo-community/HunyuanVideo",
+                "type": "hunyuan",
+                "quant": "int4"
+            },
+            "Wan 2.1 Video": {
+                "model": "Wan-AI/Wan2.1-T2V-14B",
+                "type": "wan",
+                "quant": "int4"
+            },
+            "Lumina Image 2.0": {
+                "model": "Alpha-VLLM/Lumina-Image-2.0",
+                "type": "lumina",
+                "quant": "int4"
+            },
             "Custom": {
                 "model": custom_model,
                 "type": custom_type,
-                "quant": "int4"
+                "quant": custom_quantization
             }
         }
-        
+
         config = presets[preset]
-        
+
+        if preset == "Custom" and not custom_model:
+            raise ValueError("Custom preset requires a model ID in 'custom_model'")
+
         # Use the main converter
         converter_node = CoreMLConverter()
         return converter_node.convert_model(
@@ -186,7 +233,8 @@ class CoreMLQuickConverter:
             config["type"],
             config["quant"],
             "",  # Auto name
-            False  # Don't force reconvert
+            False,  # Don't force reconvert
+            False   # Don't skip validation
         )
 
 

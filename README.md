@@ -201,11 +201,13 @@ ln -s /path/to/alloy/comfyui_custom_nodes /path/to/ComfyUI/custom_nodes/alloy
 ### Example Workflows
 
 Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
-- **Basic Text-to-Image**: Simple Flux workflow
-- **All-in-One**: Integrated CLIP/T5/VAE loading
-- **Smart Conversion**: Convert models directly in ComfyUI
+- **flux_txt2img.json**: Basic Flux text-to-image workflow
+- **flux_img2img.json**: Flux image-to-image transformation
+- **flux_allinone.json**: Simplified workflow with integrated CLIP/T5/VAE
+- **convert_quick.json**: One-click model conversion in ComfyUI
+- **convert_lora.json**: Bake multiple LoRAs into one model
 
-See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 10 nodes.
+See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 13 nodes.
 
 ## Utility Commands
 
