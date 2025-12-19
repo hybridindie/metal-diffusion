@@ -83,7 +83,8 @@ class CoreMLConverter:
 
         try:
             # Import converters
-            from alloy.converters.flux import FluxConverter, FluxControlNetConverter
+            from alloy.converters.flux import FluxConverter
+            from alloy.converters.controlnet import FluxControlNetConverter
             from alloy.converters.ltx import LTXConverter
             from alloy.converters.wan import WanConverter
             from alloy.converters.hunyuan import HunyuanConverter
@@ -160,7 +161,7 @@ class CoreMLQuickConverter:
         "optional": {
             "custom_model": ("STRING", {"default": "", "multiline": False}),
             "custom_type": (["flux", "flux-controlnet", "ltx", "wan", "hunyuan", "lumina", "sd"],),
-            "custom_quantization": (["int4", "int8", "float16"],),
+            "custom_quantization": (["int4", "int8", "float16", "float32"],),
         }}
 
     RETURN_TYPES = ("STRING",)

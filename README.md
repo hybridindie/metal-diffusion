@@ -207,7 +207,7 @@ Check out `comfyui_custom_nodes/example_workflows/` for ready-to-use examples:
 - **convert_quick.json**: One-click model conversion in ComfyUI
 - **convert_lora.json**: Bake multiple LoRAs into one model
 
-See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 12 nodes.
+See the [ComfyUI Node Reference](comfyui_custom_nodes/NODE_REFERENCE.md) for full documentation of all 13 nodes.
 
 ## Utility Commands
 
