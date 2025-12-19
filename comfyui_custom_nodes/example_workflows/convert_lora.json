@@ -211,23 +211,13 @@
         {
             "id": 10,
             "type": "Note",
-            "pos": [
-                50,
-                450
-            ],
-            "size": {
-                "0": 300,
-                "1": 100
-            },
+            "pos": [50, 450],
+            "size": {"0": 700, "1": 140},
             "flags": {},
             "order": 5,
             "mode": 0,
-            "inputs": [],
-            "outputs": [],
             "properties": {},
-            "widgets_values": [
-                "Chain CoreMLLoraConfig nodes to bake multiple LoRAs into one optimized model. Connect to CoreMLConverter."
-            ]
+            "widgets_values": ["Multi-LoRA Baking Workflow\n\nBake multiple LoRAs permanently into a single optimized Core ML model!\n\nHow it works:\n1. Chain CoreMLLoraConfig nodes (each adds a LoRA with adjustable strength)\n2. Connect the chain to CoreMLConverter\n3. The converter merges all LoRAs into the base model during conversion\n\nBenefits: No runtime LoRA loading overhead, consistent results, smaller memory footprint.\nNote: LoRAs are permanent - create different baked models for different style combinations."]
         }
     ],
     "links": [

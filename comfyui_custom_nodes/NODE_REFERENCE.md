@@ -20,7 +20,7 @@
 
 ### Utilities
 - [CoreMLModelAnalyzer](#coremlmodelanalyzer) - Inspect model details
-- [CoreMLBatchSampler](#cormlbatchsampler) - Parallel batch generation
+- [CoreMLBatchSampler](#coremlbatchsampler) - Parallel batch generation
 
 ---
 
@@ -105,16 +105,17 @@ CoreMLConverter
 
 ### CoreMLConverter
 
-**Category**: Alloy/Conversion  
+**Category**: Alloy/Conversion
 **Purpose**: Convert models to Core ML with full control
 
 **Inputs**:
 - `model_source` (string): Hugging Face ID (e.g., `black-forest-labs/FLUX.1-schnell`) or local path
-- `model_type`: flux, ltx, wan, hunyuan, lumina, sd
-- `quantization`: int4 (recommended), int8, float16
+- `model_type`: flux, flux-controlnet, ltx, wan, hunyuan, lumina, sd
+- `quantization`: int4 (recommended), int8, float16, float32
 - `output_name` (string): Optional custom folder name
 - `force_reconvert` (bool): If True, overwrites existing conversion
-- `lora_stack` (LORA_CONFIG): Optional LoRA stack
+- `skip_validation` (bool): Skip pre-flight validation checks
+- `lora_stack` (LORA_CONFIG): Optional LoRA stack (Flux only)
 
 **Outputs**:
 - `model_path` (STRING): Path to the converted `.mlpackage`
@@ -127,22 +128,29 @@ CoreMLConverter → CoreMLFluxLoader
 **Notes**:
 - ⚠️ **Blocks UI**: Conversion takes 5-15 minutes. Console shows progress.
 - **Smart Cache**: Skips conversion if model already exists (unless forced).
+- **ControlNet**: Use `flux-controlnet` type for Flux ControlNet models.
 
 ---
 
 ### CoreMLQuickConverter
 
-**Category**: Alloy/Conversion  
+**Category**: Alloy/Conversion
 **Purpose**: One-click conversion for popular models
 
 **Inputs**:
 - `preset`:
   - `Flux Schnell (Fast)` → int4
   - `Flux Dev (Quality)` → int4
+  - `Flux ControlNet (Canny)` → int4
+  - `Flux ControlNet (Depth)` → int4
   - `LTX Video` → int4
+  - `Hunyuan Video` → int4
+  - `Wan 2.1 Video` → int4
+  - `Lumina Image 2.0` → int4
   - `Custom` → Use optional inputs below
-- `custom_model` (optional): HF ID for custom
-- `custom_type` (optional): Model type for custom
+- `custom_model` (optional): HF ID for custom preset
+- `custom_type` (optional): Model type for custom preset
+- `custom_quantization` (optional): Quantization for custom preset
 
 **Outputs**:
 - `model_path` (STRING): Path to converted model
@@ -454,7 +462,21 @@ SaveImage
 
 ## Version History
 
-### v0.3.1 (Current)
+### v0.3.5 (Current)
+- Fixed CoreMLFluxLoader node registration bug (RETURN_TYPES/FUNCTION)
+- Added Flux ControlNet support (flux-controlnet model type)
+- Added float32 quantization option
+- Added skip_validation parameter for faster iteration
+- New presets: Flux ControlNet (Canny/Depth), Hunyuan Video, Wan 2.1 Video, Lumina Image 2.0
+- Standardized workflow naming (category prefixes)
+- Added descriptive Note nodes to all example workflows
+
+### v0.3.4
+- Relaxed torch version constraint for broader compatibility
+- Fixed torch/torchvision version conflicts
+- Simplified ComfyUI requirements.txt
+
+### v0.3.1
 - Added HunyuanVideo loader node
 - Added Lumina Image 2.0 loader node
 - Memory monitoring in converter nodes

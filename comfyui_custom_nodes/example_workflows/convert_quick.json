@@ -1,17 +1,28 @@
 {
-    "last_node_id": 8,
-    "last_link_id": 8,
+    "last_node_id": 11,
+    "last_link_id": 10,
     "nodes": [
         {
+            "id": 10,
+            "type": "Note",
+            "pos": [100, -100],
+            "size": {"0": 750, "1": 140},
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "properties": {},
+            "widgets_values": ["Smart Conversion Workflow\n\nConvert models to Core ML directly in ComfyUI!\n\n1. CoreMLQuickConverter: Select a preset (Flux Schnell, Flux Dev, LTX Video)\n   - First run downloads and converts the model (5-15 min)\n   - Subsequent runs use cached model instantly\n\n2. CoreMLFluxLoader: Loads the converted .mlpackage\n\nThe converter outputs the model path, which feeds directly into the loader.\nConversion happens once - results are cached in converted_models/"]
+        },
+        {
             "id": 1,
-            "type": "CoreMLFluxWithCLIP",
+            "type": "CoreMLQuickConverter",
             "pos": [
                 100,
                 100
             ],
             "size": {
-                "0": 350,
-                "1": 150
+                "0": 300,
+                "1": 100
             },
             "flags": {},
             "order": 0,
@@ -19,80 +30,70 @@
             "inputs": [],
             "outputs": [
                 {
-                    "name": "MODEL",
-                    "type": "MODEL",
+                    "name": "model_path",
+                    "type": "STRING",
                     "links": [
                         1
                     ],
                     "slot_index": 0
-                },
-                {
-                    "name": "CLIP",
-                    "type": "CLIP",
-                    "links": [
-                        2
-                    ],
-                    "slot_index": 1
-                },
-                {
-                    "name": "VAE",
-                    "type": "VAE",
-                    "links": [
-                        5
-                    ],
-                    "slot_index": 2
                 }
             ],
             "properties": {
-                "Node name for S&R": "CoreMLFluxWithCLIP"
+                "Node name for S&R": "CoreMLQuickConverter"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage",
-                "black-forest-labs/FLUX.1-schnell"
+                "Flux Schnell (Fast)",
+                "",
+                "flux"
             ]
         },
         {
             "id": 2,
-            "type": "CLIPTextEncode",
+            "type": "CoreMLFluxLoader",
             "pos": [
-                500,
+                450,
                 100
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 300,
+                "1": 100
             },
             "flags": {},
             "order": 1,
             "mode": 0,
             "inputs": [
                 {
-                    "name": "clip",
-                    "type": "CLIP",
-                    "link": 2
+                    "name": "model_path",
+                    "type": "STRING",
+                    "link": 1,
+                    "widget": {
+                        "name": "model_path"
+                    }
                 }
             ],
             "outputs": [
                 {
-                    "name": "CONDITIONING",
-                    "type": "CONDITIONING",
+                    "name": "MODEL",
+                    "type": "MODEL",
                     "links": [
-                        3
+                        2
                     ],
                     "slot_index": 0
                 }
             ],
-            "properties": {},
+            "properties": {
+                "Node name for S&R": "CoreMLFluxLoader"
+            },
             "widgets_values": [
-                "A cinematic shot of a cyberpunk street, rain, neon signs, 8k, highly detailed"
+                "Flux_Transformer.mlpackage"
             ]
         },
         {
             "id": 3,
-            "type": "EmptyLatentImage",
+            "type": "DualCLIPLoader",
             "pos": [
-                500,
-                350
+                100,
+                300
             ],
             "size": {
                 "0": 300,
@@ -104,8 +105,46 @@
             "inputs": [],
             "outputs": [
                 {
-                    "name": "LATENT",
-                    "type": "LATENT",
+                    "name": "CLIP",
+                    "type": "CLIP",
+                    "links": [
+                        3
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {},
+            "widgets_values": [
+                "t5xxl_fp8_e4m3fn.safetensors",
+                "clip_l.safetensors",
+                "flux"
+            ]
+        },
+        {
+            "id": 4,
+            "type": "CLIPTextEncode",
+            "pos": [
+                450,
+                300
+            ],
+            "size": {
+                "0": 400,
+                "1": 200
+            },
+            "flags": {},
+            "order": 3,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "clip",
+                    "type": "CLIP",
+                    "link": 3
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "CONDITIONING",
+                    "type": "CONDITIONING",
                     "links": [
                         4
                     ],
@@ -114,47 +153,54 @@
             ],
             "properties": {},
             "widgets_values": [
-                1024,
-                1024,
-                1
+                "A photo of a futuristic city with flying cars, neon lights, 4k, photorealistic"
             ]
         },
         {
-            "id": 4,
-            "type": "KSampler",
+            "id": 5,
+            "type": "VAELoader",
             "pos": [
-                950,
-                100
+                100,
+                550
             ],
             "size": {
                 "0": 300,
-                "1": 300
+                "1": 50
             },
             "flags": {},
-            "order": 3,
+            "order": 4,
             "mode": 0,
-            "inputs": [
+            "inputs": [],
+            "outputs": [
                 {
-                    "name": "model",
-                    "type": "MODEL",
-                    "link": 1
-                },
-                {
-                    "name": "positive",
-                    "type": "CONDITIONING",
-                    "link": 3
-                },
-                {
-                    "name": "negative",
-                    "type": "CONDITIONING",
-                    "link": null
-                },
-                {
-                    "name": "latent_image",
-                    "type": "LATENT",
-                    "link": 4
+                    "name": "VAE",
+                    "type": "VAE",
+                    "links": [
+                        7
+                    ],
+                    "slot_index": 0
                 }
             ],
+            "properties": {},
+            "widgets_values": [
+                "ae.safetensors"
+            ]
+        },
+        {
+            "id": 6,
+            "type": "EmptyLatentImage",
+            "pos": [
+                450,
+                550
+            ],
+            "size": {
+                "0": 300,
+                "1": 100
+            },
+            "flags": {},
+            "order": 5,
+            "mode": 0,
+            "inputs": [],
             "outputs": [
                 {
                     "name": "LATENT",
@@ -167,7 +213,60 @@
             ],
             "properties": {},
             "widgets_values": [
-                987654321,
+                1024,
+                1024,
+                1
+            ]
+        },
+        {
+            "id": 7,
+            "type": "KSampler",
+            "pos": [
+                900,
+                100
+            ],
+            "size": {
+                "0": 300,
+                "1": 300
+            },
+            "flags": {},
+            "order": 6,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "model",
+                    "type": "MODEL",
+                    "link": 2
+                },
+                {
+                    "name": "positive",
+                    "type": "CONDITIONING",
+                    "link": 4
+                },
+                {
+                    "name": "negative",
+                    "type": "CONDITIONING",
+                    "link": null
+                },
+                {
+                    "name": "latent_image",
+                    "type": "LATENT",
+                    "link": 6
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "LATENT",
+                    "type": "LATENT",
+                    "links": [
+                        8
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {},
+            "widgets_values": [
+                123456789,
                 "fixed",
                 4,
                 1.0,
@@ -177,10 +276,10 @@
             ]
         },
         {
-            "id": 5,
+            "id": 8,
             "type": "VAEDecode",
             "pos": [
-                1300,
+                1250,
                 100
             ],
             "size": {
@@ -188,18 +287,18 @@
                 "1": 100
             },
             "flags": {},
-            "order": 4,
+            "order": 7,
             "mode": 0,
             "inputs": [
                 {
                     "name": "samples",
                     "type": "LATENT",
-                    "link": 6
+                    "link": 8
                 },
                 {
                     "name": "vae",
                     "type": "VAE",
-                    "link": 5
+                    "link": 7
                 }
             ],
             "outputs": [
@@ -207,7 +306,7 @@
                     "name": "IMAGE",
                     "type": "IMAGE",
                     "links": [
-                        7
+                        9
                     ],
                     "slot_index": 0
                 }
@@ -215,10 +314,10 @@
             "properties": {}
         },
         {
-            "id": 6,
+            "id": 9,
             "type": "SaveImage",
             "pos": [
-                1650,
+                1600,
                 100
             ],
             "size": {
@@ -226,19 +325,19 @@
                 "1": 300
             },
             "flags": {},
-            "order": 5,
+            "order": 8,
             "mode": 0,
             "inputs": [
                 {
                     "name": "images",
                     "type": "IMAGE",
-                    "link": 7
+                    "link": 9
                 }
             ],
             "outputs": [],
             "properties": {},
             "widgets_values": [
-                "ComfyUI_Flux_CoreML"
+                "ComfyUI"
             ]
         }
     ],
@@ -247,55 +346,63 @@
             1,
             1,
             0,
-            4,
+            2,
+            0,
+            "STRING"
+        ],
+        [
+            2,
+            2,
+            0,
+            7,
             0,
             "MODEL"
         ],
         [
-            2,
-            1,
-            1,
-            2,
+            3,
+            3,
+            0,
+            4,
             0,
             "CLIP"
         ],
         [
-            3,
-            2,
-            0,
             4,
+            4,
+            0,
+            7,
             1,
             "CONDITIONING"
         ],
         [
-            4,
-            3,
-            0,
-            4,
-            3,
-            "LATENT"
-        ],
-        [
-            5,
-            1,
-            2,
-            5,
-            1,
-            "VAE"
-        ],
-        [
             6,
-            4,
+            6,
             0,
-            5,
-            0,
+            7,
+            3,
             "LATENT"
         ],
         [
             7,
             5,
             0,
-            6,
+            8,
+            1,
+            "VAE"
+        ],
+        [
+            8,
+            7,
+            0,
+            8,
+            0,
+            "LATENT"
+        ],
+        [
+            9,
+            8,
+            0,
+            9,
             0,
             "IMAGE"
         ]
