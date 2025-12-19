@@ -1,7 +1,6 @@
 """Tests for the pre-flight validation module."""
 
 import os
-import shutil
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch

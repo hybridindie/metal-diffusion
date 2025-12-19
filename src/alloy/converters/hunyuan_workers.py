@@ -8,7 +8,8 @@ import torch
 import os
 import gc
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from multiprocessing import Queue
+from typing import List, Optional, Tuple, Union
 
 import coremltools as ct
 
@@ -228,7 +229,7 @@ def load_hunyuan_transformer(model_id_or_path: str):
             )
 
 
-def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
+def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
     """Worker function for Part 1 (Input Embeddings + Dual-Stream Blocks)."""
     with worker_context("Hunyuan", "Part 1", log_queue):
         transformer = load_hunyuan_transformer(model_id)
@@ -270,7 +271,7 @@ def convert_hunyuan_part1(model_id: str, output_path: str, quantization: Optiona
         quantize_and_save(model, output_path, quantization, intermediates_dir, "hunyuan_part1")
 
 
-def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue=None):
+def convert_hunyuan_part2(model_id: str, output_path: str, quantization: Optional[str], intermediates_dir: Optional[str] = None, log_queue: Optional[Queue] = None) -> None:
     """Worker function for Part 2 (Single-Stream Blocks + Final Layer)."""
     with worker_context("Hunyuan", "Part 2", log_queue):
         transformer = load_hunyuan_transformer(model_id)

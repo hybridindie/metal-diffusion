@@ -48,6 +48,8 @@ class PreflightValidator:
     """
 
     # HuggingFace repo ID pattern: org/repo or org/repo/revision
+    # Pattern breakdown: [\w.-]+ matches alphanumeric, underscore, dot, and hyphen
+    # Examples: "black-forest-labs/FLUX.1-schnell", "stabilityai/stable-diffusion-2"
     HF_REPO_PATTERN = re.compile(r"^[\w.-]+/[\w.-]+(/[\w.-]+)?$")
 
     def __init__(self, converter: "ModelConverter"):
@@ -112,8 +114,18 @@ class PreflightValidator:
                 # siblings contains file info
                 size_bytes = sum(s.size or 0 for s in info.siblings)
                 self._model_size_gb = size_bytes / (1024**3)
-            except Exception:
-                # Fallback: estimate based on model type
+            except ImportError as exc:
+                logger.debug(
+                    "huggingface_hub not installed, using estimated size: %s", exc
+                )
+                self._model_size_gb = self._estimate_size_by_type()
+            except Exception as exc:
+                logger.debug(
+                    "Could not retrieve size from HuggingFace for '%s', "
+                    "using estimated size: %s",
+                    model_id,
+                    exc,
+                )
                 self._model_size_gb = self._estimate_size_by_type()
 
         return self._model_size_gb

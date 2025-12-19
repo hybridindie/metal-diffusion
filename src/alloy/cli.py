@@ -270,7 +270,9 @@ def main():
                 # Fallback to SD
                 converter = SDConverter(args.model_id, args.output_dir, args.quantization)
 
-            # Run pre-flight validation before conversion
+            # Run pre-flight validation before conversion.
+            # If validation fails, the exception propagates to the handler below
+            # and the converter object is garbage collected.
             if not args.skip_validation:
                 run_preflight_validation(converter)
 
