@@ -236,7 +236,7 @@ class CoreMLFluxWrapper(torch.nn.Module):
 class CoreMLHunyuanVideoLoader:
     """HunyuanVideo Generation - Core ML Accelerated"""
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "model_path": (folder_paths.get_filename_list("unet"),),
             "num_frames": ("INT", {"default": 16, "min": 1, "max": 128, "step": 1})
@@ -257,7 +257,7 @@ class CoreMLHunyuanVideoLoader:
 class CoreMLLuminaLoader:
     """Lumina Image 2.0 - Core ML Accelerated"""
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "model_path": (folder_paths.get_filename_list("unet"),),
         }}

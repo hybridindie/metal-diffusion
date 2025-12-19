@@ -36,8 +36,12 @@ class WanConverter(TwoPhaseConverter):
     def get_part2_worker(self) -> Callable:
         return convert_wan_part2
 
-    def convert(self):
-        """Override to handle single-file check and custom download patterns."""
+    def convert(self, show_progress: bool = True):
+        """Override to handle single-file check and custom download patterns.
+
+        Args:
+            show_progress: Whether to show the Rich progress display (default: True)
+        """
         # Single file not supported for Wan
         if os.path.isfile(self.model_id):
             raise UnsupportedModelError(
@@ -54,7 +58,7 @@ class WanConverter(TwoPhaseConverter):
         )
 
         # Continue with standard 2-phase conversion
-        super().convert()
+        super().convert(show_progress=show_progress)
 
     def convert_vae(self, vae, output_dir):
         """Convert VAE Decoder (optional, can be done separately)."""
