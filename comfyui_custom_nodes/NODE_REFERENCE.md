@@ -370,7 +370,7 @@ CoreMLHunyuanVideoWithCLIP → MODEL+CLIP+VAE → VideoKSampler
 
 **Advantages**:
 - One node instead of three
-- Automatic dual text encoder loading (LLAVA/mT5 + CLIP)
+- Automatic dual text encoder loading (LLAVA + CLIP)
 - Automatic VAE loading from HuggingFace
 
 **Status**: Beta

@@ -1,15 +1,27 @@
 import torch
-from diffusers import FluxPipeline, DiffusionPipeline, LTXPipeline, HunyuanVideoPipeline
+from diffusers import DiffusionPipeline
 import folder_paths
 import comfy.sd
 import comfy.model_patcher
 
-# Try to import WanPipeline (may not be available in older diffusers)
+# Try to import pipelines (may not be available in older diffusers)
+try:
+    from diffusers import LTXPipeline
+    LTX_AVAILABLE = True
+except ImportError:
+    LTX_AVAILABLE = False
+
 try:
     from diffusers import WanPipeline
     WAN_AVAILABLE = True
 except ImportError:
     WAN_AVAILABLE = False
+
+try:
+    from diffusers import HunyuanVideoPipeline
+    HUNYUAN_AVAILABLE = True
+except ImportError:
+    HUNYUAN_AVAILABLE = False
 
 class CoreMLFluxWithCLIP:
     """
@@ -17,10 +29,10 @@ class CoreMLFluxWithCLIP:
     Eliminates need for separate DualCLIPLoader node.
     """
     @classmethod
-    def INPUT_TYPES(s):
-        return {"required": { 
+    def INPUT_TYPES(cls):
+        return {"required": {
             "transformer_path": (folder_paths.get_filename_list("unet"),),
-            "clip_model": (["black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.1-dev"], 
+            "clip_model": (["black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.1-dev"],
                           {"default": "black-forest-labs/FLUX.1-schnell"}),
         }}
 
@@ -143,7 +155,7 @@ class CoreMLLuminaWithCLIP:
     Eliminates need for separate text encoder and VAE loader nodes.
     """
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "transformer_path": (folder_paths.get_filename_list("unet"),),
         }}
@@ -198,7 +210,7 @@ class CoreMLLuminaWithCLIP:
         from comfy.sd import VAE
         vae_wrapper = VAE(sd=vae)
 
-        print("[CoreMLLuminaWithCLIP] All components loaded")
+        print("[CoreMLLuminaWithCLIP] ✓ All components loaded")
         return (model, clip, vae_wrapper)
 
 
@@ -263,7 +275,7 @@ class CoreMLLTXVideoWithCLIP:
     Eliminates need for separate text encoder and VAE loader nodes.
     """
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "transformer_path": (folder_paths.get_filename_list("unet"),),
             "num_frames": ("INT", {"default": 25, "min": 1, "max": 257}),
@@ -276,6 +288,9 @@ class CoreMLLTXVideoWithCLIP:
 
     def load_model(self, transformer_path, num_frames):
         """Load Core ML transformer + PyTorch T5 text encoder + VAE"""
+        if not LTX_AVAILABLE:
+            raise ImportError("LTXPipeline not available. Please upgrade diffusers: pip install -U diffusers")
+
         from .video_wrappers import CoreMLLTXVideoWrapper
 
         # Get full path to transformer
@@ -315,7 +330,7 @@ class CoreMLLTXVideoWithCLIP:
         from comfy.sd import VAE
         vae_wrapper = VAE(sd=vae)
 
-        print("[CoreMLLTXVideoWithCLIP] All components loaded")
+        print("[CoreMLLTXVideoWithCLIP] ✓ All components loaded")
         return (model, clip, vae_wrapper)
 
 
@@ -361,7 +376,7 @@ class LTXCLIPWrapper:
         if return_pooled:
             # Use mean pooling for pooled output
             if attention_mask is not None:
-                pooled = (hidden_states * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(dim=1, keepdim=True)
+                pooled = (hidden_states * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(dim=1, keepdim=True).clamp(min=1e-8)
             else:
                 pooled = hidden_states.mean(dim=1)
             return hidden_states, pooled
@@ -380,10 +395,10 @@ class LTXCLIPWrapper:
 class CoreMLWanVideoWithCLIP:
     """
     All-in-one Wan Video loader with integrated text encoder and VAE.
-    Supports Wan 2.1 and 2.2 models (T2V and I2V).
+    Supports Wan 2.1 models (T2V and I2V).
     """
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "transformer_path": (folder_paths.get_filename_list("unet"),),
             "num_frames": ("INT", {"default": 16, "min": 1, "max": 128}),
@@ -439,7 +454,7 @@ class CoreMLWanVideoWithCLIP:
         from comfy.sd import VAE
         vae_wrapper = VAE(sd=vae)
 
-        print("[CoreMLWanVideoWithCLIP] All components loaded")
+        print("[CoreMLWanVideoWithCLIP] ✓ All components loaded")
         return (model, clip, vae_wrapper)
 
 
@@ -485,7 +500,7 @@ class WanCLIPWrapper:
         if return_pooled:
             # Use mean pooling for pooled output
             if attention_mask is not None:
-                pooled = (hidden_states * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(dim=1, keepdim=True)
+                pooled = (hidden_states * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(dim=1, keepdim=True).clamp(min=1e-8)
             else:
                 pooled = hidden_states.mean(dim=1)
             return hidden_states, pooled
@@ -507,7 +522,7 @@ class CoreMLHunyuanVideoWithCLIP:
     Uses LLAVA and CLIP text encoders for prompt conditioning.
     """
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {"required": {
             "transformer_path": (folder_paths.get_filename_list("unet"),),
             "num_frames": ("INT", {"default": 16, "min": 1, "max": 128}),
@@ -520,6 +535,9 @@ class CoreMLHunyuanVideoWithCLIP:
 
     def load_model(self, transformer_path, num_frames):
         """Load Core ML transformer + PyTorch text encoders + VAE"""
+        if not HUNYUAN_AVAILABLE:
+            raise ImportError("HunyuanVideoPipeline not available. Please upgrade diffusers: pip install -U diffusers")
+
         from .video_wrappers import CoreMLHunyuanVideoWrapper
 
         # Get full path to transformer
@@ -565,7 +583,7 @@ class CoreMLHunyuanVideoWithCLIP:
         from comfy.sd import VAE
         vae_wrapper = VAE(sd=vae)
 
-        print("[CoreMLHunyuanVideoWithCLIP] All components loaded")
+        print("[CoreMLHunyuanVideoWithCLIP] ✓ All components loaded")
         return (model, clip, vae_wrapper)
 
 
@@ -626,8 +644,14 @@ class HunyuanCLIPWrapper:
         pooled_output = None
         if self.text_encoder_2 is not None and "tokens_2" in tokens:
             input_ids_2 = tokens["tokens_2"]["input_ids"].to(self.device)
+            attention_mask_2 = tokens["tokens_2"].get("attention_mask", None)
+            if attention_mask_2 is not None:
+                attention_mask_2 = attention_mask_2.to(self.device)
             with torch.no_grad():
-                output_2 = self.text_encoder_2(input_ids_2, output_hidden_states=True)
+                if attention_mask_2 is not None:
+                    output_2 = self.text_encoder_2(input_ids_2, attention_mask=attention_mask_2, output_hidden_states=True)
+                else:
+                    output_2 = self.text_encoder_2(input_ids_2, output_hidden_states=True)
                 if hasattr(output_2, "pooler_output"):
                     pooled_output = output_2.pooler_output
                 else:
@@ -639,7 +663,7 @@ class HunyuanCLIPWrapper:
             if pooled_output is None:
                 # Use mean pooling from primary encoder
                 if attention_mask_1 is not None:
-                    pooled_output = (hidden_states * attention_mask_1.unsqueeze(-1)).sum(dim=1) / attention_mask_1.sum(dim=1, keepdim=True)
+                    pooled_output = (hidden_states * attention_mask_1.unsqueeze(-1)).sum(dim=1) / attention_mask_1.sum(dim=1, keepdim=True).clamp(min=1e-8)
                 else:
                     pooled_output = hidden_states.mean(dim=1)
             return hidden_states, pooled_output
