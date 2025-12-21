@@ -22,6 +22,12 @@
 - [CoreMLConverter](#coremlconverter) - Advanced conversion with options
 - [CoreMLQuickConverter](#coremlquickconverter) - One-click conversion presets
 
+### VAE
+- [CoreMLVAELoader](#coremlvaeloader) - Load Core ML VAE encoder/decoder
+- [CoreMLVAEEncode](#coremlvaeencode) - Encode images to latents
+- [CoreMLVAEDecode](#coremlvaedecode) - Decode latents to images
+- [CoreMLVAETile](#coremlvaetile) - Tiled decoding for large images
+
 ### Utilities
 - [CoreMLModelAnalyzer](#coremlmodelanalyzer) - Inspect model details
 - [CoreMLBatchSampler](#coremlbatchsampler) - Parallel batch generation
@@ -424,6 +430,108 @@ CoreMLApplyControlNet ← CoreMLControlNetLoader
 
 ---
 
+### CoreMLVAELoader
+
+**Category**: Alloy
+**Purpose**: Load a Core ML VAE (encoder and/or decoder) for accelerated encode/decode
+
+**Inputs**:
+- `decoder_path` (vae dropdown): Path to VAE_Decoder.mlpackage (required)
+- `encoder_path` (vae dropdown, optional): Path to VAE_Encoder.mlpackage
+- `config_path` (string, optional): Path to vae_config.json
+
+**Outputs**:
+- `COREML_VAE`: VAE wrapper for use with encode/decode nodes
+
+**Usage**:
+```
+CoreMLVAELoader → CoreMLVAEDecode → IMAGE output
+```
+
+**Notes**:
+- Config is auto-detected from the same directory as the decoder
+- Supports Flux, SDXL, SD, and video VAEs
+
+**Status**: Beta
+
+---
+
+### CoreMLVAEEncode
+
+**Category**: Alloy
+**Purpose**: Encode images to latent space using Core ML VAE
+
+**Inputs**:
+- `pixels` (IMAGE): Input image (B, H, W, C) in [0, 1]
+- `vae` (COREML_VAE): VAE from CoreMLVAELoader
+
+**Outputs**:
+- `LATENT`: Encoded latents for sampling
+
+**Usage**:
+```
+LoadImage → CoreMLVAEEncode → KSampler (img2img)
+```
+
+**Notes**:
+- Handles format conversion (channel-last to channel-first)
+- Applies scaling factor automatically
+
+**Status**: Beta
+
+---
+
+### CoreMLVAEDecode
+
+**Category**: Alloy
+**Purpose**: Decode latents to images using Core ML VAE
+
+**Inputs**:
+- `samples` (LATENT): Latents from sampling
+- `vae` (COREML_VAE): VAE from CoreMLVAELoader
+
+**Outputs**:
+- `IMAGE`: Decoded image (B, H, W, C) in [0, 1]
+
+**Usage**:
+```
+KSampler → CoreMLVAEDecode → SaveImage
+```
+
+**Notes**:
+- Handles inverse scaling (shift_factor, scaling_factor)
+- Output is clamped to valid range
+
+**Status**: Beta
+
+---
+
+### CoreMLVAETile
+
+**Category**: Alloy
+**Purpose**: Decode latents using tiled approach for large images
+
+**Inputs**:
+- `samples` (LATENT): Latents from sampling
+- `vae` (COREML_VAE): VAE from CoreMLVAELoader
+- `tile_size` (int, 32-128, default 64): Tile size in latent space
+
+**Outputs**:
+- `IMAGE`: Decoded image
+
+**Usage**:
+```
+KSampler (high-res) → CoreMLVAETile → SaveImage
+```
+
+**Notes**:
+- Use for high-resolution outputs to avoid memory issues
+- Automatically falls back to regular decode for small images
+
+**Status**: Beta
+
+---
+
 ### CoreMLModelAnalyzer
 
 **Category**: Alloy/Utilities  
@@ -593,12 +701,22 @@ SaveImage
 | CoreMLLuminaWithCLIP | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLModelAnalyzer | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
 | CoreMLBatchSampler | ✅ | ✅ | ✅ | ✅ | ✅ | Experimental |
+| CoreMLVAELoader | ✅ | ✅ | ✅ | ✅ | ✅ | Beta |
+| CoreMLVAEEncode | ✅ | ✅ | ✅ | ✅ | ✅ | Beta |
+| CoreMLVAEDecode | ✅ | ✅ | ✅ | ✅ | ✅ | Beta |
+| CoreMLVAETile | ✅ | ✅ | ✅ | ✅ | ✅ | Beta |
 
 ---
 
 ## Version History
 
-### v0.3.7 (Current)
+### v0.3.8 (Current)
+- Added CoreMLVAELoader, CoreMLVAEEncode, CoreMLVAEDecode, CoreMLVAETile nodes
+- New VAE converter for CLI: `alloy convert --type vae`
+- Supports Flux, SDXL, SD, Wan, LTX, and Hunyuan VAEs
+- Both encoder and decoder conversion with quantization support
+
+### v0.3.7
 - Added CoreMLLTXVideoWithCLIP integrated loader (T5 + VAE)
 - Added CoreMLWanVideoWithCLIP integrated loader with T2V/I2V support
 - Added CoreMLHunyuanVideoWithCLIP integrated loader (dual text encoders)
