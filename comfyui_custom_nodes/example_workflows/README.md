@@ -1,6 +1,6 @@
-# ComfyUI Example Workflows
+# Alloy ComfyUI Example Workflows
 
-This directory contains example workflows demonstrating Alloy's Core ML nodes for Apple Silicon acceleration.
+Example workflows demonstrating Alloy's Core ML nodes for Apple Silicon acceleration.
 
 ## Quick Start
 
@@ -12,7 +12,7 @@ This directory contains example workflows demonstrating Alloy's Core ML nodes fo
 
 ## Image Generation Workflows
 
-### Flux Text-to-Image (`flux_txt2img.json`)
+### Flux Text-to-Image - Basic (`Alloy - Flux Text to Image (Basic).json`)
 
 Basic Flux.1 Schnell workflow with separate loader nodes.
 
@@ -22,7 +22,7 @@ Basic Flux.1 Schnell workflow with separate loader nodes.
 
 ---
 
-### Flux All-in-One (`flux_allinone.json`)
+### Flux Text-to-Image - All-in-One (`Alloy - Flux Text to Image (All-in-One).json`)
 
 Simplified Flux workflow using the integrated loader.
 
@@ -32,7 +32,7 @@ Simplified Flux workflow using the integrated loader.
 
 ---
 
-### Flux Image-to-Image (`flux_img2img.json`)
+### Flux Image-to-Image (`Alloy - Flux Image to Image.json`)
 
 Transform existing images with Flux.
 
@@ -45,7 +45,7 @@ Transform existing images with Flux.
 
 ---
 
-### Flux with Core ML VAE (`flux_coreml_vae.json`) ⭐ NEW
+### Flux with Core ML VAE (`Alloy - Flux with CoreML VAE.json`)
 
 Full Apple Silicon acceleration - both transformer AND VAE on ANE.
 
@@ -61,7 +61,7 @@ alloy convert black-forest-labs/FLUX.1-schnell --type vae --vae-components decod
 
 ---
 
-### Flux with ControlNet (`flux_controlnet.json`) ⭐ NEW
+### Flux with ControlNet (`Alloy - Flux with ControlNet.json`)
 
 Guided generation using Canny edges or depth maps.
 
@@ -80,7 +80,7 @@ alloy convert Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro --type flux-controlne
 
 ---
 
-### Lumina Image 2.0 (`lumina_image.json`) ⭐ NEW
+### Lumina Image 2.0 (`Alloy - Lumina Image 2.0.json`)
 
 High-quality image generation with Alpha-VLLM's Lumina.
 
@@ -92,7 +92,7 @@ High-quality image generation with Alpha-VLLM's Lumina.
 
 ## Video Generation Workflows
 
-### LTX Video (`ltx_video.json`) ⭐ NEW
+### LTX Video Generation (`Alloy - LTX Video Generation.json`)
 
 Generate short video clips with Lightricks LTX-Video.
 
@@ -105,7 +105,7 @@ Generate short video clips with Lightricks LTX-Video.
 
 ---
 
-### Wan 2.1 Video (`wan_video.json`) ⭐ NEW
+### Wan 2.1 Video Generation (`Alloy - Wan 2.1 Video Generation.json`)
 
 Text-to-video generation with Wan 2.1.
 
@@ -117,7 +117,7 @@ Text-to-video generation with Wan 2.1.
 
 ---
 
-### Hunyuan Video (`hunyuan_video.json`) ⭐ NEW
+### Hunyuan Video Generation (`Alloy - Hunyuan Video Generation.json`)
 
 Cinematic video generation with Tencent's HunyuanVideo.
 
@@ -129,7 +129,7 @@ Cinematic video generation with Tencent's HunyuanVideo.
 
 ## Conversion Workflows
 
-### Quick Convert (`convert_quick.json`)
+### Quick Model Conversion (`Alloy - Quick Model Conversion.json`)
 
 One-click conversion with presets.
 
@@ -139,7 +139,7 @@ One-click conversion with presets.
 
 ---
 
-### Convert with LoRA (`convert_lora.json`)
+### Convert with LoRA Baking (`Alloy - Convert with LoRA Baking.json`)
 
 Bake LoRA weights into the model during conversion.
 
@@ -149,7 +149,7 @@ Bake LoRA weights into the model during conversion.
 
 ---
 
-### Convert → Analyze → Generate (`convert_and_generate.json`) ⭐ NEW
+### Convert and Generate Pipeline (`Alloy - Convert and Generate Pipeline.json`)
 
 Complete pipeline demonstrating the full workflow.
 
@@ -164,7 +164,7 @@ Complete pipeline demonstrating the full workflow.
 
 ## Utility Workflows
 
-### Model Analysis (`model_analysis.json`) ⭐ NEW
+### Model Analysis Utility (`Alloy - Model Analysis Utility.json`)
 
 Inspect converted Core ML models.
 
