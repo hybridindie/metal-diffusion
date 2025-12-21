@@ -179,7 +179,12 @@ CoreMLQuickConverter (Preset: Flux Schnell) → CoreMLFluxLoader
 CoreMLLTXVideoLoader → VideoKSampler
 ```
 
-**Status**: 🚧 Node structure ready, implementation in progress
+**Notes**:
+- Implements latent packing/unpacking for LTX transformer format
+- Supports T5 text encoder attention masks
+- VAE compression: spatial=32, temporal=8
+
+**Status**: Beta - Forward pass implemented, testing in progress
 
 ---
 
@@ -200,7 +205,12 @@ CoreMLLTXVideoLoader → VideoKSampler
 CoreMLWanVideoLoader → VideoKSampler
 ```
 
-**Status**: 🚧 Node structure ready, implementation in progress
+**Notes**:
+- Supports Wan 2.1 and 2.2 models (T2V and I2V)
+- Simple 5D latent format (no packing required)
+- Uses Core ML VAE decoder when available
+
+**Status**: Beta - Forward pass implemented, testing in progress
 
 ---
 
@@ -221,7 +231,12 @@ CoreMLWanVideoLoader → VideoKSampler
 CoreMLHunyuanVideoLoader → VideoKSampler
 ```
 
-**Status**: 🚧 Node structure ready, implementation in progress
+**Notes**:
+- Supports embedded guidance (guidance_scale * 1000 format)
+- Requires pooled projections and attention masks
+- VAE scale factor: 16
+
+**Status**: Beta - Forward pass implemented, testing in progress
 
 ---
 
@@ -477,9 +492,9 @@ SaveImage
 |------|------|-----|-----|---------|--------|--------|
 | CoreMLFluxLoader | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
 | CoreMLFluxWithCLIP | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
-| CoreMLLTXVideoLoader | ❌ | 🚧 | ❌ | ❌ | ❌ | Beta |
-| CoreMLWanVideoLoader | ❌ | ❌ | 🚧 | ❌ | ❌ | Beta |
-| CoreMLHunyuanVideoLoader | ❌ | ❌ | ❌ | 🚧 | ❌ | Beta |
+| CoreMLLTXVideoLoader | ❌ | ✅ | ❌ | ❌ | ❌ | Beta |
+| CoreMLWanVideoLoader | ❌ | ❌ | ✅ | ❌ | ❌ | Beta |
+| CoreMLHunyuanVideoLoader | ❌ | ❌ | ❌ | ✅ | ❌ | Beta |
 | CoreMLLuminaLoader | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLLuminaWithCLIP | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLModelAnalyzer | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
@@ -489,7 +504,14 @@ SaveImage
 
 ## Version History
 
-### v0.3.5 (Current)
+### v0.3.6 (Current)
+- Implemented LTX-Video ComfyUI wrapper with packing/unpacking
+- Implemented Wan Video ComfyUI wrapper for T2V and I2V models
+- Implemented HunyuanVideo ComfyUI wrapper with guidance embedding
+- Added CoreMLLuminaWithCLIP integrated loader
+- All video loaders now functional (Beta status)
+
+### v0.3.5
 - Fixed CoreMLFluxLoader node registration bug (RETURN_TYPES/FUNCTION)
 - Added Flux ControlNet support (flux-controlnet model type)
 - Added float32 quantization option
