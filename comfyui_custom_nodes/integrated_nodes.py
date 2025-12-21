@@ -17,6 +17,7 @@ class CoreMLFluxWithCLIP:
                           {"default": "black-forest-labs/FLUX.1-schnell"}),
         }}
 
+    RETURN_TYPES = ("MODEL", "CLIP", "VAE")
     RETURN_NAMES = ("MODEL", "CLIP", "VAE")
     FUNCTION = "load_model"
     CATEGORY = "Alloy"
