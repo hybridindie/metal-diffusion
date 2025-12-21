@@ -13,6 +13,10 @@
 
 ### Integrated Loaders
 - [CoreMLFluxWithCLIP](#coremlfluxwithclip) - All-in-one Flux loader
+- [CoreMLLuminaWithCLIP](#coremlluminawithclip) - All-in-one Lumina loader
+- [CoreMLLTXVideoWithCLIP](#coremlltxvideowithclip) - All-in-one LTX Video loader
+- [CoreMLWanVideoWithCLIP](#coremlwanvideowithclip) - All-in-one Wan Video loader
+- [CoreMLHunyuanVideoWithCLIP](#coremlhunyuanvideowithclip) - All-in-one Hunyuan Video loader
 
 ### Conversion
 - [CoreMLConverter](#coremlconverter) - Advanced conversion with options
@@ -286,6 +290,93 @@ CoreMLLuminaWithCLIP → MODEL+CLIP+VAE → KSampler
 
 ---
 
+### CoreMLLTXVideoWithCLIP
+
+**Category**: Alloy/Video
+**Purpose**: All-in-one LTX-Video loader with integrated T5 text encoder and VAE
+
+**Inputs**:
+- `transformer_path` (unet dropdown): Core ML transformer
+- `num_frames` (int, 1-257, default 25): Number of video frames
+
+**Outputs**:
+- `MODEL`: LTX video transformer
+- `CLIP`: T5 text encoder
+- `VAE`: Video VAE decoder
+
+**Usage**:
+```
+CoreMLLTXVideoWithCLIP → MODEL+CLIP+VAE → VideoKSampler
+```
+
+**Advantages**:
+- One node instead of three
+- Automatic T5 and VAE loading from HuggingFace (Lightricks/LTX-Video)
+- Configurable frame count
+
+**Status**: Beta
+
+---
+
+### CoreMLWanVideoWithCLIP
+
+**Category**: Alloy/Video
+**Purpose**: All-in-one Wan Video loader with integrated text encoder and VAE
+
+**Inputs**:
+- `transformer_path` (unet dropdown): Core ML transformer
+- `num_frames` (int, 1-128, default 16): Number of video frames
+- `model_variant` (dropdown): HuggingFace model variant
+  - `Wan-AI/Wan2.1-T2V-14B-Diffusers` (Text-to-Video)
+  - `Wan-AI/Wan2.1-I2V-14B-720P-Diffusers` (Image-to-Video)
+
+**Outputs**:
+- `MODEL`: Wan video transformer
+- `CLIP`: Text encoder
+- `VAE`: Video VAE decoder
+
+**Usage**:
+```
+CoreMLWanVideoWithCLIP → MODEL+CLIP+VAE → VideoKSampler
+```
+
+**Advantages**:
+- One node instead of three
+- Supports both T2V and I2V model variants
+- Automatic text encoder and VAE loading
+
+**Status**: Beta
+
+---
+
+### CoreMLHunyuanVideoWithCLIP
+
+**Category**: Alloy/Video
+**Purpose**: All-in-one HunyuanVideo loader with integrated text encoders and VAE
+
+**Inputs**:
+- `transformer_path` (unet dropdown): Core ML transformer
+- `num_frames` (int, 1-128, default 16): Number of video frames
+
+**Outputs**:
+- `MODEL`: Hunyuan video transformer
+- `CLIP`: Dual text encoders (LLAVA + CLIP)
+- `VAE`: Video VAE decoder
+
+**Usage**:
+```
+CoreMLHunyuanVideoWithCLIP → MODEL+CLIP+VAE → VideoKSampler
+```
+
+**Advantages**:
+- One node instead of three
+- Automatic dual text encoder loading (LLAVA + CLIP)
+- Automatic VAE loading from HuggingFace
+
+**Status**: Beta
+
+---
+
 ### CoreMLControlNetLoader
 
 **Category**: Alloy
@@ -493,8 +584,11 @@ SaveImage
 | CoreMLFluxLoader | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
 | CoreMLFluxWithCLIP | ✅ | ❌ | ❌ | ❌ | ❌ | Stable |
 | CoreMLLTXVideoLoader | ❌ | ✅ | ❌ | ❌ | ❌ | Beta |
+| CoreMLLTXVideoWithCLIP | ❌ | ✅ | ❌ | ❌ | ❌ | Beta |
 | CoreMLWanVideoLoader | ❌ | ❌ | ✅ | ❌ | ❌ | Beta |
+| CoreMLWanVideoWithCLIP | ❌ | ❌ | ✅ | ❌ | ❌ | Beta |
 | CoreMLHunyuanVideoLoader | ❌ | ❌ | ❌ | ✅ | ❌ | Beta |
+| CoreMLHunyuanVideoWithCLIP | ❌ | ❌ | ❌ | ✅ | ❌ | Beta |
 | CoreMLLuminaLoader | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLLuminaWithCLIP | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLModelAnalyzer | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
@@ -504,7 +598,13 @@ SaveImage
 
 ## Version History
 
-### v0.3.6 (Current)
+### v0.3.7 (Current)
+- Added CoreMLLTXVideoWithCLIP integrated loader (T5 + VAE)
+- Added CoreMLWanVideoWithCLIP integrated loader with T2V/I2V support
+- Added CoreMLHunyuanVideoWithCLIP integrated loader (dual text encoders)
+- All video integrated loaders auto-download components from HuggingFace
+
+### v0.3.6
 - Implemented LTX-Video ComfyUI wrapper with packing/unpacking
 - Implemented Wan Video ComfyUI wrapper for T2V and I2V models
 - Implemented HunyuanVideo ComfyUI wrapper with guidance embedding
