@@ -61,10 +61,11 @@ class CoreMLVAEWrapper:
         # Convert back to tensor
         latents = torch.from_numpy(latents_np).to(pixels.device, dtype=pixels.dtype)
 
-        # Apply scaling factor if configured
+        # Apply scaling/shift if configured (mirror decode logic)
         scaling_factor = self.config.get("scaling_factor", 1.0)
-        if scaling_factor != 1.0:
-            latents = latents * scaling_factor
+        shift_factor = self.config.get("shift_factor", 0.0)
+        if scaling_factor != 1.0 or shift_factor != 0.0:
+            latents = (latents - shift_factor) * scaling_factor
 
         return latents
 
@@ -81,12 +82,12 @@ class CoreMLVAEWrapper:
         if self.decoder is None:
             raise RuntimeError("VAE decoder not loaded")
 
-        # Apply inverse scaling if configured
+        # Apply inverse scaling if configured (clone to avoid mutating input)
         scaling_factor = self.config.get("scaling_factor", 1.0)
         shift_factor = self.config.get("shift_factor", 0.0)
 
         if scaling_factor != 1.0 or shift_factor != 0.0:
-            latents = (latents / scaling_factor) + shift_factor
+            latents = (latents.clone() / scaling_factor) + shift_factor
 
         # Convert to numpy for Core ML
         latents_np = latents.cpu().numpy().astype(np.float32)
@@ -162,6 +163,13 @@ class CoreMLVAELoader:
                             config = json.load(f)
                         print(f"[CoreMLVAELoader] Found config: {config_candidate}")
                         break
+
+        # Validate at least one model is being loaded
+        if decoder_full is None and encoder_full is None:
+            raise ValueError(
+                "At least one of decoder_path or encoder_path must be specified. "
+                "Cannot create a VAE wrapper with no models."
+            )
 
         # Create wrapper
         wrapper = CoreMLVAEWrapper(
@@ -293,6 +301,11 @@ class CoreMLVAETile:
         latents = samples["samples"]
         B, C, H, W = latents.shape
 
+        # Get scale factor from config (default 8x for most VAEs)
+        scale = vae.config.get("spatial_scale_factor", 8)
+        # Get output channels from config (3 for RGB images)
+        output_channels = vae.config.get("output_channels", 3)
+
         # If small enough, just decode directly
         if H <= tile_size and W <= tile_size:
             decoded = vae.decode(latents)
@@ -300,12 +313,10 @@ class CoreMLVAETile:
             image = image.permute(0, 2, 3, 1)
             return (image,)
 
-        # Tiled decoding
-        # VAE typically upscales by 8x
-        scale = 8
+        # Tiled decoding with scaling/shift applied per-tile via vae.decode()
         output_h = H * scale
         output_w = W * scale
-        output = torch.zeros(B, 3, output_h, output_w, device=latents.device, dtype=latents.dtype)
+        output = torch.zeros(B, output_channels, output_h, output_w, device=latents.device, dtype=latents.dtype)
 
         # Overlap for blending
         overlap = tile_size // 4
@@ -318,7 +329,7 @@ class CoreMLVAETile:
                 y_start = max(0, y_end - tile_size)
                 x_start = max(0, x_end - tile_size)
 
-                # Extract and decode tile
+                # Extract and decode tile (vae.decode handles scaling/shift)
                 tile = latents[:, :, y_start:y_end, x_start:x_end]
                 decoded_tile = vae.decode(tile)
 

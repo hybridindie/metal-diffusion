@@ -108,7 +108,7 @@ class VAEConverter(ModelConverter):
         Args:
             model_id: HuggingFace repo ID, local path, or pipeline ID containing VAE
             output_dir: Output directory for converted models
-            quantization: Quantization type ("float16", "int8", "int4")
+            quantization: Quantization type ("float16", "float32", "int8", "int4")
             vae_type: VAE architecture type ("flux", "sdxl", "sd", "wan", "ltx", "hunyuan", "auto")
             components: List of components to convert (["encoder", "decoder"])
         """
@@ -120,7 +120,7 @@ class VAEConverter(ModelConverter):
         """Auto-detect VAE type from model config."""
         latent_channels = getattr(vae.config, "latent_channels", 4)
 
-        # Check for Flux-specific config
+        # Check for Flux-specific config (has shift_factor > 0)
         if hasattr(vae.config, "shift_factor") and vae.config.shift_factor > 0:
             return "flux"
 
@@ -128,11 +128,15 @@ class VAEConverter(ModelConverter):
         if latent_channels == 128:
             return "ltx"
         elif latent_channels == 16:
-            # Could be Flux, Wan, or Hunyuan
+            # Could be Flux, Wan, or Hunyuan - differentiate by scaling_factor
             scaling = getattr(vae.config, "scaling_factor", 0.18215)
             if abs(scaling - 0.3611) < 0.01:
                 return "flux"
-            return "hunyuan"  # Default for 16-channel
+            elif abs(scaling - 1.0) < 0.01:
+                # Wan uses scaling_factor=1.0
+                return "wan"
+            # Hunyuan uses ~0.18215
+            return "hunyuan"
         elif latent_channels == 4:
             scaling = getattr(vae.config, "scaling_factor", 0.18215)
             if abs(scaling - 0.13025) < 0.01:
