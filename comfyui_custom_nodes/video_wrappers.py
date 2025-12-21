@@ -1,6 +1,58 @@
+import numpy as np
 import torch
 import coremltools as ct
 import comfy.latent_formats
+
+
+def _prepare_timestep(timestep, batch_size: int) -> np.ndarray:
+    """
+    Convert timestep to numpy array with proper batch handling.
+
+    Args:
+        timestep: Tensor (B,), scalar tensor, or numeric value
+        batch_size: Expected batch size for broadcasting
+
+    Returns:
+        numpy array of shape (B,) with int32 dtype
+    """
+    if isinstance(timestep, torch.Tensor):
+        if timestep.dim() == 0:
+            # Scalar tensor, broadcast to all batch items
+            t_val = int(timestep.item())
+            return np.full((batch_size,), t_val, dtype=np.int32)
+        else:
+            # Batched timesteps
+            t_arr = timestep.detach().cpu().numpy().astype(np.int32).flatten()
+            if t_arr.shape[0] == 1 and batch_size > 1:
+                # Single value provided, broadcast to batch
+                return np.full((batch_size,), int(t_arr[0]), dtype=np.int32)
+            return t_arr
+    else:
+        # Non-tensor scalar, broadcast to all batch items
+        t_val = int(float(timestep))
+        return np.full((batch_size,), t_val, dtype=np.int32)
+
+
+def _extract_output(out: dict, preferred_keys: list = None) -> np.ndarray:
+    """
+    Extract output tensor from Core ML prediction result.
+
+    Args:
+        out: Dictionary returned by coreml_model.predict()
+        preferred_keys: List of keys to try in order (default: ["sample"])
+
+    Returns:
+        numpy array containing the model output
+    """
+    if preferred_keys is None:
+        preferred_keys = ["sample"]
+
+    for key in preferred_keys:
+        if key in out:
+            return out[key]
+
+    # Fallback to first output
+    return list(out.values())[0]
 
 
 class CoreMLHunyuanVideoWrapper(torch.nn.Module):
@@ -36,8 +88,6 @@ class CoreMLHunyuanVideoWrapper(torch.nn.Module):
         Returns:
             Noise prediction tensor (B, C, F, H, W)
         """
-        import numpy as np
-
         B = x.shape[0]
 
         # Hunyuan uses 5D latents directly
@@ -58,22 +108,18 @@ class CoreMLHunyuanVideoWrapper(torch.nn.Module):
         encoder_attention_mask_np = attention_mask.cpu().numpy().astype(np.int64)
 
         # Get pooled projections (y)
-        pooled = kwargs.get("y", None)
-        if pooled is None:
-            pooled = torch.zeros(B, 1024, device=x.device, dtype=x.dtype)
-        pooled_projections_np = pooled.cpu().numpy().astype(np.float32)
+        pooled_projections = kwargs.get("y", None)
+        if pooled_projections is None:
+            pooled_projections = torch.zeros(B, 1024, device=x.device, dtype=x.dtype)
+        pooled_projections_np = pooled_projections.cpu().numpy().astype(np.float32)
 
-        # Get guidance scale
+        # Get guidance scale - create per-batch guidance values
         guidance_scale = kwargs.get("guidance_scale", self.default_guidance_scale)
         # Hunyuan uses guidance * 1000 format
-        guidance_np = np.array([guidance_scale * 1000]).astype(np.float32)
+        guidance_np = np.full((B,), guidance_scale * 1000, dtype=np.float32)
 
-        # Prepare timestep
-        if isinstance(timestep, torch.Tensor):
-            t_val = timestep[0].item() if timestep.dim() > 0 else timestep.item()
-        else:
-            t_val = float(timestep)
-        timestep_np = np.array([int(t_val)]).astype(np.int32)
+        # Prepare timestep with proper batch handling
+        timestep_np = _prepare_timestep(timestep, B)
 
         # Build inputs dict
         inputs = {
@@ -89,17 +135,14 @@ class CoreMLHunyuanVideoWrapper(torch.nn.Module):
         out = self.coreml_model.predict(inputs)
 
         # Get output
-        if "sample" in out:
-            output_np = out["sample"]
-        else:
-            output_np = list(out.values())[0]
+        output_np = _extract_output(out)
 
         # Convert back to tensor
         noise_pred = torch.from_numpy(output_np).to(x.device, dtype=x.dtype)
 
         # Ensure output shape matches input shape
         if noise_pred.shape != x.shape:
-            noise_pred = noise_pred.view(x.shape)
+            noise_pred = noise_pred.reshape(x.shape)
 
         return noise_pred
 
@@ -133,8 +176,6 @@ class CoreMLLuminaWrapper(torch.nn.Module):
         Returns:
             Noise prediction tensor (B, C, H, W)
         """
-        import numpy as np
-
         B, C, H, W = x.shape
 
         # Prepare hidden_states (latents)
@@ -147,7 +188,7 @@ class CoreMLLuminaWrapper(torch.nn.Module):
             context = torch.zeros(B, 256, self.hidden_size, device=x.device)
         encoder_hidden_states_np = context.cpu().numpy().astype(np.float32)
 
-        # Prepare timestep
+        # Prepare timestep - Lumina uses float32 timesteps
         if isinstance(timestep, torch.Tensor):
             t_val = timestep[0].item() if timestep.dim() > 0 else timestep.item()
         else:
@@ -166,13 +207,7 @@ class CoreMLLuminaWrapper(torch.nn.Module):
 
         # Get output - Lumina uses "hidden_states" as output key
         # But the pipeline model may use "sample" after assembly
-        if "sample" in out:
-            output_np = out["sample"]
-        elif "hidden_states" in out:
-            output_np = out["hidden_states"]
-        else:
-            # Fallback to first output
-            output_np = list(out.values())[0]
+        output_np = _extract_output(out, preferred_keys=["sample", "hidden_states"])
 
         # Convert back to tensor
         noise_pred = torch.from_numpy(output_np).to(x.device, dtype=x.dtype)
@@ -184,7 +219,7 @@ class CoreMLLuminaWrapper(torch.nn.Module):
             if len(noise_pred.shape) == 3:
                 # Reshape from sequence to spatial
                 # seq_len should be H*W, dim should be C
-                noise_pred = noise_pred.view(B, H, W, C).permute(0, 3, 1, 2)
+                noise_pred = noise_pred.reshape(B, H, W, C).permute(0, 3, 1, 2)
 
         return noise_pred
 
@@ -222,8 +257,6 @@ class CoreMLLTXVideoWrapper(torch.nn.Module):
         Returns:
             Noise prediction tensor (B, C, F, H, W)
         """
-        import numpy as np
-
         B, C, F, H, W = x.shape
 
         # Pack latents for transformer
@@ -245,17 +278,13 @@ class CoreMLLTXVideoWrapper(torch.nn.Module):
             attention_mask = torch.ones(B, seq_len, device=x.device, dtype=torch.int64)
         encoder_attention_mask_np = attention_mask.cpu().numpy().astype(np.int64)
 
-        # Prepare timestep
-        if isinstance(timestep, torch.Tensor):
-            t_val = timestep[0].item() if timestep.dim() > 0 else timestep.item()
-        else:
-            t_val = float(timestep)
-        timestep_np = np.array([int(t_val)]).astype(np.int32)
+        # Prepare timestep with proper batch handling
+        timestep_np = _prepare_timestep(timestep, B)
 
-        # Latent dimensions for transformer
-        latent_frames = F
-        latent_height = H
-        latent_width = W
+        # Compute post-patch dimensions for transformer metadata
+        post_patch_frames = F // self.patch_size_t
+        post_patch_height = H // self.patch_size
+        post_patch_width = W // self.patch_size
 
         # Build inputs dict
         inputs = {
@@ -263,19 +292,16 @@ class CoreMLLTXVideoWrapper(torch.nn.Module):
             "encoder_hidden_states": encoder_hidden_states_np,
             "timestep": timestep_np,
             "encoder_attention_mask": encoder_attention_mask_np,
-            "num_frames": np.array([latent_frames]).astype(np.int32),
-            "height": np.array([latent_height]).astype(np.int32),
-            "width": np.array([latent_width]).astype(np.int32),
+            "num_frames": np.array([post_patch_frames]).astype(np.int32),
+            "height": np.array([post_patch_height]).astype(np.int32),
+            "width": np.array([post_patch_width]).astype(np.int32),
         }
 
         # Run Core ML model
         out = self.coreml_model.predict(inputs)
 
         # Get output
-        if "sample" in out:
-            output_np = out["sample"]
-        else:
-            output_np = list(out.values())[0]
+        output_np = _extract_output(out)
 
         # Convert back to tensor (still packed)
         noise_pred_packed = torch.from_numpy(output_np).to(x.device, dtype=x.dtype)
@@ -286,7 +312,19 @@ class CoreMLLTXVideoWrapper(torch.nn.Module):
         return noise_pred
 
     def _pack_latents(self, latents: torch.Tensor) -> torch.Tensor:
-        """Pack video latents for transformer input."""
+        """
+        Pack video latents for transformer input.
+
+        Converts (B, C, F, H, W) to (B, T, D) where:
+        - T = (F // patch_size_t) * (H // patch_size) * (W // patch_size)
+        - D = C * patch_size_t * patch_size * patch_size
+
+        Args:
+            latents: Video latents of shape (B, C, F, H, W)
+
+        Returns:
+            Packed latents of shape (B, T, D)
+        """
         batch_size, num_channels, num_frames, height, width = latents.shape
         patch_size = self.patch_size
         patch_size_t = self.patch_size_t
@@ -315,13 +353,40 @@ class CoreMLLTXVideoWrapper(torch.nn.Module):
         height: int,
         width: int,
     ) -> torch.Tensor:
-        """Unpack transformer output to video latents."""
+        """
+        Unpack transformer output to video latents.
+
+        Converts (B, T, D) back to (B, C, F, H, W) where:
+        - T = post_patch_frames * post_patch_height * post_patch_width
+        - D = C * patch_size_t * patch_size * patch_size
+
+        Args:
+            latents: Packed transformer output of shape (B, T, D)
+            num_frames: Original (pre-patch) number of frames
+            height: Original (pre-patch) height
+            width: Original (pre-patch) width
+
+        Returns:
+            Unpacked latents of shape (B, C, F, H, W)
+        """
         batch_size = latents.size(0)
         patch_size = self.patch_size
         patch_size_t = self.patch_size_t
 
+        # Compute post-patch dimensions
+        post_patch_num_frames = num_frames // patch_size_t
+        post_patch_height = height // patch_size
+        post_patch_width = width // patch_size
+
         latents = latents.reshape(
-            batch_size, num_frames, height, width, -1, patch_size_t, patch_size, patch_size
+            batch_size,
+            post_patch_num_frames,
+            post_patch_height,
+            post_patch_width,
+            -1,
+            patch_size_t,
+            patch_size,
+            patch_size,
         )
         latents = latents.permute(0, 4, 1, 5, 2, 6, 3, 7).flatten(6, 7).flatten(4, 5).flatten(2, 3)
         return latents
@@ -356,7 +421,7 @@ class CoreMLWanVideoWrapper(torch.nn.Module):
         Returns:
             Noise prediction tensor (B, C, F, H, W)
         """
-        import numpy as np
+        B = x.shape[0]
 
         # Wan uses simple 5D latents, no packing needed
         hidden_states_np = x.cpu().numpy().astype(np.float32)
@@ -364,17 +429,12 @@ class CoreMLWanVideoWrapper(torch.nn.Module):
         # Get text embeddings from context
         context = kwargs.get("context", None)
         if context is None:
-            B = x.shape[0]
             # Default empty conditioning - Wan uses larger dim
             context = torch.zeros(B, 512, 4096, device=x.device, dtype=x.dtype)
         encoder_hidden_states_np = context.cpu().numpy().astype(np.float32)
 
-        # Prepare timestep
-        if isinstance(timestep, torch.Tensor):
-            t_val = timestep[0].item() if timestep.dim() > 0 else timestep.item()
-        else:
-            t_val = float(timestep)
-        timestep_np = np.array([int(t_val)]).astype(np.int32)
+        # Prepare timestep with proper batch handling
+        timestep_np = _prepare_timestep(timestep, B)
 
         # Build inputs dict - Wan uses simple inputs
         inputs = {
@@ -387,10 +447,7 @@ class CoreMLWanVideoWrapper(torch.nn.Module):
         out = self.coreml_model.predict(inputs)
 
         # Get output
-        if "sample" in out:
-            output_np = out["sample"]
-        else:
-            output_np = list(out.values())[0]
+        output_np = _extract_output(out)
 
         # Convert back to tensor
         noise_pred = torch.from_numpy(output_np).to(x.device, dtype=x.dtype)
@@ -398,6 +455,6 @@ class CoreMLWanVideoWrapper(torch.nn.Module):
         # Ensure output shape matches input shape
         if noise_pred.shape != x.shape:
             # Handle potential shape mismatches
-            noise_pred = noise_pred.view(x.shape)
+            noise_pred = noise_pred.reshape(x.shape)
 
         return noise_pred
