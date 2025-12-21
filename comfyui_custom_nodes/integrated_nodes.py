@@ -130,10 +130,128 @@ class FluxCLIPWrapper:
         return self.encode_from_tokens(tokens, return_pooled=True)
 
 
+class CoreMLLuminaWithCLIP:
+    """
+    All-in-one Lumina Image 2.0 loader with integrated Gemma text encoder.
+    Eliminates need for separate text encoder and VAE loader nodes.
+    """
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {
+            "transformer_path": (folder_paths.get_filename_list("unet"),),
+        }}
+
+    RETURN_TYPES = ("MODEL", "CLIP", "VAE")
+    RETURN_NAMES = ("MODEL", "CLIP", "VAE")
+    FUNCTION = "load_model"
+    CATEGORY = "Alloy"
+
+    def load_model(self, transformer_path):
+        """Load Core ML transformer + PyTorch Gemma text encoder + VAE"""
+        import comfy.model_management
+        import comfy.sd
+        import comfy.utils
+        from diffusers import Lumina2Pipeline
+        from .video_wrappers import CoreMLLuminaWrapper
+
+        # Get full path to transformer
+        transformer_full_path = folder_paths.get_full_path("unet", transformer_path)
+        print(f"[CoreMLLuminaWithCLIP] Loading transformer: {transformer_full_path}")
+
+        # Load Core ML transformer
+        model_wrapper = CoreMLLuminaWrapper(transformer_full_path)
+        model = comfy.model_patcher.ModelPatcher(model_wrapper, load_device="cpu", offload_device="cpu")
+
+        # Load Gemma + VAE from Hugging Face
+        model_id = "Alpha-VLLM/Lumina-Image-2.0"
+        print(f"[CoreMLLuminaWithCLIP] Loading Gemma/VAE from: {model_id}")
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+
+        try:
+            pipe = Lumina2Pipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16 if device == "mps" else torch.float32,
+                transformer=None  # Don't load transformer
+            )
+        except Exception as e:
+            print(f"[CoreMLLuminaWithCLIP] Error loading from HF: {e}")
+            raise
+
+        # Extract text encoder (Gemma 2B)
+        text_encoder = pipe.text_encoder.to(device)
+        tokenizer = pipe.tokenizer
+
+        # Create ComfyUI CLIP object
+        clip = LuminaCLIPWrapper(text_encoder, tokenizer, device)
+
+        # Extract VAE
+        vae = pipe.vae.to(device)
+
+        # Wrap VAE for ComfyUI
+        from comfy.sd import VAE
+        vae_wrapper = VAE(sd=vae)
+
+        print("[CoreMLLuminaWithCLIP] All components loaded")
+        return (model, clip, vae_wrapper)
+
+
+class LuminaCLIPWrapper:
+    """Wrapper to make Lumina's Gemma 2B text encoder compatible with ComfyUI's CLIP interface"""
+    def __init__(self, text_encoder, tokenizer, device):
+        self.text_encoder = text_encoder
+        self.tokenizer = tokenizer
+        self.device = device
+
+    def tokenize(self, text):
+        """Tokenize text for Gemma encoder"""
+        tokens = self.tokenizer(
+            text,
+            padding="max_length",
+            max_length=256,  # Lumina uses 256 max length
+            truncation=True,
+            return_tensors="pt"
+        )
+        return {"tokens": tokens}
+
+    def encode_from_tokens(self, tokens, return_pooled=False):
+        """Encode tokens to embeddings"""
+        input_ids = tokens["tokens"]["input_ids"].to(self.device)
+        attention_mask = tokens["tokens"].get("attention_mask", None)
+        if attention_mask is not None:
+            attention_mask = attention_mask.to(self.device)
+
+        # Gemma encoding
+        with torch.no_grad():
+            if attention_mask is not None:
+                output = self.text_encoder(input_ids, attention_mask=attention_mask)
+            else:
+                output = self.text_encoder(input_ids)
+
+            # Get last hidden state
+            if hasattr(output, "last_hidden_state"):
+                hidden_states = output.last_hidden_state
+            else:
+                hidden_states = output[0]
+
+        # ComfyUI expects (batch, seq, dim)
+        if return_pooled:
+            # Use mean pooling for pooled output
+            pooled = hidden_states.mean(dim=1)
+            return hidden_states, pooled
+        return hidden_states
+
+    def encode(self, text):
+        """Full encode from text"""
+        tokens = self.tokenize(text)
+        return self.encode_from_tokens(tokens, return_pooled=True)
+
+
 NODE_CLASS_MAPPINGS = {
-    "CoreMLFluxWithCLIP": CoreMLFluxWithCLIP
+    "CoreMLFluxWithCLIP": CoreMLFluxWithCLIP,
+    "CoreMLLuminaWithCLIP": CoreMLLuminaWithCLIP,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "CoreMLFluxWithCLIP": "Core ML Flux (All-in-One)"
+    "CoreMLFluxWithCLIP": "Core ML Flux (All-in-One)",
+    "CoreMLLuminaWithCLIP": "Core ML Lumina (All-in-One)",
 }

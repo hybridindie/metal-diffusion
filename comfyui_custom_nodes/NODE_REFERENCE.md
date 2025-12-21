@@ -241,7 +241,33 @@ CoreMLHunyuanVideoLoader → VideoKSampler
 CoreMLLuminaLoader → KSampler
 ```
 
-**Status**: 🚧 Node structure ready, implementation in progress
+**Notes**:
+- Requires separate text encoder (Gemma 2B) and VAE loaders
+- Use `CoreMLLuminaWithCLIP` for simpler workflow
+
+---
+
+### CoreMLLuminaWithCLIP
+
+**Category**: Alloy
+**Purpose**: All-in-one Lumina loader with integrated Gemma text encoder
+
+**Inputs**:
+- `transformer_path` (unet dropdown): Core ML transformer
+
+**Outputs**:
+- `MODEL`: Lumina transformer
+- `CLIP`: Gemma 2B text encoder
+- `VAE`: VAE decoder
+
+**Usage**:
+```
+CoreMLLuminaWithCLIP → MODEL+CLIP+VAE → KSampler
+```
+
+**Advantages**:
+- One node instead of three
+- Automatic Gemma 2B and VAE loading from HuggingFace
 
 ---
 
@@ -454,7 +480,8 @@ SaveImage
 | CoreMLLTXVideoLoader | ❌ | 🚧 | ❌ | ❌ | ❌ | Beta |
 | CoreMLWanVideoLoader | ❌ | ❌ | 🚧 | ❌ | ❌ | Beta |
 | CoreMLHunyuanVideoLoader | ❌ | ❌ | ❌ | 🚧 | ❌ | Beta |
-| CoreMLLuminaLoader | ❌ | ❌ | ❌ | ❌ | 🚧 | Beta |
+| CoreMLLuminaLoader | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
+| CoreMLLuminaWithCLIP | ❌ | ❌ | ❌ | ❌ | ✅ | Stable |
 | CoreMLModelAnalyzer | ✅ | ✅ | ✅ | ✅ | ✅ | Stable |
 | CoreMLBatchSampler | ✅ | ✅ | ✅ | ✅ | ✅ | Experimental |
 
