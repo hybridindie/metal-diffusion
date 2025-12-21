@@ -14,6 +14,7 @@ from alloy.converters.ltx import LTXConverter
 from alloy.converters.flux import FluxConverter
 from alloy.converters.controlnet import FluxControlNetConverter
 from alloy.converters.lumina import LuminaConverter
+from alloy.converters.vae import VAEConverter
 from alloy.exceptions import (
     AlloyError,
     WorkerError,
@@ -92,7 +93,9 @@ def main():
     convert_parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR, help="Output directory")
     convert_parser.add_argument("--quantization", "-q", type=str, default=None, choices=["float16", "float32", "int8", "int4"], help="Quantization (defaults to float16, or detects from filename)")
     convert_parser.add_argument("--force-quantization", action="store_true", help="Force quantization even if it appears redundant (e.g. Int8 -> Int8)")
-    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("--type", type=str, choices=["sd", "wan", "hunyuan", "ltx", "flux", "flux-controlnet", "lumina", "vae"], help="Type of model (optional if auto-detectable)")
+    convert_parser.add_argument("--vae-type", type=str, choices=["flux", "sdxl", "sd", "wan", "ltx", "hunyuan", "auto"], default="auto", help="VAE architecture type (for --type vae)")
+    convert_parser.add_argument("--vae-components", type=str, nargs="+", choices=["encoder", "decoder"], default=["encoder", "decoder"], help="Which VAE components to convert")
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
     convert_parser.add_argument("--skip-validation", action="store_true", help="Skip pre-flight validation checks")
@@ -268,6 +271,14 @@ def main():
                 # Wan might need local files
                 # local_path = hf_manager.download_model(args.repo_id, local_dir=download_dir)
                 converter = WanConverter(args.model_id, args.output_dir, args.quantization)
+            elif model_type == "vae":
+                converter = VAEConverter(
+                    args.model_id,
+                    args.output_dir,
+                    args.quantization or "float16",
+                    vae_type=args.vae_type,
+                    components=args.vae_components,
+                )
             else:
                 # Fallback to SD
                 converter = SDConverter(args.model_id, args.output_dir, args.quantization)
