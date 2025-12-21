@@ -1,100 +1,261 @@
 # ComfyUI Example Workflows
 
-This directory contains example workflows that demonstrate how to use Metal Diffusion's Core ML nodes in ComfyUI.
+This directory contains example workflows demonstrating Alloy's Core ML nodes for Apple Silicon acceleration.
 
-## Available Workflows
+## Quick Start
 
-### 1. Flux Basic Text-to-Image (`flux_basic_txt2img.json`)
-
-A simple Flux.1 Schnell workflow for text-to-image generation using Core ML acceleration.
-
-**Features:**
-- Core ML Transformer (accelerated on Apple Neural Engine)
-- Standard CLIP/T5 text encoding (PyTorch)
-- VAE decode (PyTorch)
-- 4 steps, Euler sampler
-
-**Requirements:**
-- Converted Flux Core ML model (`.mlpackage`)
-- Flux VAE (`ae.safetensors`)
-- Flux CLIP models (`t5xxl_fp16.safetensors`, `clip_l.safetensors`)
-
-**Usage:**
-1. Place your `Flux_Transformer.mlpackage` in `ComfyUI/models/unet/`
-2. Ensure VAE and CLIP models are in their respective directories
-3. Load this workflow in ComfyUI
-4. Update the prompt and generate!
-
-**Expected Performance (M2 Max):**
-- ~2-3 seconds per image at 1024x1024
-- Significantly faster than pure PyTorch on MPS
+1. Convert a model: `alloy convert black-forest-labs/FLUX.1-schnell --type flux`
+2. Place `.mlpackage` in `ComfyUI/models/unet/`
+3. Load any workflow below and generate!
 
 ---
 
-### 2. Flux Image-to-Image (`flux_img2img.json`)
+## Image Generation Workflows
 
-Transform existing images using Flux with Core ML acceleration.
+### Flux Text-to-Image (`flux_txt2img.json`)
 
-**Features:**
-- Load and encode input image with VAE
-- Apply artistic styles or modifications
-- Adjustable denoise strength (0.7 = moderate changes)
-- 20 steps for high quality
+Basic Flux.1 Schnell workflow with separate loader nodes.
 
-**Requirements:**
-- Same as basic workflow
-- Input image (any resolution, will be resized to latent space)
+**Nodes Used:** `CoreMLFluxLoader`, `DualCLIPLoader`, `VAELoader`, `KSampler`
 
-**Usage:**
-1. Load workflow
-2. Upload your image in the LoadImage node
-3. Adjust the denoise strength in KSampler (0.5-0.9 range)
-4. Modify prompt to describe desired changes
-5. Generate!
+**Best For:** Users who want full control over each component.
 
-**Denoise Strength Guide:**
-- 0.3-0.5: Subtle refinement, keep original structure
-- 0.6-0.7: Moderate changes, artistic style transfer
-- 0.8-0.9: Major transformation, only rough composition kept
+---
 
-## Customization Tips
+### Flux All-in-One (`flux_allinone.json`)
 
-### Changing Resolution
-Modify the `EmptyLatentImage` node:
-- 512x512: Mobile-friendly, faster
-- 1024x1024: Standard quality
-- 1024x1536: Portrait orientation
+Simplified Flux workflow using the integrated loader.
 
-### Adjusting Steps
-Flux Schnell works best with **4 steps**. For Flux Dev models:
-- Increase steps to 20-50
-- Set guidance scale to 3.5
+**Nodes Used:** `CoreMLFluxWithCLIP`, `KSampler`
 
-### Using Different Schedulers
-Try different samplers in the KSampler node:
-- `euler` - Fast, good quality (recommended)
-- `dpmpp_2m` - Better detail
-- `heun` - Smoother results
+**Best For:** Quick setup - one node loads transformer, CLIP, and VAE together.
+
+---
+
+### Flux Image-to-Image (`flux_img2img.json`)
+
+Transform existing images with Flux.
+
+**Nodes Used:** `CoreMLFluxWithCLIP`, `LoadImage`, `VAEEncode`, `KSampler`
+
+**Denoise Guide:**
+- 0.3-0.5: Subtle refinement
+- 0.6-0.7: Moderate style transfer
+- 0.8-0.9: Major transformation
+
+---
+
+### Flux with Core ML VAE (`flux_coreml_vae.json`) ⭐ NEW
+
+Full Apple Silicon acceleration - both transformer AND VAE on ANE.
+
+**Nodes Used:** `CoreMLFluxWithCLIP`, `CoreMLVAELoader`, `CoreMLVAEDecode`
+
+**Benefit:** VAE decode is ~3x faster than PyTorch for high-resolution images.
+
+**Setup:**
+```bash
+alloy convert black-forest-labs/FLUX.1-schnell --type flux
+alloy convert black-forest-labs/FLUX.1-schnell --type vae --vae-components decoder
+```
+
+---
+
+### Flux with ControlNet (`flux_controlnet.json`) ⭐ NEW
+
+Guided generation using Canny edges or depth maps.
+
+**Nodes Used:** `CoreMLFluxLoader`, `CoreMLControlNetLoader`, `CoreMLApplyControlNet`, `LoadImage`
+
+**Setup:**
+```bash
+alloy convert black-forest-labs/FLUX.1-schnell --type flux
+alloy convert Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro --type flux-controlnet
+```
+
+**Strength Guide:**
+- 0.3-0.5: Loose guidance, more creative freedom
+- 0.6-0.8: Balanced control
+- 0.9-1.0: Strict adherence to control image
+
+---
+
+### Lumina Image 2.0 (`lumina_image.json`) ⭐ NEW
+
+High-quality image generation with Alpha-VLLM's Lumina.
+
+**Nodes Used:** `CoreMLLuminaWithCLIP`, `KSampler`
+
+**Features:** Uses Gemma 2B text encoder, great for artistic images.
+
+---
+
+## Video Generation Workflows
+
+### LTX Video (`ltx_video.json`) ⭐ NEW
+
+Generate short video clips with Lightricks LTX-Video.
+
+**Nodes Used:** `CoreMLLTXVideoWithCLIP`, `KSampler`, `VHS_VideoCombine`
+
+**Settings:**
+- 25 frames ≈ 1 second at 24fps
+- Resolution: 512x512 or 768x512
+- Steps: 20-30 for quality
+
+---
+
+### Wan 2.1 Video (`wan_video.json`) ⭐ NEW
+
+Text-to-video generation with Wan 2.1.
+
+**Nodes Used:** `CoreMLWanVideoWithCLIP`, `KSampler`, `VHS_VideoCombine`
+
+**Variants:**
+- T2V (Text-to-Video): Generate from prompts
+- I2V (Image-to-Video): Animate an image
+
+---
+
+### Hunyuan Video (`hunyuan_video.json`) ⭐ NEW
+
+Cinematic video generation with Tencent's HunyuanVideo.
+
+**Nodes Used:** `CoreMLHunyuanVideoWithCLIP`, `KSampler`, `VHS_VideoCombine`
+
+**Features:** Dual text encoders (LLAVA + CLIP), embedded guidance.
+
+---
+
+## Conversion Workflows
+
+### Quick Convert (`convert_quick.json`)
+
+One-click conversion with presets.
+
+**Nodes Used:** `CoreMLQuickConverter`
+
+**Presets:** Flux Schnell, Flux Dev, LTX Video, Wan Video, Hunyuan Video, Lumina
+
+---
+
+### Convert with LoRA (`convert_lora.json`)
+
+Bake LoRA weights into the model during conversion.
+
+**Nodes Used:** `CoreMLLoraConfig`, `CoreMLConverter`
+
+**Benefit:** No runtime LoRA overhead - styles are permanent in the model.
+
+---
+
+### Convert → Analyze → Generate (`convert_and_generate.json`) ⭐ NEW
+
+Complete pipeline demonstrating the full workflow.
+
+**Nodes Used:** `CoreMLQuickConverter`, `CoreMLModelAnalyzer`, `CoreMLFluxLoader`, `KSampler`
+
+**Flow:**
+1. Convert model (cached after first run)
+2. Analyze to verify correctness
+3. Generate images
+
+---
+
+## Utility Workflows
+
+### Model Analysis (`model_analysis.json`) ⭐ NEW
+
+Inspect converted Core ML models.
+
+**Nodes Used:** `CoreMLModelAnalyzer`, `ShowText`
+
+**Shows:**
+- Input/output tensor shapes
+- Quantization applied
+- Model metadata
+- Memory requirements
+
+---
+
+## Node Reference
+
+| Category | Node | Purpose |
+|----------|------|---------|
+| **Loaders** | `CoreMLFluxLoader` | Load Flux transformer |
+| | `CoreMLFluxWithCLIP` | All-in-one Flux loader |
+| | `CoreMLLTXVideoWithCLIP` | LTX video + T5 + VAE |
+| | `CoreMLWanVideoWithCLIP` | Wan video + encoder + VAE |
+| | `CoreMLHunyuanVideoWithCLIP` | Hunyuan + dual encoders + VAE |
+| | `CoreMLLuminaWithCLIP` | Lumina + Gemma + VAE |
+| **ControlNet** | `CoreMLControlNetLoader` | Load ControlNet model |
+| | `CoreMLApplyControlNet` | Apply control to generation |
+| **VAE** | `CoreMLVAELoader` | Load Core ML VAE |
+| | `CoreMLVAEEncode` | Encode image to latents |
+| | `CoreMLVAEDecode` | Decode latents to image |
+| | `CoreMLVAETile` | Tiled decode for large images |
+| **Conversion** | `CoreMLConverter` | Full conversion options |
+| | `CoreMLQuickConverter` | Preset-based conversion |
+| | `CoreMLLoraConfig` | Configure LoRA for baking |
+| **Utilities** | `CoreMLModelAnalyzer` | Inspect model details |
+| | `CoreMLBatchSampler` | Batch image generation |
+
+---
+
+## Performance Tips
+
+### Optimal Settings by Model
+
+| Model | Steps | Sampler | CFG | Resolution |
+|-------|-------|---------|-----|------------|
+| Flux Schnell | 4 | euler | 1.0 | 1024x1024 |
+| Flux Dev | 20-50 | euler | 3.5 | 1024x1024 |
+| LTX Video | 20-30 | euler | 7.5 | 512x512 |
+| Wan Video | 30-50 | euler | 6.0 | 832x480 |
+| Hunyuan Video | 30-50 | euler | 6.0 | 720x480 |
+| Lumina | 20-30 | euler | 7.0 | 1024x1024 |
+
+### Quantization
+
+- **int4**: Best performance, recommended for most use cases
+- **int8**: Balanced quality/speed
+- **float16**: Maximum quality, larger files
+
+### Memory Management
+
+- Close other apps during conversion
+- Use int4 for large models (14B+ parameters)
+- Monitor Activity Monitor → Memory tab
+
+---
 
 ## Troubleshooting
 
 **"Model not found"**
-- Ensure the `.mlpackage` path in the Core ML Transformer Loader matches your file
-- Check that it's in `ComfyUI/models/unet/`
+- Check `.mlpackage` is in correct directory (`unet/`, `vae/`, `controlnet/`)
+- Verify file permissions
 
 **"Shape mismatch"**
-- Verify your EmptyLatentImage dimensions are compatible with Flux (multiples of 64)
-- Flux typically uses 512, 1024, or 1536 dimensions
+- Use multiples of 64 for dimensions
+- Match resolution to model training (check notes in workflow)
 
 **Slow performance**
-- Ensure Core ML model is using ANE: check Activity Monitor for "Neural Engine" usage
-- Try int4 quantization for faster inference (convert with `--quantization int4`)
+- Verify ANE usage in Activity Monitor
+- Use int4 quantization
+- Close background applications
 
-## Creating Your Own Workflows
+**Video nodes not working**
+- Install ComfyUI-VideoHelperSuite for `VHS_VideoCombine`
+- Check frame count matches model capabilities
 
-The Core ML Transformer Loader works like a standard model loader. You can:
-1. Add ControlNet nodes (if converted to Core ML)
-2. Use with LoRA (requires PyTorch model patching)
-3. Combine with other ComfyUI extensions
+---
 
-For advanced usage, see the main `README.md` in the parent directory.
+## Requirements
+
+- macOS 14+ (Sonoma or newer)
+- Apple Silicon Mac (M1/M2/M3/M4)
+- ComfyUI with Alloy custom nodes installed
+- Converted Core ML models (`.mlpackage`)
+
+For video workflows, install:
+- [ComfyUI-VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
