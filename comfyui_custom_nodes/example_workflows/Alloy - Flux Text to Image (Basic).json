@@ -1,32 +1,82 @@
 {
-    "last_node_id": 10,
-    "last_link_id": 10,
+    "last_node_id": 12,
+    "last_link_id": 11,
     "nodes": [
         {
             "id": 10,
             "type": "Note",
-            "pos": [50, -100],
-            "size": {"0": 700, "1": 120},
+            "pos": [
+                50.0,
+                -100.0
+            ],
+            "size": {
+                "0": 650,
+                "1": 100
+            },
             "flags": {},
             "order": 0,
             "mode": 0,
             "properties": {},
-            "widgets_values": ["FLUX Basic Text-to-Image (Core ML)\n\nRequirements:\n1. Convert a Flux model: alloy convert flux (or use CoreMLQuickConverter node)\n2. Place .mlpackage in ComfyUI/models/unet/\n3. Download CLIP models (t5xxl, clip_l) to ComfyUI/models/clip/\n4. Download VAE (ae.safetensors) to ComfyUI/models/vae/\n\nTip: Use 4 steps for Schnell, 20-50 for Dev. Resolution must be multiples of 64."]
+            "widgets_values": [
+                "FLUX Basic Text-to-Image (Core ML)\n\nThis workflow converts and loads the model automatically.\nFirst run: Conversion takes 5-15 minutes (one-time, cached).\nSubsequent runs: Uses cached model.\n\nTip: Use 4 steps for Schnell, 20-50 for Dev. Resolution must be multiples of 64."
+            ]
+        },
+        {
+            "id": 11,
+            "type": "CoreMLQuickConverter",
+            "pos": [
+                50.0,
+                65.0
+            ],
+            "size": {
+                "0": 300,
+                "1": 130
+            },
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "links": [
+                        10
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLQuickConverter"
+            },
+            "widgets_values": [
+                "Flux Schnell (Fast)",
+                "int8",
+                ""
+            ]
         },
         {
             "id": 1,
             "type": "CoreMLFluxLoader",
             "pos": [
-                50,
-                100
+                50.0,
+                241.0
             ],
             "size": {
-                "0": 315,
+                "0": 300,
                 "1": 82
             },
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
+            "inputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "link": 10,
+                    "widget": {
+                        "name": "model_path"
+                    }
+                }
+            ],
             "outputs": [
                 {
                     "name": "MODEL",
@@ -40,22 +90,117 @@
                 "Node name for S&R": "CoreMLFluxLoader"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage"
+                ""
+            ]
+        },
+        {
+            "id": 4,
+            "type": "EmptyLatentImage",
+            "pos": [
+                50.0,
+                362.00000000000006
+            ],
+            "size": {
+                "0": 300,
+                "1": 106
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "LATENT",
+                    "type": "LATENT",
+                    "links": [
+                        6
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "EmptyLatentImage"
+            },
+            "widgets_values": [
+                1024,
+                1024,
+                1
+            ]
+        },
+        {
+            "id": 9,
+            "type": "DualCLIPLoader",
+            "pos": [
+                50.0,
+                516.0
+            ],
+            "size": {
+                "0": 300,
+                "1": 106
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "CLIP",
+                    "type": "CLIP",
+                    "links": [
+                        2,
+                        4
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "DualCLIPLoader"
+            },
+            "widgets_values": [
+                "t5xxl_fp16.safetensors",
+                "clip_l.safetensors",
+                "flux"
+            ]
+        },
+        {
+            "id": 8,
+            "type": "VAELoader",
+            "pos": [
+                50.0,
+                670.0000000000001
+            ],
+            "size": {
+                "0": 300,
+                "1": 58
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "VAE",
+                    "type": "VAE",
+                    "links": [
+                        8
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "VAELoader"
+            },
+            "widgets_values": [
+                "ae.safetensors"
             ]
         },
         {
             "id": 2,
             "type": "CLIPTextEncode",
             "pos": [
-                400,
-                100
+                429.49999999999994,
+                65.0
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 150
             },
             "flags": {},
-            "order": 2,
+            "order": 3,
             "mode": 0,
             "inputs": [
                 {
@@ -84,15 +229,15 @@
             "id": 3,
             "type": "CLIPTextEncode",
             "pos": [
-                400,
-                350
+                429.49999999999994,
+                263.00000000000006
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 130
             },
             "flags": {},
-            "order": 3,
+            "order": 4,
             "mode": 0,
             "inputs": [
                 {
@@ -118,50 +263,18 @@
             ]
         },
         {
-            "id": 4,
-            "type": "EmptyLatentImage",
-            "pos": [
-                50,
-                300
-            ],
-            "size": {
-                "0": 315,
-                "1": 106
-            },
-            "flags": {},
-            "order": 1,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "LATENT",
-                    "type": "LATENT",
-                    "links": [
-                        6
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "EmptyLatentImage"
-            },
-            "widgets_values": [
-                1024,
-                1024,
-                1
-            ]
-        },
-        {
             "id": 5,
             "type": "KSampler",
             "pos": [
-                850,
-                100
+                866.4999999999999,
+                65.0
             ],
             "size": {
-                "0": 315,
+                "0": 300,
                 "1": 262
             },
             "flags": {},
-            "order": 4,
+            "order": 5,
             "mode": 0,
             "inputs": [
                 {
@@ -211,15 +324,15 @@
             "id": 6,
             "type": "VAEDecode",
             "pos": [
-                1200,
-                100
+                1246.0,
+                65.0
             ],
             "size": {
-                "0": 210,
+                "0": 180,
                 "1": 46
             },
             "flags": {},
-            "order": 5,
+            "order": 6,
             "mode": 0,
             "inputs": [
                 {
@@ -250,15 +363,15 @@
             "id": 7,
             "type": "SaveImage",
             "pos": [
-                1450,
-                100
+                1246.0,
+                153.00000000000003
             ],
             "size": {
-                "0": 315,
+                "0": 300,
                 "1": 270
             },
             "flags": {},
-            "order": 6,
+            "order": 7,
             "mode": 0,
             "inputs": [
                 {
@@ -270,69 +383,6 @@
             "properties": {},
             "widgets_values": [
                 "flux_coreml_output"
-            ]
-        },
-        {
-            "id": 8,
-            "type": "VAELoader",
-            "pos": [
-                850,
-                400
-            ],
-            "size": {
-                "0": 315,
-                "1": 58
-            },
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "VAE",
-                    "type": "VAE",
-                    "links": [
-                        8
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "VAELoader"
-            },
-            "widgets_values": [
-                "ae.safetensors"
-            ]
-        },
-        {
-            "id": 9,
-            "type": "DualCLIPLoader",
-            "pos": [
-                50,
-                500
-            ],
-            "size": {
-                "0": 315,
-                "1": 106
-            },
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "CLIP",
-                    "type": "CLIP",
-                    "links": [
-                        2,
-                        4
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "DualCLIPLoader"
-            },
-            "widgets_values": [
-                "t5xxl_fp16.safetensors",
-                "clip_l.safetensors",
-                "flux"
             ]
         }
     ],
@@ -411,15 +461,23 @@
         ],
         [
             10,
-            9,
+            11,
             0,
-            2,
+            1,
             0,
-            "CLIP"
+            "STRING"
         ]
     ],
     "groups": [],
     "config": {},
-    "extra": {},
+    "extra": {
+        "ds": {
+            "scale": 1.0,
+            "offset": [
+                2.0,
+                135.99999999999994
+            ]
+        }
+    },
     "version": 0.4
 }

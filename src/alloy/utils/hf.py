@@ -3,9 +3,9 @@ from dotenv import load_dotenv
 from huggingface_hub import HfApi, snapshot_download, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
-from alloy.exceptions import HuggingFaceError
+from alloy.exceptions import HuggingFaceError, GatedModelError
 from alloy.logging import get_logger
-from alloy.utils.errors import get_download_suggestions
+from alloy.utils.errors import get_download_suggestions, is_gated_model_error, get_gated_model_suggestions
 
 load_dotenv()
 
@@ -36,6 +36,14 @@ class HFManager:
             logger.info("Model downloaded to: %s", path)
             return path
         except Exception as e:
+            # Check if this is a gated model access issue
+            if is_gated_model_error(e):
+                raise GatedModelError(
+                    f"Access denied to gated model: {e}",
+                    repo_id=repo_id,
+                    original_error=e,
+                    suggestions=get_gated_model_suggestions(repo_id),
+                ) from e
             raise HuggingFaceError(
                 f"Failed to download model: {e}",
                 repo_id=repo_id,

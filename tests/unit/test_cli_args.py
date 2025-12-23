@@ -31,11 +31,17 @@ def test_convert_sd_args():
                    quantization="float16",
                    verbose=0,
                    quiet=False,
-                   skip_validation=True
+                   skip_validation=True,
+                   hf_token=None,
+                   force_quantization=False,
+                   lora=None,
+                   controlnet=False,
+                   vae_type="auto",
+                   vae_components=["encoder", "decoder"]
                )):
         with patch("alloy.cli.SDConverter") as MockConverter:
             main()
-            MockConverter.assert_called_with("models/sd-turbo", "converted_models", "float16")
+            MockConverter.assert_called_with("models/sd-turbo", "converted_models", "float16", hf_token=None)
             MockConverter.return_value.convert.assert_called_once()
 
 def test_convert_wan_args():
@@ -48,9 +54,15 @@ def test_convert_wan_args():
                    quantization="int4",
                    verbose=0,
                    quiet=False,
-                   skip_validation=True
+                   skip_validation=True,
+                   hf_token=None,
+                   force_quantization=False,
+                   lora=None,
+                   controlnet=False,
+                   vae_type="auto",
+                   vae_components=["encoder", "decoder"]
                )):
         with patch("alloy.cli.WanConverter") as MockConverter:
             main()
-            MockConverter.assert_called_with("models/wan-1.3b", "converted_models", "int4")
+            MockConverter.assert_called_with("models/wan-1.3b", "converted_models", "int4", hf_token=None)
             MockConverter.return_value.convert.assert_called_once()

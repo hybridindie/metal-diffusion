@@ -1,10 +1,11 @@
 """Advanced ComfyUI nodes for Metal Diffusion"""
 
-import folder_paths
 import comfy.utils
 import comfy.model_management
 import coremltools as ct
 from pathlib import Path
+
+from .utils import resolve_model_path, find_mlpackage_files
 
 
 class CoreMLModelAnalyzer:
@@ -12,11 +13,12 @@ class CoreMLModelAnalyzer:
     Analyze and display Core ML model information in ComfyUI.
     Useful for debugging and understanding model properties.
     """
-    
+
     @classmethod
     def INPUT_TYPES(s):
+        coreml_models = find_mlpackage_files("unet")
         return {"required": {
-            "model_path": (folder_paths.get_filename_list("unet"),)
+            "model_path": (coreml_models,) if coreml_models else (["No .mlpackage files found"],)
         }}
     
     RETURN_TYPES = ("STRING",)
@@ -26,7 +28,7 @@ class CoreMLModelAnalyzer:
     
     def analyze_model(self, model_path):
         """Analyze Core ML model and return detailed info"""
-        full_path = folder_paths.get_full_path("unet", model_path)
+        full_path = resolve_model_path("unet", model_path)
         
         try:
             model = ct.models.MLModel(full_path)

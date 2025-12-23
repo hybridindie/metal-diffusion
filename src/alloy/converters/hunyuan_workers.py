@@ -16,6 +16,7 @@ import coremltools as ct
 from alloy.logging import get_logger
 from alloy.workers.base import worker_context, quantize_and_save
 from alloy.exceptions import DependencyError
+from alloy.utils.coreml import get_deployment_target
 
 try:
     from diffusers import HunyuanVideoTransformer3DModel
@@ -187,7 +188,7 @@ class HunyuanPart2Wrapper(torch.nn.Module):
         return hidden_states
 
 
-def load_hunyuan_transformer(model_id_or_path: str):
+def load_hunyuan_transformer(model_id_or_path: str, token=None, cache_dir=None):
     """Helper to load just the HunyuanVideo transformer efficiently."""
     if HunyuanVideoTransformer3DModel is None:
         raise DependencyError(
@@ -216,7 +217,9 @@ def load_hunyuan_transformer(model_id_or_path: str):
             return HunyuanVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 subfolder="transformer",
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
         except Exception:
             logger.debug(
@@ -225,7 +228,9 @@ def load_hunyuan_transformer(model_id_or_path: str):
             )
             return HunyuanVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
 
 
@@ -236,13 +241,15 @@ def convert_hunyuan_part1(
     intermediates_dir: Optional[str] = None,
     log_queue: Optional[Queue] = None,
     progress_queue: Optional[Queue] = None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ) -> None:
     """Worker function for Part 1 (Input Embeddings + Dual-Stream Blocks)."""
     with worker_context("Hunyuan", "Part 1", log_queue, progress_queue, "part1") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Hunyuan transformer")
 
-        transformer = load_hunyuan_transformer(model_id)
+        transformer = load_hunyuan_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -279,7 +286,7 @@ def convert_hunyuan_part1(
             inputs=ml_inputs,
             outputs=ml_outputs,
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(quantization)
         )
         if reporter:
             reporter.step_end("convert")
@@ -299,13 +306,15 @@ def convert_hunyuan_part2(
     intermediates_dir: Optional[str] = None,
     log_queue: Optional[Queue] = None,
     progress_queue: Optional[Queue] = None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ) -> None:
     """Worker function for Part 2 (Single-Stream Blocks + Final Layer)."""
     with worker_context("Hunyuan", "Part 2", log_queue, progress_queue, "part2") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Hunyuan transformer")
 
-        transformer = load_hunyuan_transformer(model_id)
+        transformer = load_hunyuan_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -360,7 +369,7 @@ def convert_hunyuan_part2(
             inputs=ml_inputs,
             outputs=[ct.TensorType(name="sample")],
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(quantization)
         )
         if reporter:
             reporter.step_end("convert")

@@ -35,7 +35,8 @@ class TestFluxConverter(unittest.TestCase):
 
         self.assertTrue(mock_process.called)
         self.assertEqual(mock_process.call_count, 2)
-        mock_pipeline.save.assert_called_with(os.path.join(self.output_dir, "Flux_Transformer_float16.mlpackage"))
+        # Uses source model name in filename
+        mock_pipeline.save.assert_called_with(os.path.join(self.output_dir, "FLUX.1-schnell_float16.mlpackage"))
 
     @patch("alloy.converters.base.multiprocessing.Process")
     @patch("alloy.converters.base.logger")
@@ -69,11 +70,11 @@ class TestFluxConverter(unittest.TestCase):
     @patch("alloy.converters.base.ct.utils.make_pipeline")
     @patch("alloy.converters.base.logger")
     def test_resume_intermediates(self, mock_logger, mock_make_pipeline, mock_mlmodel, mock_process):
-        # Create dummy intermediates
+        # Create dummy intermediates (using source model name)
         intermediaries_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediaries_dir)
-        part1 = os.path.join(intermediaries_dir, "FluxPart1.mlpackage")
-        part2 = os.path.join(intermediaries_dir, "FluxPart2.mlpackage")
+        part1 = os.path.join(intermediaries_dir, "FLUX.1-schnell_Part1.mlpackage")
+        part2 = os.path.join(intermediaries_dir, "FLUX.1-schnell_Part2.mlpackage")
         os.makedirs(part1)
         os.makedirs(part2)
 
@@ -99,10 +100,10 @@ class TestFluxConverter(unittest.TestCase):
         self, mock_logger, mock_rmtree, mock_make_pipeline, mock_mlmodel, mock_process
     ):
         """Test that corrupt intermediate triggers re-conversion."""
-        # Create dummy intermediate that will fail validation
+        # Create dummy intermediate that will fail validation (using source model name)
         intermediates_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediates_dir)
-        part1 = os.path.join(intermediates_dir, "FluxPart1.mlpackage")
+        part1 = os.path.join(intermediates_dir, "FLUX.1-schnell_Part1.mlpackage")
         os.makedirs(part1)
 
         # Mock MLModel to fail validation for part1 (corrupt), then succeed for assembly
@@ -171,10 +172,10 @@ class TestFluxConverter(unittest.TestCase):
     @patch("alloy.converters.base.logger")
     def test_part2_failure_after_part1_success(self, mock_logger, mock_mlmodel, mock_process):
         """Test that Part 2 failure after Part 1 success raises correct error."""
-        # Create part 1 intermediate that passes validation
+        # Create part 1 intermediate that passes validation (using source model name)
         intermediates_dir = os.path.join(self.output_dir, "intermediates")
         os.makedirs(intermediates_dir)
-        part1 = os.path.join(intermediates_dir, "FluxPart1.mlpackage")
+        part1 = os.path.join(intermediates_dir, "FLUX.1-schnell_Part1.mlpackage")
         os.makedirs(part1)
 
         # Mock MLModel to succeed for part1 validation

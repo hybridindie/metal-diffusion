@@ -7,6 +7,23 @@ from rich.console import Console
 
 console = Console()
 
+
+def get_deployment_target(quantization: str = None):
+    """
+    Get the appropriate CoreML deployment target based on quantization level.
+
+    Int4 quantization requires macOS15/iOS18, while int8/float16/float32 can use macOS14.
+
+    Args:
+        quantization: Quantization type ("int4", "int8", "float16", "float32", etc.)
+
+    Returns:
+        coremltools target (e.g., ct.target.macOS15)
+    """
+    if quantization in ("int4", "4bit", "mixed"):
+        return ct.target.macOS15
+    return ct.target.macOS14
+
 def safe_quantize_model(model_or_path, quantization_type, op_config=None, pbar=None, intermediate_dir=None):
     """
     Safely quantizes a Core ML model. Can accept either an MLModel object or a path to one.

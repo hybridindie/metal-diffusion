@@ -34,7 +34,9 @@ class TestComfyNodes(unittest.TestCase):
     def test_flux_loader_input_types(self):
         inputs = CoreMLFluxLoader.INPUT_TYPES()
         self.assertIn("required", inputs)
-        self.assertIn("model_path", inputs["required"])
+        self.assertIn("optional", inputs)
+        # model_path is optional - can be provided via dropdown or model_path_override link
+        self.assertIn("model_path", inputs["optional"])
 
     def test_ltx_loader_input_types(self):
         inputs = CoreMLLTXVideoLoader.INPUT_TYPES()
@@ -49,7 +51,10 @@ class TestComfyNodes(unittest.TestCase):
     def test_integrated_loader_input_types(self):
         inputs = CoreMLFluxWithCLIP.INPUT_TYPES()
         self.assertIn("required", inputs)
-        self.assertIn("transformer_path", inputs["required"])
+        self.assertIn("optional", inputs)
+        # transformer_path is optional - can be provided via dropdown or transformer_path_override link
+        self.assertIn("transformer_path", inputs["optional"])
+        # clip_model is still required
         self.assertIn("clip_model", inputs["required"])
 
     @patch("comfyui_custom_nodes.nodes.CoreMLFluxWrapper")

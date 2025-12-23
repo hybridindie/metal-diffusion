@@ -1,12 +1,116 @@
 """Conversion node for ComfyUI - intelligently converts models with caching"""
 
 import os
-import torch
+import time
 from pathlib import Path
 import folder_paths
 import hashlib
 
 from alloy.monitor import estimate_memory_requirement, check_memory_warning
+
+# Try to import ComfyUI's progress utilities
+try:
+    import comfy.utils
+    HAS_COMFY_PROGRESS = hasattr(comfy.utils, 'ProgressBar')
+except ImportError:
+    HAS_COMFY_PROGRESS = False
+
+
+class ComfyUIProgressDisplay:
+    """
+    Progress display adapter for ComfyUI that consumes Alloy progress events.
+    Updates ComfyUI progress bar silently unless verbose mode is enabled.
+    """
+
+    # Phase weights for progress calculation (must sum to 1.0)
+    PHASE_WEIGHTS = {
+        "download": 0.10,
+        "part1": 0.40,
+        "part2": 0.35,
+        "assembly": 0.15,
+    }
+
+    def __init__(self, model_name: str, quantization: str, verbose: bool = False):
+        self.model_name = model_name
+        self.quantization = quantization
+        self.verbose = verbose
+        self.start_time = time.time()
+        self.current_phase = None
+        self.completed_phases = set()
+        self.pbar = None
+
+    def start(self):
+        """Start progress tracking."""
+        self.start_time = time.time()
+        print(f"[Alloy] Converting {self.model_name} ({self.quantization})...")
+
+        # Initialize ComfyUI progress bar if available
+        if HAS_COMFY_PROGRESS:
+            try:
+                self.pbar = comfy.utils.ProgressBar(100)
+            except Exception:
+                self.pbar = None
+
+    def stop(self):
+        """Stop progress tracking and show summary."""
+        elapsed = time.time() - self.start_time
+        print(f"[Alloy] Conversion complete ({self._format_duration(elapsed)})")
+
+    def process_event(self, event):
+        """Process a progress event from the conversion worker."""
+        if event.event_type == "phase_start":
+            self.current_phase = event.phase
+            if self.verbose:
+                phase_name = self._get_phase_display_name(event.phase)
+                print(f"[Alloy]   {phase_name}...")
+            self._update_progress_bar()
+
+        elif event.event_type == "phase_end":
+            if event.phase:
+                self.completed_phases.add(event.phase)
+            self._update_progress_bar()
+
+        elif event.event_type in ("step_start", "step_end"):
+            self._update_progress_bar()
+
+    def _get_phase_display_name(self, phase: str) -> str:
+        """Get human-readable phase name."""
+        names = {
+            "download": "Downloading",
+            "part1": "Part 1",
+            "part2": "Part 2",
+            "assembly": "Assembling",
+        }
+        return names.get(phase, phase.title())
+
+    def _update_progress_bar(self):
+        """Update ComfyUI progress bar based on current state."""
+        if not self.pbar:
+            return
+
+        completed_weight = sum(
+            self.PHASE_WEIGHTS.get(p, 0) for p in self.completed_phases
+        )
+
+        if self.current_phase and self.current_phase not in self.completed_phases:
+            phase_weight = self.PHASE_WEIGHTS.get(self.current_phase, 0)
+            completed_weight += phase_weight * 0.5
+
+        try:
+            self.pbar.update_absolute(int(completed_weight * 100))
+        except Exception:
+            # Progress bar updates are non-critical; silently ignore failures
+            # to avoid interrupting the actual conversion process
+            pass
+
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in human-readable form."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+        else:
+            return f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}m"
 
 
 class CoreMLConverter:
@@ -23,56 +127,55 @@ class CoreMLConverter:
             "quantization": (["int4", "int8", "float16", "float32"],),
             "output_name": ("STRING", {"default": "", "multiline": False}),
             "force_reconvert": ("BOOLEAN", {"default": False}),
-            "skip_validation": ("BOOLEAN", {"default": False})
         },
         "optional": {
-            "lora_stack": ("LORA_CONFIG",)
+            "lora_stack": ("LORA_CONFIG",),
+            "hf_token": ("STRING", {"default": "", "multiline": False}),
+            "verbose": ("BOOLEAN", {"default": False}),
         }}
     
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("model_path",)
     FUNCTION = "convert_model"
     CATEGORY = "Alloy/Conversion"
-    OUTPUT_NODE = True
     
-    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, skip_validation=False, lora_stack=None):
+    def convert_model(self, model_source, model_type, quantization, output_name, force_reconvert, lora_stack=None, hf_token=None, verbose=False):
         """
         Convert model to Core ML, using cache if available.
 
+        Args:
+            hf_token: Optional HuggingFace token for gated models (or set HF_TOKEN env var)
+            verbose: Enable detailed output
+
         Returns: Path to the converted .mlpackage
         """
+        if hf_token == "":
+            hf_token = None
+
         # Determine output path
         if not output_name:
-            # Auto-generate name from source
             source_name = model_source.replace("/", "_").replace(".", "_")
-
-            # Append LoRA hash to ensure unique caching for different LoRA combos
             if lora_stack:
                 lora_str = "".join([f"{l['path']}{l['strength_model']}{l['strength_clip']}" for l in lora_stack])
-                lora_hash = hashlib.md5(lora_str.encode()).hexdigest()[:8]
+                lora_hash = hashlib.sha256(lora_str.encode()).hexdigest()[:8]
                 output_name = f"{source_name}_lora{lora_hash}_{quantization}"
             else:
                 output_name = f"{source_name}_{quantization}"
 
-        # Build output path - handle controlnet naming
-        output_base = os.path.join("converted_models", output_name)
+        # Build output path in ComfyUI's models folder
         if model_type == "flux-controlnet":
-            transformer_name = "Flux_ControlNet.mlpackage"
+            model_folder = folder_paths.get_folder_paths("controlnet")[0]
         else:
-            transformer_name = f"{model_type.capitalize()}_Transformer.mlpackage"
-        final_path = os.path.join(output_base, transformer_name)
+            model_folder = folder_paths.get_folder_paths("unet")[0]
+
+        output_base = os.path.join(model_folder, output_name)
+        clean_source_name = model_source.split("/")[-1] if "/" in model_source else model_source
+        final_path = os.path.join(output_base, f"{clean_source_name}_{quantization}.mlpackage")
 
         # Check if already converted
         if os.path.exists(final_path) and not force_reconvert:
-            print(f"[Alloy] Model already converted: {final_path}")
-            print(f"  Set 'force_reconvert' to True to reconvert")
+            print(f"[Alloy] Using cached model: {final_path}")
             return (final_path,)
-
-        # Need to convert
-        print(f"[Alloy] Converting {model_source} to Core ML...")
-        print(f"  Type: {model_type}")
-        print(f"  Quantization: {quantization}")
-        print(f"  Output: {output_base}")
 
         # Check memory before starting
         base_type = model_type.replace("-controlnet", "")
@@ -103,7 +206,7 @@ class CoreMLConverter:
 
             converter_class = converter_map[model_type]
             # Prepare LoRA args for converter
-            kwargs = {}
+            kwargs = {'hf_token': hf_token}
             if model_type == 'flux':
                 # Convert ComfyUI LoRA stack to CLI format strings "path:str_model:str_clip"
                 if lora_stack:
@@ -120,25 +223,31 @@ class CoreMLConverter:
                 **kwargs
             )
 
-            # Run conversion (disable Rich progress display in ComfyUI context)
-            print("[Alloy] Starting conversion (this may take 5-15 minutes)...")
-            converter.convert(show_progress=False, skip_validation=skip_validation)
+            # Run conversion with ComfyUI progress display
+            display = ComfyUIProgressDisplay(model_source, quantization, verbose=verbose)
+            display.start()
+            try:
+                converter.convert(show_progress=False, progress_callback=display.process_event)
+            finally:
+                display.stop()
 
-            print(f"[Alloy] Conversion complete!")
-            print(f"  Saved to: {final_path}")
+            if verbose:
+                print(f"[Alloy] Saved to: {final_path}")
 
             return (final_path,)
 
         except Exception as e:
-            error_msg = f"Conversion failed: {str(e)}"
-            print(f"[Alloy] Error: {error_msg}")
-            raise RuntimeError(error_msg)
+            raise RuntimeError(f"Conversion failed: {str(e)}")
 
 
 class CoreMLQuickConverter:
     """
     One-click converter with smart defaults.
     Perfect for common use cases.
+
+    For presets: just select and run - everything is configured automatically.
+    For custom models: select "Custom" and provide a HuggingFace model ID.
+    Model type is auto-detected, quantization defaults to int4.
     """
 
     PRESETS = [
@@ -157,84 +266,85 @@ class CoreMLQuickConverter:
     def INPUT_TYPES(s):
         return {"required": {
             "preset": (CoreMLQuickConverter.PRESETS,),
+            "quantization": (["int8", "int4", "float16"], {"default": "int8"}),
         },
         "optional": {
-            "custom_model": ("STRING", {"default": "", "multiline": False}),
-            "custom_type": (["flux", "flux-controlnet", "ltx", "wan", "hunyuan", "lumina", "sd"],),
-            "custom_quantization": (["int4", "int8", "float16", "float32"],),
+            "custom_model": ("STRING", {"default": "", "multiline": False,
+                "tooltip": "HuggingFace model ID (only used when preset is 'Custom'). Model type is auto-detected."}),
         }}
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("model_path",)
     FUNCTION = "quick_convert"
     CATEGORY = "Alloy/Conversion"
-    OUTPUT_NODE = True
 
-    def quick_convert(self, preset, custom_model="", custom_type="flux", custom_quantization="int4"):
+    def quick_convert(self, preset, quantization="int8", custom_model=""):
         """Convert with presets for common models"""
 
         presets = {
             "Flux Schnell (Fast)": {
                 "model": "black-forest-labs/FLUX.1-schnell",
                 "type": "flux",
-                "quant": "int4"
             },
             "Flux Dev (Quality)": {
                 "model": "black-forest-labs/FLUX.1-dev",
                 "type": "flux",
-                "quant": "int4"
             },
             "Flux ControlNet (Canny)": {
                 "model": "InstantX/FLUX.1-dev-Controlnet-Canny",
                 "type": "flux-controlnet",
-                "quant": "int4"
             },
             "Flux ControlNet (Depth)": {
                 "model": "Shakker-Labs/FLUX.1-dev-ControlNet-Depth",
                 "type": "flux-controlnet",
-                "quant": "int4"
             },
             "LTX Video": {
                 "model": "Lightricks/LTX-Video",
                 "type": "ltx",
-                "quant": "int4"
             },
             "Hunyuan Video": {
                 "model": "hunyuanvideo-community/HunyuanVideo",
                 "type": "hunyuan",
-                "quant": "int4"
             },
             "Wan 2.1 Video": {
                 "model": "Wan-AI/Wan2.1-T2V-14B",
                 "type": "wan",
-                "quant": "int4"
             },
             "Lumina Image 2.0": {
                 "model": "Alpha-VLLM/Lumina-Image-2.0",
                 "type": "lumina",
-                "quant": "int4"
             },
-            "Custom": {
-                "model": custom_model,
-                "type": custom_type,
-                "quant": custom_quantization
-            }
         }
 
-        config = presets[preset]
+        if preset == "Custom":
+            if not custom_model:
+                raise ValueError("Custom preset requires a HuggingFace model ID in 'custom_model'")
 
-        if preset == "Custom" and not custom_model:
-            raise ValueError("Custom preset requires a model ID in 'custom_model'")
+            # Auto-detect model type
+            from alloy.utils.general import detect_model_type
+            detected_type = detect_model_type(custom_model)
+
+            if not detected_type:
+                raise ValueError(
+                    f"Could not auto-detect model type for '{custom_model}'. "
+                    "Use the full 'Core ML Converter' node for unsupported models."
+                )
+
+            model_id = custom_model
+            model_type = detected_type
+        else:
+            config = presets[preset]
+            model_id = config["model"]
+            model_type = config["type"]
 
         # Use the main converter
         converter_node = CoreMLConverter()
         return converter_node.convert_model(
-            config["model"],
-            config["type"],
-            config["quant"],
+            model_id,
+            model_type,
+            quantization,
             "",  # Auto name
-            False,  # Don't force reconvert
-            False   # Don't skip validation
+            False  # Don't force reconvert
         )
 
 

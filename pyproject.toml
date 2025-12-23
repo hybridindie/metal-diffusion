@@ -1,6 +1,6 @@
 [project]
 name = "silicon-alloy"
-version = "0.3.5"
+version = "0.4.0"
 description = "High-performance Core ML diffusion model converter"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch>=2.4.0",  # coremltools may warn about untested versions but works
+    "torch>=2.7.0,<2.8.0",  # Pinned minor: torch 2.9.x causes NaN outputs with coremltools 9.0
     "diffusers[torch]>=0.30.0",
     "transformers>=4.44.0",
     "coremltools>=8.0",
