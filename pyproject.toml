@@ -27,6 +27,8 @@ classifiers = [
 
 dependencies = [
     "torch>=2.7.0,<2.8.0",  # Pinned minor: torch 2.9.x causes NaN outputs with coremltools 9.0
+    "torchvision==0.22.0",
+    "torchaudio>=2.7.0,<2.8.0",
     "diffusers[torch]>=0.30.0",
     "transformers>=4.44.0",
     "coremltools>=8.0",
