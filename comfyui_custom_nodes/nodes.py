@@ -1,4 +1,3 @@
-import os
 import torch
 import numpy as np
 import coremltools as ct
@@ -245,9 +244,13 @@ class CoreMLFluxWrapper(torch.nn.Module):
             seq_len = latents.shape[1]  # H//2 * W//2
             # Infer spatial dimensions: seq_len = (H//2)*(W//2), assume square
             hw_half = int(seq_len ** 0.5)  # H//2 = W//2
+            if hw_half * hw_half != seq_len:
+                raise ValueError(
+                    f"Non-square packed latents not supported: seq_len={seq_len} "
+                    f"is not a perfect square. Use unpacked (B, C, H, W) format instead."
+                )
             H = hw_half * 2
             W = hw_half * 2
-            C = FLUX_LATENT_CHANNELS
             packed_latents = latents
             packed_latents_np = packed_latents.cpu().numpy().astype(np.float32)
         else:

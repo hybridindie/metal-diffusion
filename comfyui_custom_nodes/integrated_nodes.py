@@ -1,4 +1,3 @@
-import os
 import torch
 from diffusers import DiffusionPipeline
 import folder_paths

@@ -149,11 +149,14 @@ class CoreMLVAELoader:
             # Find decoder and encoder mlpackages in folder
             for item in os.listdir(vae_folder_override):
                 item_path = os.path.join(vae_folder_override, item)
+                # Validate .mlpackage items are directories (as expected)
+                if item.endswith(".mlpackage") and not os.path.isdir(item_path):
+                    continue
                 if item.endswith("_VAE_Decoder.mlpackage") or item == "VAE_Decoder.mlpackage":
                     decoder_full = item_path
                 elif item.endswith("_VAE_Encoder.mlpackage") or item == "VAE_Encoder.mlpackage":
                     encoder_full = item_path
-                elif item == "vae_config.json":
+                elif item == "vae_config.json" and os.path.isfile(item_path):
                     config_path = item_path
 
             if decoder_full:

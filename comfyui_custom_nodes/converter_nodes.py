@@ -99,6 +99,8 @@ class ComfyUIProgressDisplay:
         try:
             self.pbar.update_absolute(int(completed_weight * 100))
         except Exception:
+            # Progress bar updates are non-critical; silently ignore failures
+            # to avoid interrupting the actual conversion process
             pass
 
     def _format_duration(self, seconds: float) -> str:
@@ -155,7 +157,7 @@ class CoreMLConverter:
             source_name = model_source.replace("/", "_").replace(".", "_")
             if lora_stack:
                 lora_str = "".join([f"{l['path']}{l['strength_model']}{l['strength_clip']}" for l in lora_stack])
-                lora_hash = hashlib.md5(lora_str.encode()).hexdigest()[:8]
+                lora_hash = hashlib.sha256(lora_str.encode()).hexdigest()[:8]
                 output_name = f"{source_name}_lora{lora_hash}_{quantization}"
             else:
                 output_name = f"{source_name}_{quantization}"
