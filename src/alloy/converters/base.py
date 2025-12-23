@@ -44,10 +44,47 @@ class BaseModelWrapper(nn.Module):
 
 
 class ModelConverter(ABC):
-    def __init__(self, model_id, output_dir, quantization="float16"):
+    def __init__(self, model_id, output_dir, quantization="float16", hf_token=None, cache_dir=None):
         self.model_id = model_id
         self.output_dir = output_dir
         self.quantization = quantization
+        # Resolve HF token: explicit > env var > cached login
+        self.hf_token = hf_token or os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        # Cache directory for HuggingFace model downloads
+        self.cache_dir = cache_dir
+
+    @property
+    def source_model_name(self) -> str:
+        """
+        Extract a clean model name from the model_id.
+
+        Examples:
+            - "black-forest-labs/FLUX.1-schnell" → "FLUX.1-schnell"
+            - "Wan-AI/Wan2.1-T2V-14B-Diffusers" → "Wan2.1-T2V-14B-Diffusers"
+            - "/path/to/model.safetensors" → "model"
+            - "flux-schnell" → "flux-schnell"
+        """
+        model_id = self.model_id
+
+        # Handle HuggingFace repo format (org/model)
+        if "/" in model_id and not os.path.exists(model_id):
+            return model_id.split("/")[-1]
+
+        # Handle local file path
+        if os.path.isfile(model_id):
+            basename = os.path.basename(model_id)
+            # Remove common extensions
+            for ext in [".safetensors", ".bin", ".pt", ".pth", ".ckpt"]:
+                if basename.endswith(ext):
+                    return basename[:-len(ext)]
+            return basename
+
+        # Handle local directory
+        if os.path.isdir(model_id):
+            return os.path.basename(model_id.rstrip("/"))
+
+        # Fallback: return as-is
+        return model_id
 
     @abstractmethod
     def convert(self):
@@ -123,7 +160,8 @@ class ModelConverter(ABC):
                 repo_id=repo_id,
                 local_dir=source_dir,
                 allow_patterns=allow_patterns,
-                ignore_patterns=ignore_patterns
+                ignore_patterns=ignore_patterns,
+                token=self.hf_token,
             )
             logger_fn(f"Originals saved to: {source_dir}")
             return source_dir
@@ -183,24 +221,27 @@ class TwoPhaseConverter(ModelConverter):
 
     @property
     def output_filename(self) -> str:
-        """Filename for the final merged model."""
-        return f"{self.model_name}_Transformer_{self.quantization}.mlpackage"
+        """Filename for the final merged model. Uses source model name."""
+        return f"{self.source_model_name}_{self.quantization}.mlpackage"
 
     @property
     def part1_filename(self) -> str:
         """Filename for Part 1 intermediate."""
-        return f"{self.model_name}Part1.mlpackage"
+        return f"{self.source_model_name}_Part1.mlpackage"
 
     @property
     def part2_filename(self) -> str:
         """Filename for Part 2 intermediate."""
-        return f"{self.model_name}Part2.mlpackage"
+        return f"{self.source_model_name}_Part2.mlpackage"
 
-    def convert(self, show_progress: bool = True):
+    def convert(self, show_progress: bool = True, progress_callback: Optional[Callable] = None):
         """Main conversion entry point using 2-phase subprocess pattern.
 
         Args:
             show_progress: Whether to show the Rich progress display (default: True)
+            progress_callback: Optional callback function that receives ProgressEvent objects.
+                              If provided, this is called instead of the Rich display.
+                              Signature: callback(event: ProgressEvent) -> None
         """
         os.makedirs(self.output_dir, exist_ok=True)
         ml_model_path = os.path.join(self.output_dir, self.output_filename)
@@ -223,20 +264,44 @@ class TwoPhaseConverter(ModelConverter):
         os.makedirs(intermediates_dir, exist_ok=True)
 
         # Setup progress tracking
-        progress_queue = multiprocessing.Queue() if show_progress else None
+        # Use progress queue if showing progress OR if callback is provided
+        use_progress = show_progress or progress_callback is not None
+        progress_queue = multiprocessing.Queue() if use_progress else None
         display = None
         consumer_thread = None
         stop_event = threading.Event()
 
-        if show_progress:
-            display = ProgressDisplay(self.model_name, self.quantization)
-            display.start()
-            consumer_thread = threading.Thread(
-                target=consume_progress_queue,
-                args=(progress_queue, display, stop_event),
-                daemon=True,
-            )
-            consumer_thread.start()
+        if use_progress:
+            if progress_callback:
+                # Use callback-based progress (for ComfyUI, etc.)
+                def callback_consumer():
+                    from queue import Empty
+                    while not stop_event.is_set():
+                        try:
+                            event = progress_queue.get(timeout=0.1)
+                            if event is None:
+                                break
+                            progress_callback(event)
+                        except Empty:
+                            continue
+                        except Exception:
+                            continue
+
+                consumer_thread = threading.Thread(
+                    target=callback_consumer,
+                    daemon=True,
+                )
+                consumer_thread.start()
+            elif show_progress:
+                # Use Rich display
+                display = ProgressDisplay(self.model_name, self.quantization)
+                display.start()
+                consumer_thread = threading.Thread(
+                    target=consume_progress_queue,
+                    args=(progress_queue, display, stop_event),
+                    daemon=True,
+                )
+                consumer_thread.start()
 
         try:
             # Download phase
@@ -350,6 +415,8 @@ class TwoPhaseConverter(ModelConverter):
                 "intermediates_dir": intermediates_dir,
                 "log_queue": log_queue,
                 "progress_queue": progress_queue,
+                "hf_token": self.hf_token,
+                "cache_dir": self.cache_dir,
             }
         )
         process.start()

@@ -22,6 +22,7 @@ from alloy.exceptions import (
     ConfigError,
     DependencyError,
     HuggingFaceError,
+    GatedModelError,
     ValidationError,
 )
 from alloy.validation import run_preflight_validation
@@ -99,6 +100,7 @@ def main():
     convert_parser.add_argument("--lora", action="append", help="LoRA to bake in. Format: path:strength or path:model_str:clip_str")
     convert_parser.add_argument("--controlnet", action="store_true", help="Enable ControlNet inputs (Flux only)")
     convert_parser.add_argument("--skip-validation", action="store_true", help="Skip pre-flight validation checks")
+    convert_parser.add_argument("--hf-token", type=str, default=None, help="HuggingFace token for gated models (or set HF_TOKEN env var)")
     
     # Upload Command
     upload_parser = subparsers.add_parser("upload", help="Upload converted model to Hugging Face")
@@ -257,20 +259,23 @@ def main():
                      print(f"Quantizing further to {target} may cause significant quality degradation due to double-quantization artifacts.")
                      print("It is recommended to use an FP16 or FP32 source model for best results.")
                     
+            # Resolve HF token (CLI arg takes precedence)
+            hf_token = args.hf_token
+
             if model_type == "flux":
-                converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet)
+                converter = FluxConverter(args.model_id, args.output_dir, args.quantization, loras=args.lora, controlnet_compatible=args.controlnet, hf_token=hf_token)
             elif model_type == "flux-controlnet":
-                converter = FluxControlNetConverter(args.model_id, args.output_dir, args.quantization)
+                converter = FluxControlNetConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
             elif model_type == "ltx":
-                converter = LTXConverter(args.model_id, args.output_dir, args.quantization)
+                converter = LTXConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
             elif model_type == "hunyuan":
-                converter = HunyuanConverter(args.model_id, args.output_dir, args.quantization)
+                converter = HunyuanConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
             elif model_type == "lumina":
-                converter = LuminaConverter(args.model_id, args.output_dir, args.quantization)
+                converter = LuminaConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
             elif model_type == "wan":
                 # Wan might need local files
                 # local_path = hf_manager.download_model(args.repo_id, local_dir=download_dir)
-                converter = WanConverter(args.model_id, args.output_dir, args.quantization)
+                converter = WanConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
             elif model_type == "vae":
                 converter = VAEConverter(
                     args.model_id,
@@ -278,10 +283,11 @@ def main():
                     args.quantization or "float16",
                     vae_type=args.vae_type,
                     components=args.vae_components,
+                    hf_token=hf_token,
                 )
             else:
                 # Fallback to SD
-                converter = SDConverter(args.model_id, args.output_dir, args.quantization)
+                converter = SDConverter(args.model_id, args.output_dir, args.quantization, hf_token=hf_token)
 
             # Run pre-flight validation before conversion.
             # If validation fails, the exception propagates to the handler below
@@ -408,6 +414,10 @@ def main():
         console.print(f"[red]Worker failed:[/red] {e}")
         _print_suggestions(e.suggestions)
         sys.exit(e.exit_code or 1)
+    except GatedModelError as e:
+        console.print(f"[red]Access denied:[/red] {e}")
+        _print_suggestions(e.suggestions)
+        sys.exit(1)
     except HuggingFaceError as e:
         console.print(f"[red]Download failed:[/red] {e}")
         _print_suggestions(e.suggestions)

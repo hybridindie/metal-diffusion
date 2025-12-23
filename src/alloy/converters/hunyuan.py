@@ -15,10 +15,6 @@ class HunyuanConverter(TwoPhaseConverter):
         return "Hunyuan"
 
     @property
-    def output_filename(self) -> str:
-        return f"HunyuanVideo_Transformer_{self.quantization}.mlpackage"
-
-    @property
     def part1_description(self) -> str:
         return "Part 1 (Dual-Stream Blocks)"
 

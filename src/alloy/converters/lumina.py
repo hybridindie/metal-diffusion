@@ -14,18 +14,14 @@ class LuminaConverter(TwoPhaseConverter):
     """
 
     def __init__(self, model_id: str, output_dir: str, quantization: str = "float16",
-                 img_height: int = 1024, img_width: int = 1024):
-        super().__init__(model_id, output_dir, quantization)
+                 img_height: int = 1024, img_width: int = 1024, hf_token: str = None):
+        super().__init__(model_id, output_dir, quantization, hf_token=hf_token)
         self.img_height = img_height
         self.img_width = img_width
 
     @property
     def model_name(self) -> str:
         return "Lumina"
-
-    @property
-    def output_filename(self) -> str:
-        return f"Lumina2_Transformer_{self.quantization}.mlpackage"
 
     @property
     def should_download_source(self) -> bool:

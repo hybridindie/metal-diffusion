@@ -106,7 +106,7 @@ class LuminaPart2Wrapper(torch.nn.Module):
         return hidden_states
 
 
-def load_lumina_transformer(model_id_or_path: str):
+def load_lumina_transformer(model_id_or_path: str, token=None, cache_dir=None):
     """Helper to load just the Lumina transformer efficiently."""
     if Lumina2Transformer2DModel is None:
         raise DependencyError(
@@ -123,7 +123,9 @@ def load_lumina_transformer(model_id_or_path: str):
         return Lumina2Transformer2DModel.from_pretrained(
             model_id_or_path,
             subfolder="transformer",
-            torch_dtype=torch.float32
+            torch_dtype=torch.float32,
+            token=token,
+            cache_dir=cache_dir,
         )
     except Exception:
         logger.debug(
@@ -132,7 +134,9 @@ def load_lumina_transformer(model_id_or_path: str):
         )
         return Lumina2Transformer2DModel.from_pretrained(
             model_id_or_path,
-            torch_dtype=torch.float32
+            torch_dtype=torch.float32,
+            token=token,
+            cache_dir=cache_dir,
         )
 
 
@@ -143,13 +147,15 @@ def convert_lumina_part1(
     intermediates_dir: Optional[str] = None,
     log_queue=None,
     progress_queue=None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ):
     """Worker function for Part 1 (Input projection + first half of blocks)."""
     with worker_context("Lumina", "Part 1", log_queue, progress_queue, "part1") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Lumina transformer")
 
-        transformer = load_lumina_transformer(model_id)
+        transformer = load_lumina_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -228,13 +234,15 @@ def convert_lumina_part2(
     intermediates_dir: Optional[str] = None,
     log_queue=None,
     progress_queue=None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ):
     """Worker function for Part 2 (Second half of blocks + output projection)."""
     with worker_context("Lumina", "Part 2", log_queue, progress_queue, "part2") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Lumina transformer")
 
-        transformer = load_lumina_transformer(model_id)
+        transformer = load_lumina_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:

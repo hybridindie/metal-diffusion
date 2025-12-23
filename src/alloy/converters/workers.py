@@ -104,9 +104,11 @@ class FluxPart1Wrapper(torch.nn.Module):
 
     def _compute_time_embedding(self, timestep, guidance, pooled_projections):
         """Compute time embedding with optional guidance."""
-        if guidance is None:
-            return self.model.time_text_embed(timestep, pooled_projections)
-        return self.model.time_text_embed(timestep, guidance, pooled_projections)
+        # Check if model supports guidance embeddings (FLUX.1-dev does, FLUX.1-schnell doesn't)
+        has_guidance = getattr(self.model.config, 'guidance_embeds', False)
+        if has_guidance and guidance is not None:
+            return self.model.time_text_embed(timestep, guidance, pooled_projections)
+        return self.model.time_text_embed(timestep, pooled_projections)
 
     def _squeeze_ids(self, ids):
         """Squeeze 3D ids to 2D if necessary."""
@@ -148,9 +150,11 @@ class FluxPart2Wrapper(torch.nn.Module):
 
     def _compute_time_embedding(self, timestep, guidance, pooled_projections):
         """Compute time embedding with optional guidance."""
-        if guidance is None:
-            return self.model.time_text_embed(timestep, pooled_projections)
-        return self.model.time_text_embed(timestep, guidance, pooled_projections)
+        # Check if model supports guidance embeddings (FLUX.1-dev does, FLUX.1-schnell doesn't)
+        has_guidance = getattr(self.model.config, 'guidance_embeds', False)
+        if has_guidance and guidance is not None:
+            return self.model.time_text_embed(timestep, guidance, pooled_projections)
+        return self.model.time_text_embed(timestep, pooled_projections)
 
     def _squeeze_ids(self, ids):
         """Squeeze 3D ids to 2D if necessary."""
@@ -181,12 +185,12 @@ class FluxPart2Wrapper(torch.nn.Module):
                 image_rotary_emb=image_rotary_emb
             )
 
-        hidden_states = self.model.norm_out(hidden_states, emb=temb)
+        hidden_states = self.model.norm_out(hidden_states, conditioning_embedding=temb)
         hidden_states = self.model.proj_out(hidden_states)
 
         return hidden_states
 
-def load_flux_transformer(model_id_or_path):
+def load_flux_transformer(model_id_or_path, token=None, cache_dir=None):
     """Helper to load just the transformer efficiently."""
     if os.path.isfile(model_id_or_path):
         logger.debug(
@@ -209,7 +213,9 @@ def load_flux_transformer(model_id_or_path):
             return FluxTransformer2DModel.from_pretrained(
                 model_id_or_path,
                 subfolder="transformer",
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
         except EnvironmentError:
             logger.debug(
@@ -218,7 +224,9 @@ def load_flux_transformer(model_id_or_path):
             )
             return FluxTransformer2DModel.from_pretrained(
                 model_id_or_path,
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
 
 def convert_flux_part1(
@@ -228,13 +236,15 @@ def convert_flux_part1(
     intermediates_dir: Optional[str] = None,
     log_queue: Optional[Queue] = None,
     progress_queue: Optional[Queue] = None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ) -> None:
     """Worker function for Part 1 (Embeddings + DoubleStream Blocks)."""
     with worker_context("Flux", "Part 1", log_queue, progress_queue, "part1") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Flux transformer")
 
-        transformer = load_flux_transformer(model_id)
+        transformer = load_flux_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -289,13 +299,15 @@ def convert_flux_part2(
     intermediates_dir: Optional[str] = None,
     log_queue: Optional[Queue] = None,
     progress_queue: Optional[Queue] = None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ) -> None:
     """Worker function for Part 2 (SingleStream Blocks + Final Layer)."""
     with worker_context("Flux", "Part 2", log_queue, progress_queue, "part2") as reporter:
         if reporter:
             reporter.step_start("load", "Loading Flux transformer")
 
-        transformer = load_flux_transformer(model_id)
+        transformer = load_flux_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:

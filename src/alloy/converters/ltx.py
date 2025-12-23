@@ -11,18 +11,14 @@ class LTXConverter(TwoPhaseConverter):
     Splits at the midpoint of transformer blocks.
     """
 
-    def __init__(self, model_id, output_dir, quantization):
+    def __init__(self, model_id, output_dir, quantization, hf_token=None):
         if "/" not in model_id and not os.path.isfile(model_id):
             model_id = "Lightricks/LTX-Video"
-        super().__init__(model_id, output_dir, quantization)
+        super().__init__(model_id, output_dir, quantization, hf_token=hf_token)
 
     @property
     def model_name(self) -> str:
         return "LTX"
-
-    @property
-    def output_filename(self) -> str:
-        return f"LTXVideo_Transformer_{self.quantization}.mlpackage"
 
     def get_part1_worker(self) -> Callable:
         return convert_ltx_part1

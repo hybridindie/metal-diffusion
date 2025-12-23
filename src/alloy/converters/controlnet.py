@@ -5,7 +5,7 @@ from diffusers import FluxControlNetModel
 import os
 from .base import ModelConverter
 from .flux import NUM_DOUBLE_BLOCKS, NUM_SINGLE_BLOCKS
-from alloy.utils.coreml import safe_quantize_model
+from alloy.utils.coreml import safe_quantize_model, get_deployment_target
 from rich.console import Console
 
 console = Console()
@@ -38,15 +38,19 @@ class FluxControlNetWrapper(torch.nn.Module):
         return (*block_samples, *single_block_samples)
 
 class FluxControlNetConverter(ModelConverter):
-    def __init__(self, model_id, output_dir, quantization):
+    def __init__(self, model_id, output_dir, quantization, hf_token=None):
         if "/" not in model_id and not os.path.isfile(model_id):
              model_id = "black-forest-labs/FLUX.1-Canny-dev" # Example default
-        super().__init__(model_id, output_dir, quantization)
+        super().__init__(model_id, output_dir, quantization, hf_token=hf_token)
         
     def convert(self):
         console.print(f"[cyan]Loading Flux ControlNet:[/cyan] {self.model_id}")
         try:
-            model = FluxControlNetModel.from_pretrained(self.model_id, torch_dtype=torch.float32)
+            model = FluxControlNetModel.from_pretrained(
+                self.model_id,
+                torch_dtype=torch.float32,
+                token=self.hf_token,
+            )
         except Exception as e:
              console.print(f"[red]Error loading controlnet:[/red] {e}")
              raise e
@@ -137,14 +141,14 @@ class FluxControlNetConverter(ModelConverter):
         for i in range(NUM_SINGLE_BLOCKS):
             outputs.append(ct.TensorType(name=f"c_single_{i}"))
             
-        ml_model_dir = os.path.join(self.output_dir, "Flux_ControlNet.mlpackage")
+        ml_model_dir = os.path.join(self.output_dir, f"{self.source_model_name}_ControlNet.mlpackage")
         
         ml_model = ct.convert(
             traced_model,
             inputs=inputs,
             outputs=outputs,
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(self.quantization)
         )
         
         if self.quantization in ["int4", "4bit", "mixed", "int8", "8bit"]:

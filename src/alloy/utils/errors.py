@@ -61,6 +61,52 @@ def get_download_suggestions(repo_id: Optional[str] = None) -> list[str]:
     return suggestions
 
 
+def get_gated_model_suggestions(repo_id: Optional[str] = None) -> list[str]:
+    """Generate suggestions for gated model access failures.
+
+    Args:
+        repo_id: The Hugging Face repository ID that requires access
+
+    Returns:
+        List of actionable suggestion strings
+    """
+    suggestions = [
+        "This model requires authentication. Options:",
+        "  1. Run: huggingface-cli login",
+        "  2. Set environment variable: export HF_TOKEN=your_token",
+        "  3. Use CLI flag: alloy convert ... --hf-token your_token",
+    ]
+
+    if repo_id:
+        suggestions.append(f"  4. Accept access at: https://huggingface.co/{repo_id}")
+
+    return suggestions
+
+
+def is_gated_model_error(error: Exception) -> bool:
+    """Check if an error indicates a gated model access issue.
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if this appears to be a gated model access error
+    """
+    error_str = str(error).lower()
+    gated_indicators = [
+        "gated repo",
+        "access to this model",
+        "401",
+        "403",
+        "unauthorized",
+        "forbidden",
+        "you need to agree",
+        "accept the license",
+        "request access",
+    ]
+    return any(indicator in error_str for indicator in gated_indicators)
+
+
 def get_config_suggestions(missing_fields: Optional[list[str]] = None) -> list[str]:
     """Generate suggestions for configuration errors.
 

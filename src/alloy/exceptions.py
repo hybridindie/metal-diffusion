@@ -167,6 +167,22 @@ class HuggingFaceError(DownloadError):
         return base
 
 
+class GatedModelError(HuggingFaceError):
+    """Raised when access to a gated model is denied due to authentication issues."""
+
+    def __init__(
+        self,
+        message: str,
+        repo_id: Optional[str] = None,
+        original_error: Optional[Exception] = None,
+        suggestions: Optional[list] = None,
+    ):
+        if suggestions is None:
+            from alloy.utils.errors import get_gated_model_suggestions
+            suggestions = get_gated_model_suggestions(repo_id)
+        super().__init__(message, repo_id, original_error, suggestions)
+
+
 # --- Dependency Errors ---
 
 

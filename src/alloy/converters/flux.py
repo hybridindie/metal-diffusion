@@ -14,10 +14,10 @@ class FluxConverter(TwoPhaseConverter):
     Converter for Flux models using 2-phase subprocess isolation.
     """
 
-    def __init__(self, model_id, output_dir, quantization, loras=None, controlnet_compatible=False):
+    def __init__(self, model_id, output_dir, quantization, loras=None, controlnet_compatible=False, hf_token=None):
         if "/" not in model_id and not os.path.isfile(model_id):
             model_id = "black-forest-labs/FLUX.1-schnell"
-        super().__init__(model_id, output_dir, quantization)
+        super().__init__(model_id, output_dir, quantization, hf_token=hf_token)
         self.loras = loras or []
         self.controlnet_compatible = controlnet_compatible
 

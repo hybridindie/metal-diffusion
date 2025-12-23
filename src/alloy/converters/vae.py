@@ -10,7 +10,7 @@ from diffusers import AutoencoderKL, DiffusionPipeline
 from rich.console import Console
 
 from .base import ModelConverter
-from alloy.utils.coreml import safe_quantize_model
+from alloy.utils.coreml import safe_quantize_model, get_deployment_target
 
 console = Console()
 
@@ -101,6 +101,7 @@ class VAEConverter(ModelConverter):
         quantization: str = "float16",
         vae_type: str = "auto",
         components: Optional[List[str]] = None,
+        hf_token: Optional[str] = None,
     ):
         """
         Initialize VAE converter.
@@ -111,8 +112,9 @@ class VAEConverter(ModelConverter):
             quantization: Quantization type ("float16", "float32", "int8", "int4")
             vae_type: VAE architecture type ("flux", "sdxl", "sd", "wan", "ltx", "hunyuan", "auto")
             components: List of components to convert (["encoder", "decoder"])
+            hf_token: HuggingFace token for gated models
         """
-        super().__init__(model_id, output_dir, quantization)
+        super().__init__(model_id, output_dir, quantization, hf_token=hf_token)
         self.vae_type = vae_type
         self.components = components or ["encoder", "decoder"]
 
@@ -168,6 +170,7 @@ class VAEConverter(ModelConverter):
             vae = AutoencoderKL.from_pretrained(
                 self.model_id,
                 torch_dtype=torch.float32,
+                token=self.hf_token,
             )
             console.print("[green]✓[/green] Loaded as standalone VAE")
             return vae
@@ -180,6 +183,7 @@ class VAEConverter(ModelConverter):
                 self.model_id,
                 subfolder="vae",
                 torch_dtype=torch.float32,
+                token=self.hf_token,
             )
             console.print("[green]✓[/green] Loaded VAE from subfolder")
             return vae
@@ -192,6 +196,7 @@ class VAEConverter(ModelConverter):
             pipe = DiffusionPipeline.from_pretrained(
                 self.model_id,
                 torch_dtype=torch.float32,
+                token=self.hf_token,
             )
             vae = pipe.vae
             del pipe
@@ -225,11 +230,11 @@ class VAEConverter(ModelConverter):
 
         # Convert requested components
         if "decoder" in self.components:
-            decoder_path = os.path.join(self.output_dir, "VAE_Decoder.mlpackage")
+            decoder_path = os.path.join(self.output_dir, f"{self.source_model_name}_VAE_Decoder.mlpackage")
             self._convert_decoder(vae, vae_config, decoder_path)
 
         if "encoder" in self.components:
-            encoder_path = os.path.join(self.output_dir, "VAE_Encoder.mlpackage")
+            encoder_path = os.path.join(self.output_dir, f"{self.source_model_name}_VAE_Encoder.mlpackage")
             self._convert_encoder(vae, vae_config, encoder_path)
 
         console.print(f"\n[green]✓ VAE conversion complete![/green]")
@@ -271,7 +276,7 @@ class VAEConverter(ModelConverter):
             inputs=ml_inputs,
             outputs=ml_outputs,
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14,
+            minimum_deployment_target=get_deployment_target(self.quantization),
         )
 
         # Quantize if requested
@@ -321,7 +326,7 @@ class VAEConverter(ModelConverter):
             inputs=ml_inputs,
             outputs=ml_outputs,
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14,
+            minimum_deployment_target=get_deployment_target(self.quantization),
         )
 
         # Quantize if requested

@@ -8,6 +8,7 @@ from rich.console import Console
 from .base import TwoPhaseConverter
 from alloy.converters.wan_workers import convert_wan_part1, convert_wan_part2
 from alloy.exceptions import UnsupportedModelError
+from alloy.utils.coreml import get_deployment_target
 
 console = Console()
 
@@ -21,10 +22,6 @@ class WanConverter(TwoPhaseConverter):
     @property
     def model_name(self) -> str:
         return "Wan"
-
-    @property
-    def output_filename(self) -> str:
-        return f"Wan2.1_Transformer_{self.quantization}.mlpackage"
 
     @property
     def should_download_source(self) -> bool:
@@ -70,9 +67,9 @@ class WanConverter(TwoPhaseConverter):
         model = ct.convert(
             traced_vae,
             inputs=[ct.TensorType(name="latents", shape=latents.shape)],
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(self.quantization)
         )
-        model.save(os.path.join(output_dir, "Wan2.1_VAE_Decoder.mlpackage"))
+        model.save(os.path.join(output_dir, f"{self.source_model_name}_VAE_Decoder.mlpackage"))
 
     def convert_text_encoder(self, text_encoder, output_dir):
         """Convert Text Encoder (optional, T5 is large)."""

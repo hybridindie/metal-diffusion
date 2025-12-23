@@ -15,6 +15,7 @@ import coremltools as ct
 from alloy.logging import get_logger
 from alloy.workers.base import worker_context, quantize_and_save
 from alloy.exceptions import DependencyError
+from alloy.utils.coreml import get_deployment_target
 
 try:
     from diffusers import LTXVideoTransformer3DModel
@@ -140,7 +141,7 @@ class LTXPart2Wrapper(torch.nn.Module):
         return hidden_states
 
 
-def load_ltx_transformer(model_id_or_path: str):
+def load_ltx_transformer(model_id_or_path: str, token=None, cache_dir=None):
     """Helper to load just the LTX transformer efficiently."""
     if LTXVideoTransformer3DModel is None:
         raise DependencyError(
@@ -169,7 +170,9 @@ def load_ltx_transformer(model_id_or_path: str):
             return LTXVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
                 subfolder="transformer",
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
         except Exception:
             logger.debug(
@@ -178,7 +181,9 @@ def load_ltx_transformer(model_id_or_path: str):
             )
             return LTXVideoTransformer3DModel.from_pretrained(
                 model_id_or_path,
-                torch_dtype=torch.float32
+                torch_dtype=torch.float32,
+                token=token,
+                cache_dir=cache_dir,
             )
 
 
@@ -189,13 +194,15 @@ def convert_ltx_part1(
     intermediates_dir: Optional[str] = None,
     log_queue=None,
     progress_queue=None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ):
     """Worker function for Part 1 (Input projection + first half of blocks)."""
     with worker_context("LTX", "Part 1", log_queue, progress_queue, "part1") as reporter:
         if reporter:
             reporter.step_start("load", "Loading LTX transformer")
 
-        transformer = load_ltx_transformer(model_id)
+        transformer = load_ltx_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -256,7 +263,7 @@ def convert_ltx_part1(
             inputs=ml_inputs,
             outputs=ml_outputs,
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(quantization)
         )
         if reporter:
             reporter.step_end("convert")
@@ -276,13 +283,15 @@ def convert_ltx_part2(
     intermediates_dir: Optional[str] = None,
     log_queue=None,
     progress_queue=None,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[str] = None,
 ):
     """Worker function for Part 2 (Second half of blocks + output projection)."""
     with worker_context("LTX", "Part 2", log_queue, progress_queue, "part2") as reporter:
         if reporter:
             reporter.step_start("load", "Loading LTX transformer")
 
-        transformer = load_ltx_transformer(model_id)
+        transformer = load_ltx_transformer(model_id, token=hf_token, cache_dir=cache_dir)
         transformer.eval()
 
         if reporter:
@@ -347,7 +356,7 @@ def convert_ltx_part2(
             inputs=ml_inputs,
             outputs=[ct.TensorType(name="sample")],
             compute_units=ct.ComputeUnit.ALL,
-            minimum_deployment_target=ct.target.macOS14
+            minimum_deployment_target=get_deployment_target(quantization)
         )
         if reporter:
             reporter.step_end("convert")
