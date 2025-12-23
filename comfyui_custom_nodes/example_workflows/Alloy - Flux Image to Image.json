@@ -1,32 +1,82 @@
 {
-    "last_node_id": 13,
-    "last_link_id": 14,
+    "last_node_id": 14,
+    "last_link_id": 15,
     "nodes": [
         {
             "id": 11,
             "type": "Note",
-            "pos": [50, -100],
-            "size": {"0": 700, "1": 120},
+            "pos": [
+                50.0,
+                -100.0
+            ],
+            "size": {
+                "0": 650,
+                "1": 120
+            },
             "flags": {},
             "order": 0,
             "mode": 0,
             "properties": {},
-            "widgets_values": ["FLUX Image-to-Image (Core ML)\n\nTransform an existing image with a text prompt. Adjust denoise strength (0.7 = 70% change).\n\nSetup:\n1. Load your source image in the LoadImage node\n2. Set denoise in KSampler (0.3-0.5 for subtle, 0.7-1.0 for major changes)\n3. Describe the desired transformation in the positive prompt\n\nNote: Higher steps (15-30) often work better for img2img than txt2img."]
+            "widgets_values": [
+                "FLUX Image-to-Image (Core ML)\n\nTransform an existing image with a text prompt. Adjust denoise strength (0.7 = 70% change).\n\nSetup:\n1. Load your source image in the LoadImage node\n2. Set denoise in KSampler (0.3-0.5 for subtle, 0.7-1.0 for major changes)\n3. Describe the desired transformation in the positive prompt\n\nFirst run converts the model (one-time, cached). Subsequent runs skip conversion."
+            ]
+        },
+        {
+            "id": 12,
+            "type": "CoreMLQuickConverter",
+            "pos": [
+                50.0,
+                87.00000000000003
+            ],
+            "size": {
+                "0": 280,
+                "1": 130
+            },
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "links": [
+                        12
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLQuickConverter"
+            },
+            "widgets_values": [
+                "Flux Schnell (Fast)",
+                "int8",
+                ""
+            ]
         },
         {
             "id": 1,
             "type": "CoreMLFluxLoader",
             "pos": [
-                50,
-                100
+                50.0,
+                263.00000000000006
             ],
             "size": {
-                "0": 315,
+                "0": 280,
                 "1": 82
             },
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
+            "inputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "link": 12,
+                    "widget": {
+                        "name": "model_path"
+                    }
+                }
+            ],
             "outputs": [
                 {
                     "name": "MODEL",
@@ -40,19 +90,119 @@
                 "Node name for S&R": "CoreMLFluxLoader"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage"
+                ""
+            ]
+        },
+        {
+            "id": 4,
+            "type": "LoadImage",
+            "pos": [
+                50.0,
+                384.00000000000006
+            ],
+            "size": {
+                "0": 280,
+                "1": 280
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "IMAGE",
+                    "type": "IMAGE",
+                    "links": [
+                        6
+                    ]
+                },
+                {
+                    "name": "MASK",
+                    "type": "MASK",
+                    "links": null
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "LoadImage"
+            },
+            "widgets_values": [
+                "example.png",
+                "image"
+            ]
+        },
+        {
+            "id": 9,
+            "type": "VAELoader",
+            "pos": [
+                50.0,
+                725.0000000000001
+            ],
+            "size": {
+                "0": 280,
+                "1": 58
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "VAE",
+                    "type": "VAE",
+                    "links": [
+                        7,
+                        10
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "VAELoader"
+            },
+            "widgets_values": [
+                "ae.safetensors"
+            ]
+        },
+        {
+            "id": 10,
+            "type": "DualCLIPLoader",
+            "pos": [
+                50.0,
+                824.0000000000001
+            ],
+            "size": {
+                "0": 280,
+                "1": 106
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "CLIP",
+                    "type": "CLIP",
+                    "links": [
+                        2,
+                        4
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "DualCLIPLoader"
+            },
+            "widgets_values": [
+                "t5xxl_fp16.safetensors",
+                "clip_l.safetensors",
+                "flux"
             ]
         },
         {
             "id": 2,
             "type": "CLIPTextEncode",
             "pos": [
-                400,
-                100
+                406.5,
+                87.00000000000003
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 150
             },
             "flags": {},
             "order": 3,
@@ -84,12 +234,12 @@
             "id": 3,
             "type": "CLIPTextEncode",
             "pos": [
-                400,
-                350
+                406.5,
+                285.00000000000006
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 130
             },
             "flags": {},
             "order": 4,
@@ -114,54 +264,18 @@
                 "Node name for S&R": "CLIPTextEncode"
             },
             "widgets_values": [
-                "blurry, low quality"
-            ]
-        },
-        {
-            "id": 4,
-            "type": "LoadImage",
-            "pos": [
-                50,
-                300
-            ],
-            "size": {
-                "0": 315,
-                "1": 314
-            },
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "IMAGE",
-                    "type": "IMAGE",
-                    "links": [
-                        6
-                    ]
-                },
-                {
-                    "name": "MASK",
-                    "type": "MASK",
-                    "links": null
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "LoadImage"
-            },
-            "widgets_values": [
-                "example.png",
-                "image"
+                "blurry, low quality, distorted"
             ]
         },
         {
             "id": 5,
             "type": "VAEEncode",
             "pos": [
-                400,
-                600
+                406.5,
+                461.0
             ],
             "size": {
-                "0": 210,
+                "0": 180,
                 "1": 46
             },
             "flags": {},
@@ -196,11 +310,11 @@
             "id": 6,
             "type": "KSampler",
             "pos": [
-                850,
-                100
+                843.4999999999999,
+                87.00000000000003
             ],
             "size": {
-                "0": 315,
+                "0": 280,
                 "1": 262
             },
             "flags": {},
@@ -254,11 +368,11 @@
             "id": 7,
             "type": "VAEDecode",
             "pos": [
-                1200,
-                100
+                1200.0,
+                87.00000000000003
             ],
             "size": {
-                "0": 210,
+                "0": 180,
                 "1": 46
             },
             "flags": {},
@@ -293,11 +407,11 @@
             "id": 8,
             "type": "SaveImage",
             "pos": [
-                1450,
-                100
+                1200.0,
+                175.0
             ],
             "size": {
-                "0": 315,
+                "0": 280,
                 "1": 270
             },
             "flags": {},
@@ -313,70 +427,6 @@
             "properties": {},
             "widgets_values": [
                 "flux_img2img_output"
-            ]
-        },
-        {
-            "id": 9,
-            "type": "VAELoader",
-            "pos": [
-                50,
-                700
-            ],
-            "size": {
-                "0": 315,
-                "1": 58
-            },
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "VAE",
-                    "type": "VAE",
-                    "links": [
-                        7,
-                        10
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "VAELoader"
-            },
-            "widgets_values": [
-                "ae.safetensors"
-            ]
-        },
-        {
-            "id": 10,
-            "type": "DualCLIPLoader",
-            "pos": [
-                50,
-                800
-            ],
-            "size": {
-                "0": 315,
-                "1": 106
-            },
-            "flags": {},
-            "order": 0,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "CLIP",
-                    "type": "CLIP",
-                    "links": [
-                        2,
-                        4
-                    ]
-                }
-            ],
-            "properties": {
-                "Node name for S&R": "DualCLIPLoader"
-            },
-            "widgets_values": [
-                "t5xxl_fp16.safetensors",
-                "clip_l.safetensors",
-                "flux"
             ]
         }
     ],
@@ -468,10 +518,26 @@
             8,
             0,
             "IMAGE"
+        ],
+        [
+            12,
+            12,
+            0,
+            1,
+            0,
+            "STRING"
         ]
     ],
     "groups": [],
     "config": {},
-    "extra": {},
+    "extra": {
+        "ds": {
+            "scale": 1.0,
+            "offset": [
+                35.0,
+                34.99999999999994
+            ]
+        }
+    },
     "version": 0.4
 }

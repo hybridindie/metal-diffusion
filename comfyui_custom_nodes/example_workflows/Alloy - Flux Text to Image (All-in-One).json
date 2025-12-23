@@ -1,33 +1,82 @@
 {
-    "last_node_id": 9,
-    "last_link_id": 8,
+    "last_node_id": 11,
+    "last_link_id": 10,
     "nodes": [
         {
             "id": 7,
             "type": "Note",
-            "pos": [100, -100],
-            "size": {"0": 700, "1": 120},
+            "pos": [
+                50.0,
+                -100.0
+            ],
+            "size": {
+                "0": 650,
+                "1": 120
+            },
             "flags": {},
             "order": 0,
             "mode": 0,
             "properties": {},
-            "widgets_values": ["All-in-One FLUX Workflow (Simplified)\n\nCoreMLFluxWithCLIP loads everything in one node:\n- MODEL: Core ML Flux transformer (runs on Apple Neural Engine)\n- CLIP: Combined T5-XXL + CLIP-L text encoders (auto-downloaded)\n- VAE: Image decoder (auto-downloaded)\n\nJust select your .mlpackage file and the matching HuggingFace model ID.\nNo need for separate DualCLIPLoader or VAELoader nodes!\n\nIdeal for: Quick testing, simpler workflows, beginners."]
+            "widgets_values": [
+                "All-in-One FLUX Workflow (Simplified)\n\nCoreMLFluxWithCLIP loads everything in one node:\n- MODEL: Core ML Flux transformer (runs on Apple Neural Engine)\n- CLIP: Combined T5-XXL + CLIP-L text encoders (auto-downloaded)\n- VAE: Image decoder (auto-downloaded)\n\nFirst run converts the model (5-15 min, cached). Subsequent runs skip conversion."
+            ]
+        },
+        {
+            "id": 9,
+            "type": "CoreMLQuickConverter",
+            "pos": [
+                50.0,
+                87.00000000000003
+            ],
+            "size": {
+                "0": 300,
+                "1": 130
+            },
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "links": [
+                        10
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLQuickConverter"
+            },
+            "widgets_values": [
+                "Flux Schnell (Fast)",
+                "int8",
+                ""
+            ]
         },
         {
             "id": 1,
             "type": "CoreMLFluxWithCLIP",
             "pos": [
-                100,
-                100
+                50.0,
+                263.00000000000006
             ],
             "size": {
-                "0": 350,
-                "1": 150
+                "0": 320,
+                "1": 130
             },
             "flags": {},
-            "order": 0,
+            "order": 2,
             "mode": 0,
-            "inputs": [],
+            "inputs": [
+                {
+                    "name": "transformer_path_override",
+                    "type": "STRING",
+                    "link": 10,
+                    "widget": {
+                        "name": "transformer_path_override"
+                    }
+                }
+            ],
             "outputs": [
                 {
                     "name": "MODEL",
@@ -41,7 +90,8 @@
                     "name": "CLIP",
                     "type": "CLIP",
                     "links": [
-                        2
+                        2,
+                        8
                     ],
                     "slot_index": 1
                 },
@@ -58,23 +108,23 @@
                 "Node name for S&R": "CoreMLFluxWithCLIP"
             },
             "widgets_values": [
-                "Flux_Transformer.mlpackage",
-                "black-forest-labs/FLUX.1-schnell"
+                "black-forest-labs/FLUX.1-schnell",
+                ""
             ]
         },
         {
             "id": 2,
             "type": "CLIPTextEncode",
             "pos": [
-                500,
-                100
+                452.49999999999994,
+                87.00000000000003
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 150
             },
             "flags": {},
-            "order": 1,
+            "order": 3,
             "mode": 0,
             "inputs": [
                 {
@@ -99,18 +149,54 @@
             ]
         },
         {
+            "id": 8,
+            "type": "CLIPTextEncode",
+            "pos": [
+                452.49999999999994,
+                285.00000000000006
+            ],
+            "size": {
+                "0": 350,
+                "1": 130
+            },
+            "flags": {},
+            "order": 4,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "clip",
+                    "type": "CLIP",
+                    "link": 8
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "CONDITIONING",
+                    "type": "CONDITIONING",
+                    "links": [
+                        9
+                    ],
+                    "slot_index": 0
+                }
+            ],
+            "properties": {},
+            "widgets_values": [
+                "blurry, low quality, distorted, ugly"
+            ]
+        },
+        {
             "id": 3,
             "type": "EmptyLatentImage",
             "pos": [
-                500,
-                350
+                452.49999999999994,
+                461.0
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 100
             },
             "flags": {},
-            "order": 2,
+            "order": 5,
             "mode": 0,
             "inputs": [],
             "outputs": [
@@ -134,15 +220,15 @@
             "id": 4,
             "type": "KSampler",
             "pos": [
-                950,
-                100
+                889.4999999999999,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
-                "1": 300
+                "0": 280,
+                "1": 262
             },
             "flags": {},
-            "order": 3,
+            "order": 6,
             "mode": 0,
             "inputs": [
                 {
@@ -158,7 +244,7 @@
                 {
                     "name": "negative",
                     "type": "CONDITIONING",
-                    "link": null
+                    "link": 9
                 },
                 {
                     "name": "latent_image",
@@ -191,15 +277,15 @@
             "id": 5,
             "type": "VAEDecode",
             "pos": [
-                1300,
-                100
+                1246.0,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
-                "1": 100
+                "0": 180,
+                "1": 46
             },
             "flags": {},
-            "order": 4,
+            "order": 7,
             "mode": 0,
             "inputs": [
                 {
@@ -229,15 +315,15 @@
             "id": 6,
             "type": "SaveImage",
             "pos": [
-                1650,
-                100
+                1246.0,
+                175.0
             ],
             "size": {
-                "0": 300,
-                "1": 300
+                "0": 280,
+                "1": 270
             },
             "flags": {},
-            "order": 5,
+            "order": 8,
             "mode": 0,
             "inputs": [
                 {
@@ -309,10 +395,42 @@
             6,
             0,
             "IMAGE"
+        ],
+        [
+            8,
+            1,
+            1,
+            8,
+            0,
+            "CLIP"
+        ],
+        [
+            9,
+            8,
+            0,
+            4,
+            2,
+            "CONDITIONING"
+        ],
+        [
+            10,
+            9,
+            0,
+            1,
+            0,
+            "STRING"
         ]
     ],
     "groups": [],
     "config": {},
-    "extra": {},
+    "extra": {
+        "ds": {
+            "scale": 1.0,
+            "offset": [
+                12.0,
+                219.5
+            ]
+        }
+    },
     "version": 0.4
 }

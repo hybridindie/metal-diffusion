@@ -1,67 +1,149 @@
 {
-    "last_node_id": 14,
-    "last_link_id": 14,
+    "last_node_id": 16,
+    "last_link_id": 16,
     "nodes": [
         {
             "id": 14,
             "type": "Note",
-            "pos": [50, -120],
-            "size": {"0": 750, "1": 140},
+            "pos": [
+                50.0,
+                -120.0
+            ],
+            "size": {
+                "0": 700,
+                "1": 140
+            },
             "flags": {},
             "order": 0,
             "mode": 0,
             "properties": {},
-            "widgets_values": ["FLUX ControlNet Workflow (Core ML)\n\nGuided image generation using Canny edge detection or depth maps.\n\nRequirements:\n1. Convert Flux model: alloy convert black-forest-labs/FLUX.1-schnell --type flux\n2. Convert ControlNet: alloy convert Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro --type flux-controlnet\n3. Place both .mlpackage files in ComfyUI/models/unet/ and controlnet/\n4. Use Canny or DepthAnything preprocessor on your control image\n\nTip: Strength 0.5-0.8 works well. Lower = more creative freedom, Higher = stricter adherence."]
+            "widgets_values": [
+                "FLUX ControlNet Workflow (Core ML)\n\nGuided image generation using Canny edge detection or depth maps.\n\nSetup:\n1. Flux model converts automatically (first run takes 5-15 min, cached after)\n2. ControlNet requires manual conversion:\n   alloy convert Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro --type flux-controlnet\n3. Place ControlNet .mlpackage in ComfyUI/models/controlnet/\n\nTip: Strength 0.5-0.8 works well. Lower = more creative, Higher = stricter."
+            ]
         },
         {
-            "id": 1,
-            "type": "CoreMLFluxLoader",
-            "pos": [50, 100],
-            "size": {"0": 315, "1": 82},
+            "id": 15,
+            "type": "CoreMLQuickConverter",
+            "pos": [
+                50.0,
+                89.00000000000003
+            ],
+            "size": {
+                "0": 280,
+                "1": 130
+            },
             "flags": {},
             "order": 1,
             "mode": 0,
             "outputs": [
                 {
-                    "name": "MODEL",
-                    "type": "MODEL",
-                    "links": [1]
+                    "name": "model_path",
+                    "type": "STRING",
+                    "links": [
+                        13
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "CoreMLFluxLoader"},
-            "widgets_values": ["Flux_Transformer.mlpackage"]
+            "properties": {
+                "Node name for S&R": "CoreMLQuickConverter"
+            },
+            "widgets_values": [
+                "Flux Schnell (Fast)",
+                "int8",
+                ""
+            ]
+        },
+        {
+            "id": 1,
+            "type": "CoreMLFluxLoader",
+            "pos": [
+                50.0,
+                265.00000000000006
+            ],
+            "size": {
+                "0": 280,
+                "1": 82
+            },
+            "flags": {},
+            "order": 2,
+            "mode": 0,
+            "inputs": [
+                {
+                    "name": "model_path",
+                    "type": "STRING",
+                    "link": 13,
+                    "widget": {
+                        "name": "model_path"
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "MODEL",
+                    "type": "MODEL",
+                    "links": [
+                        1
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLFluxLoader"
+            },
+            "widgets_values": [
+                ""
+            ]
         },
         {
             "id": 2,
             "type": "CoreMLControlNetLoader",
-            "pos": [50, 250],
-            "size": {"0": 315, "1": 82},
-            "flags": {},
-            "order": 2,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "COREML_CONTROLNET",
-                    "type": "COREML_CONTROLNET",
-                    "links": [2]
-                }
+            "pos": [
+                50.0,
+                386.00000000000006
             ],
-            "properties": {"Node name for S&R": "CoreMLControlNetLoader"},
-            "widgets_values": ["Flux_ControlNet_Canny.mlpackage"]
-        },
-        {
-            "id": 3,
-            "type": "LoadImage",
-            "pos": [50, 400],
-            "size": {"0": 315, "1": 314},
+            "size": {
+                "0": 280,
+                "1": 82
+            },
             "flags": {},
             "order": 3,
             "mode": 0,
             "outputs": [
                 {
+                    "name": "COREML_CONTROLNET",
+                    "type": "COREML_CONTROLNET",
+                    "links": [
+                        2
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "CoreMLControlNetLoader"
+            },
+            "widgets_values": [
+                "Flux_ControlNet_Canny.mlpackage"
+            ]
+        },
+        {
+            "id": 3,
+            "type": "LoadImage",
+            "pos": [
+                50.0,
+                507.0
+            ],
+            "size": {
+                "0": 280,
+                "1": 280
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
                     "name": "IMAGE",
                     "type": "IMAGE",
-                    "links": [3]
+                    "links": [
+                        3
+                    ]
                 },
                 {
                     "name": "MASK",
@@ -69,14 +151,88 @@
                     "links": null
                 }
             ],
-            "properties": {"Node name for S&R": "LoadImage"},
-            "widgets_values": ["example_canny.png", "image"]
+            "properties": {
+                "Node name for S&R": "LoadImage"
+            },
+            "widgets_values": [
+                "example_canny.png",
+                "image"
+            ]
+        },
+        {
+            "id": 5,
+            "type": "DualCLIPLoader",
+            "pos": [
+                50.0,
+                848.0000000000001
+            ],
+            "size": {
+                "0": 280,
+                "1": 106
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "CLIP",
+                    "type": "CLIP",
+                    "links": [
+                        5,
+                        6
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "DualCLIPLoader"
+            },
+            "widgets_values": [
+                "t5xxl_fp16.safetensors",
+                "clip_l.safetensors",
+                "flux"
+            ]
+        },
+        {
+            "id": 10,
+            "type": "VAELoader",
+            "pos": [
+                50.0,
+                1002.0
+            ],
+            "size": {
+                "0": 280,
+                "1": 58
+            },
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "outputs": [
+                {
+                    "name": "VAE",
+                    "type": "VAE",
+                    "links": [
+                        11
+                    ]
+                }
+            ],
+            "properties": {
+                "Node name for S&R": "VAELoader"
+            },
+            "widgets_values": [
+                "ae.safetensors"
+            ]
         },
         {
             "id": 4,
             "type": "CoreMLApplyControlNet",
-            "pos": [400, 100],
-            "size": {"0": 315, "1": 126},
+            "pos": [
+                406.5,
+                89.00000000000003
+            ],
+            "size": {
+                "0": 280,
+                "1": 126
+            },
             "flags": {},
             "order": 4,
             "mode": 0,
@@ -101,37 +257,31 @@
                 {
                     "name": "MODEL",
                     "type": "MODEL",
-                    "links": [4]
+                    "links": [
+                        4
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "CoreMLApplyControlNet"},
-            "widgets_values": [0.75]
-        },
-        {
-            "id": 5,
-            "type": "DualCLIPLoader",
-            "pos": [50, 750],
-            "size": {"0": 315, "1": 106},
-            "flags": {},
-            "order": 5,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "CLIP",
-                    "type": "CLIP",
-                    "links": [5, 6]
-                }
-            ],
-            "properties": {"Node name for S&R": "DualCLIPLoader"},
-            "widgets_values": ["t5xxl_fp16.safetensors", "clip_l.safetensors", "flux"]
+            "properties": {
+                "Node name for S&R": "CoreMLApplyControlNet"
+            },
+            "widgets_values": [
+                0.75
+            ]
         },
         {
             "id": 6,
             "type": "CLIPTextEncode",
-            "pos": [400, 300],
-            "size": {"0": 400, "1": 200},
+            "pos": [
+                406.5,
+                265.00000000000006
+            ],
+            "size": {
+                "0": 350,
+                "1": 150
+            },
             "flags": {},
-            "order": 6,
+            "order": 5,
             "mode": 0,
             "inputs": [
                 {
@@ -144,19 +294,31 @@
                 {
                     "name": "CONDITIONING",
                     "type": "CONDITIONING",
-                    "links": [7]
+                    "links": [
+                        7
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "CLIPTextEncode"},
-            "widgets_values": ["a futuristic cyberpunk city at night, neon lights, rain, highly detailed, cinematic lighting"]
+            "properties": {
+                "Node name for S&R": "CLIPTextEncode"
+            },
+            "widgets_values": [
+                "a futuristic cyberpunk city at night, neon lights, rain, highly detailed, cinematic lighting"
+            ]
         },
         {
             "id": 7,
             "type": "CLIPTextEncode",
-            "pos": [400, 550],
-            "size": {"0": 400, "1": 200},
+            "pos": [
+                406.5,
+                463.0
+            ],
+            "size": {
+                "0": 350,
+                "1": 130
+            },
             "flags": {},
-            "order": 7,
+            "order": 6,
             "mode": 0,
             "inputs": [
                 {
@@ -169,37 +331,63 @@
                 {
                     "name": "CONDITIONING",
                     "type": "CONDITIONING",
-                    "links": [8]
+                    "links": [
+                        8
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "CLIPTextEncode"},
-            "widgets_values": ["blurry, low quality, distorted, ugly"]
+            "properties": {
+                "Node name for S&R": "CLIPTextEncode"
+            },
+            "widgets_values": [
+                "blurry, low quality, distorted, ugly"
+            ]
         },
         {
             "id": 8,
             "type": "EmptyLatentImage",
-            "pos": [400, 800],
-            "size": {"0": 315, "1": 106},
+            "pos": [
+                406.5,
+                639.0000000000001
+            ],
+            "size": {
+                "0": 280,
+                "1": 106
+            },
             "flags": {},
-            "order": 8,
+            "order": 0,
             "mode": 0,
             "outputs": [
                 {
                     "name": "LATENT",
                     "type": "LATENT",
-                    "links": [9]
+                    "links": [
+                        9
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "EmptyLatentImage"},
-            "widgets_values": [1024, 1024, 1]
+            "properties": {
+                "Node name for S&R": "EmptyLatentImage"
+            },
+            "widgets_values": [
+                1024,
+                1024,
+                1
+            ]
         },
         {
             "id": 9,
             "type": "KSampler",
-            "pos": [850, 100],
-            "size": {"0": 315, "1": 262},
+            "pos": [
+                843.4999999999999,
+                89.00000000000003
+            ],
+            "size": {
+                "0": 280,
+                "1": 262
+            },
             "flags": {},
-            "order": 9,
+            "order": 7,
             "mode": 0,
             "inputs": [
                 {
@@ -227,37 +415,37 @@
                 {
                     "name": "LATENT",
                     "type": "LATENT",
-                    "links": [10]
+                    "links": [
+                        10
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "KSampler"},
-            "widgets_values": [42, "fixed", 4, 1.0, "euler", "normal", 1.0]
-        },
-        {
-            "id": 10,
-            "type": "VAELoader",
-            "pos": [850, 450],
-            "size": {"0": 315, "1": 58},
-            "flags": {},
-            "order": 10,
-            "mode": 0,
-            "outputs": [
-                {
-                    "name": "VAE",
-                    "type": "VAE",
-                    "links": [11]
-                }
-            ],
-            "properties": {"Node name for S&R": "VAELoader"},
-            "widgets_values": ["ae.safetensors"]
+            "properties": {
+                "Node name for S&R": "KSampler"
+            },
+            "widgets_values": [
+                42,
+                "fixed",
+                4,
+                1.0,
+                "euler",
+                "normal",
+                1.0
+            ]
         },
         {
             "id": 11,
             "type": "VAEDecode",
-            "pos": [1200, 100],
-            "size": {"0": 210, "1": 46},
+            "pos": [
+                1200.0,
+                89.00000000000003
+            ],
+            "size": {
+                "0": 180,
+                "1": 46
+            },
             "flags": {},
-            "order": 11,
+            "order": 8,
             "mode": 0,
             "inputs": [
                 {
@@ -275,18 +463,28 @@
                 {
                     "name": "IMAGE",
                     "type": "IMAGE",
-                    "links": [12]
+                    "links": [
+                        12
+                    ]
                 }
             ],
-            "properties": {"Node name for S&R": "VAEDecode"}
+            "properties": {
+                "Node name for S&R": "VAEDecode"
+            }
         },
         {
             "id": 12,
             "type": "SaveImage",
-            "pos": [1450, 100],
-            "size": {"0": 315, "1": 270},
+            "pos": [
+                1200.0,
+                177.0
+            ],
+            "size": {
+                "0": 280,
+                "1": 270
+            },
             "flags": {},
-            "order": 12,
+            "order": 9,
             "mode": 0,
             "inputs": [
                 {
@@ -296,25 +494,127 @@
                 }
             ],
             "properties": {},
-            "widgets_values": ["flux_controlnet_output"]
+            "widgets_values": [
+                "flux_controlnet_output"
+            ]
         }
     ],
     "links": [
-        [1, 1, 0, 4, 0, "MODEL"],
-        [2, 2, 0, 4, 1, "COREML_CONTROLNET"],
-        [3, 3, 0, 4, 2, "IMAGE"],
-        [4, 4, 0, 9, 0, "MODEL"],
-        [5, 5, 0, 6, 0, "CLIP"],
-        [6, 5, 0, 7, 0, "CLIP"],
-        [7, 6, 0, 9, 1, "CONDITIONING"],
-        [8, 7, 0, 9, 2, "CONDITIONING"],
-        [9, 8, 0, 9, 3, "LATENT"],
-        [10, 9, 0, 11, 0, "LATENT"],
-        [11, 10, 0, 11, 1, "VAE"],
-        [12, 11, 0, 12, 0, "IMAGE"]
+        [
+            1,
+            1,
+            0,
+            4,
+            0,
+            "MODEL"
+        ],
+        [
+            2,
+            2,
+            0,
+            4,
+            1,
+            "COREML_CONTROLNET"
+        ],
+        [
+            3,
+            3,
+            0,
+            4,
+            2,
+            "IMAGE"
+        ],
+        [
+            4,
+            4,
+            0,
+            9,
+            0,
+            "MODEL"
+        ],
+        [
+            5,
+            5,
+            0,
+            6,
+            0,
+            "CLIP"
+        ],
+        [
+            6,
+            5,
+            0,
+            7,
+            0,
+            "CLIP"
+        ],
+        [
+            7,
+            6,
+            0,
+            9,
+            1,
+            "CONDITIONING"
+        ],
+        [
+            8,
+            7,
+            0,
+            9,
+            2,
+            "CONDITIONING"
+        ],
+        [
+            9,
+            8,
+            0,
+            9,
+            3,
+            "LATENT"
+        ],
+        [
+            10,
+            9,
+            0,
+            11,
+            0,
+            "LATENT"
+        ],
+        [
+            11,
+            10,
+            0,
+            11,
+            1,
+            "VAE"
+        ],
+        [
+            12,
+            11,
+            0,
+            12,
+            0,
+            "IMAGE"
+        ],
+        [
+            13,
+            15,
+            0,
+            1,
+            0,
+            "STRING"
+        ]
     ],
     "groups": [],
     "config": {},
-    "extra": {},
+    "extra": {
+        "ds": {
+            "scale": 1.0,
+            "offset": [
+                35.0,
+                -20.0
+            ]
+        }
+    },
     "version": 0.4
 }

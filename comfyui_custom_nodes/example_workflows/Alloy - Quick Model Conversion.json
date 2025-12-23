@@ -5,23 +5,31 @@
         {
             "id": 10,
             "type": "Note",
-            "pos": [100, -100],
-            "size": {"0": 750, "1": 140},
+            "pos": [
+                50.0,
+                -100.0
+            ],
+            "size": {
+                "0": 650,
+                "1": 120
+            },
             "flags": {},
             "order": 0,
             "mode": 0,
             "properties": {},
-            "widgets_values": ["Smart Conversion Workflow\n\nConvert models to Core ML directly in ComfyUI!\n\n1. CoreMLQuickConverter: Select a preset (Flux Schnell, Flux Dev, LTX Video)\n   - First run downloads and converts the model (5-15 min)\n   - Subsequent runs use cached model instantly\n\n2. CoreMLFluxLoader: Loads the converted .mlpackage\n\nThe converter outputs the model path, which feeds directly into the loader.\nConversion happens once - results are cached in converted_models/"]
+            "widgets_values": [
+                "Smart Conversion Workflow\n\nConvert models to Core ML directly in ComfyUI!\n\n1. CoreMLQuickConverter: Select a preset (Flux Schnell, Flux Dev, LTX Video)\n   - First run downloads and converts the model (5-15 min)\n   - Subsequent runs use cached model instantly\n\n2. CoreMLFluxLoader: Loads the converted .mlpackage\n\nThe converter outputs the model path, which feeds directly into the loader.\nConversion happens once - results are cached in converted_models/"
+            ]
         },
         {
             "id": 1,
             "type": "CoreMLQuickConverter",
             "pos": [
-                100,
-                100
+                50.0,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 100
             },
             "flags": {},
@@ -43,19 +51,19 @@
             },
             "widgets_values": [
                 "Flux Schnell (Fast)",
-                "",
-                "flux"
+                "int8",
+                ""
             ]
         },
         {
             "id": 2,
             "type": "CoreMLFluxLoader",
             "pos": [
-                450,
-                100
+                406.5,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 100
             },
             "flags": {},
@@ -92,11 +100,11 @@
             "id": 3,
             "type": "DualCLIPLoader",
             "pos": [
-                100,
-                300
+                50.0,
+                230.0
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 100
             },
             "flags": {},
@@ -124,12 +132,12 @@
             "id": 4,
             "type": "CLIPTextEncode",
             "pos": [
-                450,
-                300
+                406.5,
+                230.0
             ],
             "size": {
-                "0": 400,
-                "1": 200
+                "0": 350,
+                "1": 150
             },
             "flags": {},
             "order": 3,
@@ -160,11 +168,11 @@
             "id": 5,
             "type": "VAELoader",
             "pos": [
-                100,
-                550
+                50.0,
+                373.00000000000006
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 50
             },
             "flags": {},
@@ -190,11 +198,11 @@
             "id": 6,
             "type": "EmptyLatentImage",
             "pos": [
-                450,
-                550
+                50.0,
+                461.0
             ],
             "size": {
-                "0": 300,
+                "0": 280,
                 "1": 100
             },
             "flags": {},
@@ -222,12 +230,12 @@
             "id": 7,
             "type": "KSampler",
             "pos": [
-                900,
-                100
+                843.4999999999999,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
-                "1": 300
+                "0": 280,
+                "1": 280
             },
             "flags": {},
             "order": 6,
@@ -279,12 +287,12 @@
             "id": 8,
             "type": "VAEDecode",
             "pos": [
-                1250,
-                100
+                1200.0,
+                87.00000000000003
             ],
             "size": {
-                "0": 300,
-                "1": 100
+                "0": 180,
+                "1": 80
             },
             "flags": {},
             "order": 7,
@@ -317,12 +325,12 @@
             "id": 9,
             "type": "SaveImage",
             "pos": [
-                1600,
-                100
+                1200.0,
+                208.0
             ],
             "size": {
-                "0": 300,
-                "1": 300
+                "0": 280,
+                "1": 270
             },
             "flags": {},
             "order": 8,
@@ -409,6 +417,14 @@
     ],
     "groups": [],
     "config": {},
-    "extra": {},
+    "extra": {
+        "ds": {
+            "scale": 1.0,
+            "offset": [
+                35.0,
+                219.5
+            ]
+        }
+    },
     "version": 0.4
 }
