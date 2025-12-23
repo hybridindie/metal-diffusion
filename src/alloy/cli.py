@@ -79,7 +79,7 @@ def main():
         console.print(f"[dim]Cleaned up {cleaned} old temporary directory(s) from previous runs.[/dim]")
     
     parser = argparse.ArgumentParser(description="Alloy: CLI for Core ML Diffusion Models")
-    parser.add_argument("--verbose", "-v", action="count", default=0, help="Enable verbose logging (-v for verbose, -vv for debug)")
+    parser.add_argument("--verbose", "-v", action="count", default=0, help="Increase output verbosity (-v info, -vv debug, -vvv trace)")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress all output except errors")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -149,14 +149,18 @@ def main():
     args = parser.parse_args()
 
     # Determine verbosity level
+    # Default (no flags) is QUIET - only errors and essential output
+    # -v enables INFO messages, -vv enables DEBUG for alloy, -vvv for all
     if args.quiet:
         verbosity = Verbosity.QUIET
-    elif args.verbose >= 2:
+    elif args.verbose >= 3:
         verbosity = Verbosity.DEBUG
-    elif args.verbose == 1:
+    elif args.verbose == 2:
         verbosity = Verbosity.VERBOSE
-    else:
+    elif args.verbose == 1:
         verbosity = Verbosity.NORMAL
+    else:
+        verbosity = Verbosity.QUIET
 
     # Check for environment variable override
     env_level = os.getenv("ALLOY_LOG_LEVEL")
