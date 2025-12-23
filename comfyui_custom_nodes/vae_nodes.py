@@ -5,7 +5,8 @@ import json
 import torch
 import numpy as np
 import coremltools as ct
-import folder_paths
+
+from .utils import find_mlpackage_files, resolve_model_path
 
 
 class CoreMLVAEWrapper:
@@ -111,19 +112,21 @@ class CoreMLVAELoader:
     """
     Load Core ML VAE (.mlpackage) for use with encode/decode nodes.
     Supports loading encoder, decoder, or both.
+    Can accept output from VAE converter node or select from available files.
     """
 
     @classmethod
     def INPUT_TYPES(cls):
-        vae_files = folder_paths.get_filename_list("vae")
+        # Find Core ML VAE models (recursively searches subdirectories)
+        vae_files = find_mlpackage_files("vae")
         vae_options = ["none"] + vae_files
 
         return {
-            "required": {
-                "decoder_path": (vae_options, {"default": "none"}),
-            },
+            "required": {},
             "optional": {
+                "decoder_path": (vae_options, {"default": "none"}),
                 "encoder_path": (vae_options, {"default": "none"}),
+                "vae_folder_override": ("STRING", {"forceInput": True}),
                 "config_path": ("STRING", {"default": "", "multiline": False}),
             },
         }
@@ -133,20 +136,39 @@ class CoreMLVAELoader:
     FUNCTION = "load_vae"
     CATEGORY = "Alloy"
 
-    def load_vae(self, decoder_path, encoder_path="none", config_path=""):
+    def load_vae(self, decoder_path="none", encoder_path="none", vae_folder_override=None, config_path=""):
         """Load Core ML VAE models and configuration."""
         encoder_full = None
         decoder_full = None
         config = {}
 
-        # Resolve paths
-        if decoder_path != "none":
-            decoder_full = folder_paths.get_full_path("vae", decoder_path)
-            print(f"[CoreMLVAELoader] Loading decoder: {decoder_full}")
+        # If folder override is provided (from converter), find models within
+        if vae_folder_override and os.path.isdir(vae_folder_override):
+            print(f"[CoreMLVAELoader] Using VAE folder from converter: {vae_folder_override}")
 
-        if encoder_path != "none":
-            encoder_full = folder_paths.get_full_path("vae", encoder_path)
-            print(f"[CoreMLVAELoader] Loading encoder: {encoder_full}")
+            # Find decoder and encoder mlpackages in folder
+            for item in os.listdir(vae_folder_override):
+                item_path = os.path.join(vae_folder_override, item)
+                if item.endswith("_VAE_Decoder.mlpackage") or item == "VAE_Decoder.mlpackage":
+                    decoder_full = item_path
+                elif item.endswith("_VAE_Encoder.mlpackage") or item == "VAE_Encoder.mlpackage":
+                    encoder_full = item_path
+                elif item == "vae_config.json":
+                    config_path = item_path
+
+            if decoder_full:
+                print(f"[CoreMLVAELoader] Found decoder: {decoder_full}")
+            if encoder_full:
+                print(f"[CoreMLVAELoader] Found encoder: {encoder_full}")
+        else:
+            # Use dropdown selections
+            if decoder_path != "none":
+                decoder_full = resolve_model_path("vae", decoder_path)
+                print(f"[CoreMLVAELoader] Loading decoder: {decoder_full}")
+
+            if encoder_path != "none":
+                encoder_full = resolve_model_path("vae", encoder_path)
+                print(f"[CoreMLVAELoader] Loading encoder: {encoder_full}")
 
         # Load config if provided or try to find it
         if config_path and os.path.exists(config_path):
@@ -167,8 +189,8 @@ class CoreMLVAELoader:
         # Validate at least one model is being loaded
         if decoder_full is None and encoder_full is None:
             raise ValueError(
-                "At least one of decoder_path or encoder_path must be specified. "
-                "Cannot create a VAE wrapper with no models."
+                "No VAE models found. Either connect a VAE Converter node, "
+                "select files from dropdowns, or provide a valid vae_folder_override path."
             )
 
         # Create wrapper
